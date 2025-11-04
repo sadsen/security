@@ -11,11 +11,32 @@ const urlParams = new URLSearchParams(window.location.search);
 const isViewMode = urlParams.has('view');
 
 // ========================
+// تشفير وفك تشفير آمن لليونيكود (يدعم العربية، السطور الجديدة، والرموز الخاصة)
+// ========================
+function encodeData(data) {
+  const json = JSON.stringify(data);
+  const utf8 = new TextEncoder().encode(json);
+  let binary = '';
+  utf8.forEach(byte => binary += String.fromCharCode(byte));
+  return btoa(binary);
+}
+
+function decodeData(encoded) {
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  const json = new TextDecoder().decode(bytes);
+  return JSON.parse(json);
+}
+
+// ========================
 // إنشاء الخريطة
 // ========================
 const map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-// خريطة Stadia Maps (مجانية بـ API Key)
+// خريطة Stadia Maps (تم إصلاح المسافات الزائدة في الرابط)
 L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=5d937485-a301-4455-9ba7-95a93120ff7d', {
   attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
 }).addTo(map);
@@ -25,7 +46,7 @@ L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.pn
 // ========================
 const sidebar = document.getElementById('sidebar');
 if (isViewMode) {
-  sidebar.classList.add('hidden');
+  sidebar?.classList.add('hidden');
   map.dragging.enable();
   map.scrollWheelZoom.enable();
 }
@@ -42,20 +63,17 @@ let addMode = false;
 function loadFromUrl() {
   if (isViewMode) {
     try {
-      const encoded = urlParams.get('view');
-      const jsonString = decodeURIComponent(
-        atob(encoded)
-          .split('')
-          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
-      );
-      const data = JSON.parse(jsonString);
+      const encodedParam = urlParams.get('view');
+      if (!encodedParam) throw new Error("لا توجد بيانات في الرابط");
+      
+      const encoded = decodeURIComponent(encodedParam);
+      const data = decodeData(encoded);
 
       data.circles.forEach(c => {
         const circle = L.circle([c.lat, c.lng], {
           radius: c.radius,
-          color: c.color || '#1a5fb4',        // لون الحدود الأغمق
-          fillColor: c.fillColor || '#3388ff', // لون التعبئة الأفتح
+          color: c.color || '#1a5fb4',
+          fillColor: c.fillColor || '#3388ff',
           fillOpacity: c.fillOpacity || 0.3
         }).addTo(map);
         circle.data = c;
@@ -74,7 +92,7 @@ function loadFromUrl() {
 }
 
 // ========================
-// مشاركة الخريطة (يدعم العربية والسّطور الجديدة)
+// مشاركة الخريطة (آمن مع اليونيكود)
 // ========================
 function shareMap() {
   const data = {
@@ -96,18 +114,16 @@ function shareMap() {
     }))
   };
 
-  const jsonString = JSON.stringify(data);
-  const encoded = btoa(
-    encodeURIComponent(jsonString).replace(/%([0-9A-F]{2})/g, (match, p1) =>
-      String.fromCharCode('0x' + p1)
-    )
-  );
-
-  const url = `${window.location.origin}${window.location.pathname}?view=${encoded}`;
-
-  navigator.clipboard.writeText(url)
-    .then(() => alert('تم نسخ رابط الخريطة إلى الحافظة!'))
-    .catch(() => prompt('انسخ الرابط يدويًا:', url));
+  try {
+    const encoded = encodeData(data);
+    const url = `${window.location.origin}${window.location.pathname}?view=${encodeURIComponent(encoded)}`;
+    navigator.clipboard.writeText(url)
+      .then(() => alert('تم نسخ رابط الخريطة إلى الحافظة!'))
+      .catch(() => prompt('انسخ الرابط يدويًا:', url));
+  } catch (e) {
+    console.error("خطأ في إنشاء الرابط:", e);
+    alert("فشل في إنشاء رابط المشاركة.");
+  }
 }
 
 // ========================
@@ -227,15 +243,15 @@ map.on('click', (e) => {
 
   const circle = L.circle(e.latlng, {
     radius: 100,
-    color: '#1a5fb4',     // لون الحدود الأغمق
-    fillColor: '#3388ff', // لون التعبئة الأفتح
+    color: '#1a5fb4',
+    fillColor: '#3388ff',
     fillOpacity: 0.3
   }).addTo(map);
 
   circle.data = { name: '', security: '', notes: '' };
   circles.push(circle);
   attachEvents(circle);
-  createEditPopup(circle); // فتح نافذة الإدخال مباشرة
+  createEditPopup(circle);
 });
 
 // ========================
