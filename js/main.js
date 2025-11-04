@@ -1,8 +1,8 @@
 // ========================
 // إعدادات الخريطة — مركزها الآن على الدرعية
 // ========================
-const DEFAULT_CENTER = [24.74562883506126, 46.54116049087191]; // الدرعية — القصور التاريخية
-const DEFAULT_ZOOM = 14;
+const DEFAULT_CENTER = [24.73722164546818, 46.53877581519047]; // الدرعية — القصور التاريخية
+const DEFAULT_ZOOM = 18;
 
 // ========================
 // التحقق من وضع العرض
@@ -114,7 +114,6 @@ function loadFromUrl() {
         // --- إنشاء العلامة القابلة للسحب ---
         const dragMarker = L.marker([c.lat, c.lng], {
           draggable: true,
-          // أيقونة شفافة لجعل العلامة غير مرئية ولكن قابلة للنقر والسحب
           icon: L.divIcon({ className: 'invisible-drag-marker', iconSize: [0, 0] })
         }).addTo(map);
 
@@ -385,12 +384,13 @@ function attachEvents(circle) {
 }
 
 // ========================
-// دالة escape HTML
+// دالة escape HTML — محدثة لدعم السطور الجديدة
 // ========================
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
-  return div.innerHTML;
+  // تحويل \n إلى <br> للحفاظ على التنسيق
+  return div.innerHTML.replace(/\n/g, '<br>');
 }
 
 // ========================
