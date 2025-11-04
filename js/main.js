@@ -15,10 +15,11 @@ const isViewMode = urlParams.has('view');
 // ========================
 const map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-// خريطة OpenStreetMap (مجانية وتعمل دائمًا)
+// خريطة Stadia Maps (مجانية بـ API Key)
 L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=5d937485-a301-4455-9ba7-95a93120ff7d', {
   attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
 }).addTo(map);
+
 // ========================
 // إخفاء لوحة التحكم في وضع العرض
 // ========================
@@ -53,8 +54,8 @@ function loadFromUrl() {
       data.circles.forEach(c => {
         const circle = L.circle([c.lat, c.lng], {
           radius: c.radius,
-          color: c.color || '#3388ff',
-          fillColor: c.fillColor || '#3388ff',
+          color: c.color || '#1a5fb4',        // لون الحدود الأغمق
+          fillColor: c.fillColor || '#3388ff', // لون التعبئة الأفتح
           fillOpacity: c.fillOpacity || 0.3
         }).addTo(map);
         circle.data = c;
@@ -73,7 +74,7 @@ function loadFromUrl() {
 }
 
 // ========================
-// مشاركة الخريطة (يدعم العربية)
+// مشاركة الخريطة (يدعم العربية والسّطور الجديدة)
 // ========================
 function shareMap() {
   const data = {
@@ -114,7 +115,8 @@ function shareMap() {
 // ========================
 function createEditPopup(circle) {
   const d = circle.data || {};
-  const color = circle.options.color || '#3388ff';
+  const color = circle.options.color || '#1a5fb4';
+  const fillColor = circle.options.fillColor || '#3388ff';
   const opacity = circle.options.fillOpacity || 0.3;
   const radius = circle.getRadius() || 100;
 
@@ -123,11 +125,13 @@ function createEditPopup(circle) {
       <label>اسم الموقع:</label>
       <input type="text" id="siteName" value="${escapeHtml(d.name || '')}">
       <label>أفراد الأمن:</label>
-      <input type="text" id="securityNames" value="${escapeHtml(d.security || '')}">
+      <textarea id="securityNames" rows="3" placeholder="اكتب أسماء أفراد الأمن، اضغط Enter لسطر جديد">${escapeHtml(d.security || '')}</textarea>
       <label>ملاحظات:</label>
       <textarea id="notes" rows="2">${escapeHtml(d.notes || '')}</textarea>
-      <label>اللون:</label>
+      <label>لون الحدود:</label>
       <input type="color" id="color" value="${color}">
+      <label>لون التعبئة:</label>
+      <input type="color" id="fillColor" value="${fillColor}">
       <label>الشفافية:</label>
       <input type="number" id="opacity" min="0" max="1" step="0.1" value="${opacity}">
       <label>نصف القطر (م):</label>
@@ -157,12 +161,13 @@ window.saveCircleData = function(btn, circleId) {
   const name = popupContent.querySelector('#siteName')?.value.trim() || '';
   const security = popupContent.querySelector('#securityNames')?.value.trim() || '';
   const notes = popupContent.querySelector('#notes')?.value.trim() || '';
-  const color = popupContent.querySelector('#color')?.value || '#3388ff';
+  const color = popupContent.querySelector('#color')?.value || '#1a5fb4';
+  const fillColor = popupContent.querySelector('#fillColor')?.value || '#3388ff';
   const opacity = parseFloat(popupContent.querySelector('#opacity')?.value) || 0.3;
   const radius = parseFloat(popupContent.querySelector('#radius')?.value) || 100;
 
   circle.data = { name, security, notes };
-  circle.setStyle({ color, fillColor: color, fillOpacity: opacity });
+  circle.setStyle({ color, fillColor, fillOpacity: opacity });
   circle.setRadius(radius);
 
   const tooltipContent = `<b>${escapeHtml(name || 'نقطة غير معنونة')}</b><br><small>الأمن: ${escapeHtml(security || '---')}</small><br><small>${escapeHtml(notes)}</small>`;
@@ -175,7 +180,6 @@ window.saveCircleData = function(btn, circleId) {
 // ========================
 function attachEvents(circle) {
   if (!isViewMode) {
-    // إزالة أي مستمعات سابقة لتجنب التكرار
     circle.off('click');
     circle.on('click', function(e) {
       const clickedCircle = e.target;
@@ -185,7 +189,6 @@ function attachEvents(circle) {
     });
   }
 
-  // Tooltip عند التمرير
   const tooltipContent = circle.data?.name
     ? `<b>${escapeHtml(circle.data.name)}</b><br><small>الأمن: ${escapeHtml(circle.data.security || '---')}</small>`
     : 'نقطة مراقبة';
@@ -224,22 +227,18 @@ map.on('click', (e) => {
 
   const circle = L.circle(e.latlng, {
     radius: 100,
-    color: '#3388ff',
-    fillColor: '#3388ff',
+    color: '#1a5fb4',     // لون الحدود الأغمق
+    fillColor: '#3388ff', // لون التعبئة الأفتح
     fillOpacity: 0.3
   }).addTo(map);
 
   circle.data = { name: '', security: '', notes: '' };
   circles.push(circle);
   attachEvents(circle);
-  createEditPopup(circle); // فتح نافذة الإدخال مباشرة بعد الرسم
+  createEditPopup(circle); // فتح نافذة الإدخال مباشرة
 });
 
 // ========================
 // بدء التشغيل
 // ========================
 loadFromUrl();
-
-
-
-
