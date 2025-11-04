@@ -1,4 +1,4 @@
-const DEFAULT_CENTER = [24.7136, 46.6753]; // الرياض — غيّرها حسب منطقتك
+const DEFAULT_CENTER = [24.7136, 46.6753];
 const DEFAULT_ZOOM = 12;
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -6,7 +6,6 @@ const isViewMode = urlParams.has('view');
 
 const map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-// خريطة OpenStreetMap (مجانية وتعمل دائمًا)
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
@@ -21,7 +20,6 @@ if (isViewMode) {
 let circles = [];
 let addMode = false;
 
-// =============== تحميل الخريطة من الرابط ===============
 function loadFromUrl() {
   if (isViewMode) {
     try {
@@ -56,7 +54,6 @@ function loadFromUrl() {
   }
 }
 
-// =============== مشاركة الخريطة (يدعم العربية) ===============
 function shareMap() {
   const data = {
     center: {
@@ -91,7 +88,6 @@ function shareMap() {
     .catch(() => prompt('انسخ الرابط يدويًا:', url));
 }
 
-// =============== إنشاء نافذة تعديل ===============
 function createEditPopup(circle) {
   const d = circle.data || {};
   const color = circle.options.color || '#3388ff';
@@ -124,7 +120,6 @@ function createEditPopup(circle) {
   return popup;
 }
 
-// =============== حفظ بيانات الدائرة ===============
 window.saveCircleData = function(btn, circleId) {
   const popupContent = btn.closest('.leaflet-popup-content');
   if (!popupContent) return;
@@ -148,7 +143,6 @@ window.saveCircleData = function(btn, circleId) {
   map.closePopup();
 };
 
-// =============== ربط الأحداث بالدائرة ===============
 function attachEvents(circle) {
   if (!isViewMode) {
     circle.on('click', () => createEditPopup(circle));
@@ -165,7 +159,6 @@ function attachEvents(circle) {
   });
 }
 
-// =============== أحداث واجهة المستخدم ===============
 document.getElementById('addCircleBtn')?.addEventListener('click', () => {
   addMode = true;
   alert('الآن انقر على الخريطة لتحديد موقع الدائرة.');
@@ -192,5 +185,4 @@ map.on('click', (e) => {
   createEditPopup(circle);
 });
 
-// =============== بدء التشغيل ===============
 loadFromUrl();
