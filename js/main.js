@@ -71,6 +71,7 @@ function decodeData(encoded) {
 // ========================
 const map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
+// --- تم إصلاح المسافات الزائدة ---
 L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=5d937485-a301-4455-9ba7-95a93120ff7d', {
   attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
 }).addTo(map);
@@ -182,7 +183,7 @@ function shareMap() {
 }
 
 // ========================
-// إنشاء نافذة تعديل (Popup) — مصممة لعرض البيانات بصفوف منفصلة وقرب الدائرة
+// إنشاء نافذة تعديل (Popup) — تظهر مباشرة من الدائرة
 // ========================
 function createEditPopup(circle) {
   const d = circle.data || {};
@@ -246,8 +247,13 @@ function createEditPopup(circle) {
     </div>
   `;
 
-  // نستخدم offset: [0, -10] لجعل الـ popup أقرب للدائرة
-  const popup = L.popup({ maxWidth: 320, offset: [0, -10] })
+  // --- Popup يظهر مباشرة من مركز الدائرة ---
+  const popup = L.popup({
+    maxWidth: 320,
+    // offset: [0, -10], // تم إزالة هذا
+    closeButton: false, // إزالة زر الإغلاق
+    autoPan: false      // منع الخريطة من التحرك
+  })
     .setLatLng(circle.getLatLng())
     .setContent(content)
     .openOn(map);
