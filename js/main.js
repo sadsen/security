@@ -1,4 +1,4 @@
-const MAPTILER_KEY = '1VQP7nb7IV2vxlYKbmHj';
+const MAPTILER_KEY = 'a5Bw04JDHtYYQy2RwFvl';
 const DEFAULT_CENTER = [24.7136, 46.6753]; // الرياض (يمكنك تغييرها)
 const DEFAULT_ZOOM = 12;
 
@@ -162,5 +162,6 @@ map.on('click', (e) => {
     if (saveBtn) saveBtn.__circle = circle;
   }, 100);
 });
+
 
 loadFromUrl();
