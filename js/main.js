@@ -1,8 +1,8 @@
 // ========================
-// إعدادات الخريطة
+// إعدادات الخريطة — مركزها الآن على الدرعية
 // ========================
-const DEFAULT_CENTER = [24.7136, 46.6753]; // الرياض
-const DEFAULT_ZOOM = 12;
+const DEFAULT_CENTER = [24.8592, 46.6715]; // الدرعية — القصور التاريخية
+const DEFAULT_ZOOM = 14;
 
 // ========================
 // التحقق من وضع العرض
@@ -24,7 +24,7 @@ function compactData(data) {
       o: c.fillOpacity,
       n: c.name,
       s: c.security,
-      t: c.notes // t = "to note"
+      t: c.notes
     }))
   };
 }
@@ -107,11 +107,20 @@ function loadFromUrl() {
           radius: c.radius,
           color: c.color || '#1a5fb4',
           fillColor: c.fillColor || '#3388ff',
-          fillOpacity: c.fillOpacity || 0.3
+          fillOpacity: c.fillOpacity || 0.3,
+          draggable: true // ← تمكين السحب عند التحميل
         }).addTo(map);
+
         circle.data = c;
         circles.push(circle);
         attachEvents(circle);
+
+        // عند سحب الدائرة، تحديث الإحداثيات في البيانات
+        circle.on('dragend', function() {
+          const newLatLng = circle.getLatLng();
+          circle.data.lat = newLatLng.lat;
+          circle.data.lng = newLatLng.lng;
+        });
       });
 
       if (data.center) {
@@ -125,7 +134,7 @@ function loadFromUrl() {
 }
 
 // ========================
-// مشاركة الخريطة (رابط أقصر)
+// مشاركة الخريطة
 // ========================
 function shareMap() {
   const data = {
@@ -151,7 +160,7 @@ function shareMap() {
     const encoded = encodeData(data);
     const url = `${window.location.origin}${window.location.pathname}?view=${encodeURIComponent(encoded)}`;
     navigator.clipboard.writeText(url)
-      .then(() => alert('تم نسخ رابط مختصر للخريطة!'))
+      .then(() => alert('تم نسخ رابط الخريطة!'))
       .catch(() => prompt('انسخ الرابط:', url));
   } catch (e) {
     console.error("فشل إنشاء الرابط:", e);
@@ -160,7 +169,7 @@ function shareMap() {
 }
 
 // ========================
-// إنشاء نافذة تعديل (بعرض أوسع)
+// إنشاء نافذة تعديل (بعرض أوسع + زر حذف)
 // ========================
 function createEditPopup(circle) {
   const d = circle.data || {};
@@ -169,7 +178,6 @@ function createEditPopup(circle) {
   const opacity = circle.options.fillOpacity || 0.3;
   const radius = circle.getRadius() || 100;
 
-  // CSS داخلي لتوسيع العرض
   const content = `
     <style>
       .circle-edit-popup {
@@ -195,21 +203,20 @@ function createEditPopup(circle) {
         resize: vertical;
       }
       .circle-edit-popup button {
-        margin-top: 12px;
-        padding: 8px 16px;
-        background: #1a5fb4;
-        color: white;
+        margin-top: 10px;
+        padding: 7px 14px;
         border: none;
         border-radius: 4px;
         cursor: pointer;
         width: 100%;
+        font-weight: bold;
       }
     </style>
     <div class="circle-edit-popup">
       <label>اسم الموقع:</label>
       <input type="text" id="siteName" value="${escapeHtml(d.name || '')}">
       <label>أفراد الأمن:</label>
-      <textarea id="securityNames" rows="3" placeholder="اكتب أسماء...">${escapeHtml(d.security || '')}</textarea>
+      <textarea id="securityNames" rows="3" placeholder="أدخل أسماء...">${escapeHtml(d.security || '')}</textarea>
       <label>ملاحظات:</label>
       <textarea id="notes" rows="3">${escapeHtml(d.notes || '')}</textarea>
       <label>لون الحدود:</label>
@@ -221,7 +228,8 @@ function createEditPopup(circle) {
       <label>نصف القطر (م):</label>
       <input type="number" id="radius" min="10" value="${radius}">
       <button onclick="saveCircleData(this, ${circle._leaflet_id})">حفظ</button>
-      <button type="button" style="margin-top:6px;background:#555;" onclick="duplicateCircle(${circle._leaflet_id})">نسخ الدائرة</button>
+      <button type="button" style="background:#555;" onclick="duplicateCircle(${circle._leaflet_id})">نسخ الدائرة</button>
+      <button type="button" style="background:#d32f2f;color:white;" onclick="deleteCircle(${circle._leaflet_id})">حذف الدائرة</button>
     </div>
   `;
 
@@ -234,31 +242,47 @@ function createEditPopup(circle) {
 }
 
 // ========================
-// نسخ الدائرة (نسخ + حرّك قليلاً)
+// نسخ الدائرة
 // ========================
 window.duplicateCircle = function(circleId) {
   const original = circles.find(c => c._leaflet_id == circleId);
   if (!original) return;
 
   const latlng = original.getLatLng();
-  // نحرّك النسخة قليلاً (لتمييزها)
-  const offsetLat = 0.0002 * (Math.random() - 0.5) * 2;
-  const offsetLng = 0.0002 * (Math.random() - 0.5) * 2;
-  const newLatLng = [latlng.lat + offsetLat, latlng.lng + offsetLng];
+  const offset = 0.0003;
+  const newLatLng = [
+    latlng.lat + (Math.random() - 0.5) * offset * 2,
+    latlng.lng + (Math.random() - 0.5) * offset * 2
+  ];
 
   const newCircle = L.circle(newLatLng, {
     radius: original.getRadius(),
     color: original.options.color,
     fillColor: original.options.fillColor,
-    fillOpacity: original.options.fillOpacity
+    fillOpacity: original.options.fillOpacity,
+    draggable: true
   }).addTo(map);
 
-  // نسخ البيانات
   newCircle.data = { ...original.data };
   circles.push(newCircle);
   attachEvents(newCircle);
-  createEditPopup(newCircle); // فتح نافذة التعديل للنسخة الجديدة
-  map.closePopup(); // إغلاق نافذة الأصل
+  createEditPopup(newCircle);
+  map.closePopup();
+};
+
+// ========================
+// حذف الدائرة
+// ========================
+window.deleteCircle = function(circleId) {
+  if (!confirm('هل أنت متأكد من حذف هذه الدائرة؟')) return;
+
+  const index = circles.findIndex(c => c._leaflet_id == circleId);
+  if (index === -1) return;
+
+  const circle = circles[index];
+  map.removeLayer(circle);
+  circles.splice(index, 1);
+  map.closePopup();
 };
 
 // ========================
@@ -279,11 +303,10 @@ window.saveCircleData = function(btn, circleId) {
   const opacity = parseFloat(popupContent.querySelector('#opacity')?.value) || 0.3;
   const radius = parseFloat(popupContent.querySelector('#radius')?.value) || 100;
 
-  circle.data = { name, security, notes };
+  circle.data = { name, security, notes, lat: circle.getLatLng().lat, lng: circle.getLatLng().lng };
   circle.setStyle({ color, fillColor, fillOpacity: opacity });
   circle.setRadius(radius);
 
-  // تحديث الـ tooltip ليشمل الملاحظات
   const tooltipContent = `<b>${escapeHtml(name || 'نقطة غير معنونة')}</b><br>
     <small>الأمن: ${escapeHtml(security || '---')}</small><br>
     <small style="color:#555;">${escapeHtml(notes || '')}</small>`;
@@ -292,13 +315,23 @@ window.saveCircleData = function(btn, circleId) {
 };
 
 // ========================
-// ربط الأحداث بالدائرة (مع عرض الملاحظات)
+// ربط الأحداث بالدائرة
 // ========================
 function attachEvents(circle) {
   if (!isViewMode) {
     circle.off('click');
     circle.on('click', function(e) {
       createEditPopup(e.target);
+    });
+  }
+
+  // تمكين السحب إذا لم نكن في وضع العرض
+  if (!isViewMode) {
+    circle.dragging.enable();
+    circle.on('dragend', function() {
+      const ll = circle.getLatLng();
+      circle.data.lat = ll.lat;
+      circle.data.lng = ll.lng;
     });
   }
 
@@ -342,10 +375,11 @@ map.on('click', (e) => {
     radius: 100,
     color: '#1a5fb4',
     fillColor: '#3388ff',
-    fillOpacity: 0.3
+    fillOpacity: 0.3,
+    draggable: true // ← قابلة للسحب عند الإنشاء
   }).addTo(map);
 
-  circle.data = { name: '', security: '', notes: '' };
+  circle.data = { name: '', security: '', notes: '', lat: e.latlng.lat, lng: e.latlng.lng };
   circles.push(circle);
   attachEvents(circle);
   createEditPopup(circle);
