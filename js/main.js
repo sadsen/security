@@ -1,4 +1,4 @@
-const MAPTILER_KEY = 'a5Bw04JDHtYYQy2RwFvl';
+const MAPTILER_KEY = 'F0KY2rXO2yaVNk1nlJYz';
 // ========================
 // إعدادات الخريطة
 // ========================
@@ -242,5 +242,6 @@ map.on('click', (e) => {
 // بدء التشغيل
 // ========================
 loadFromUrl();
+
 
 
