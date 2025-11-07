@@ -70,7 +70,7 @@ const map = L.map('map', {
   zoomControl: true
 });
 
-// ✅ إصلاح رابط Stadia (إزالة المسافات)
+// ✅ رابط Stadia الصحيح (لا توجد مسافات)
 L.tileLayer(
   'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=5d937485-a301-4455-9ba7-95a93120ff7d',
   {
@@ -79,7 +79,7 @@ L.tileLayer(
   }
 ).addTo(map);
 
-// بديل عند الحاجة (اختبار الشبكة أو المفتاح):
+// بديل اختبار الشبكة/المفتاح:
 // L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
 /* ========================
@@ -117,9 +117,18 @@ function updateTooltip(circle, html) {
 }
 
 function tooltipHtml(d) {
-  return `<b>${escapeHtml(d?.name || 'نقطة مراقبة')}</b><br>
-  <small>الأمن: ${escapeHtml(d?.security || '---')}</small><br>
-  <small style="color:#ddd;">${escapeHtml(d?.notes || '')}</small>`;
+  const name  = escapeHtml(d?.name || 'نقطة مراقبة');
+  const names = escapeHtml(d?.security || '---'); // ستظهر كسطور متعددة بفضل CSS
+  const notes = escapeHtml(d?.notes || '');
+
+  return `
+    <div class="tt">
+      <div class="tt-title">${name}</div>
+      <div class="tt-label">الأمن:</div>
+      <div class="tt-names">${names}</div>
+      ${notes ? `<div class="tt-notes">${notes}</div>` : ``}
+    </div>
+  `;
 }
 
 /* ========================
@@ -180,7 +189,7 @@ function createEditPopup(circle) {
       <label>اسم الموقع:</label>
       <input type="text" id="siteName" value="${escapeHtml(d.name || '')}">
       <label>أفراد الأمن:</label>
-      <textarea id="securityNames" rows="3" placeholder="أدخل أسماء...">${escapeHtml(d.security || '')}</textarea>
+      <textarea id="securityNames" rows="3" placeholder="أدخل أسماء... (كل اسم في سطر)">${escapeHtml(d.security || '')}</textarea>
       <label>ملاحظات:</label>
       <textarea id="notes" rows="3">${escapeHtml(d.notes || '')}</textarea>
       <label>لون الحدود:</label>
@@ -262,7 +271,7 @@ window.saveCircleData = function(btn, circleId) {
 };
 
 /* ========================
-   سحب الدائرة (بدون إضافات)
+   سحب الدائرة (يدوي بدون إضافات)
 ======================== */
 function enableCircleDrag(circle) {
   if (isViewMode) return; // لا سحب في وضع العرض
@@ -378,9 +387,9 @@ map.on('click', (e) => {
 
   const circle = L.circle(e.latlng, {
     radius: 100,
-    color: '#1a5fb4',
-    fillColor: '#3388ff',
-    fillOpacity: 0.3
+    color: '#7c3aed',     // بنفسجي واضح مثل الصورة
+    fillColor: '#c084fc', // بنفسجي فاتح
+    fillOpacity: 0.35
   }).addTo(map);
 
   circle.data = { name: '', security: '', notes: '', lat: e.latlng.lat, lng: e.latlng.lng };
