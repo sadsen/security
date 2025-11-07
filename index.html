@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>خريطة الأمن</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- لا نحتاج Leaflet CSS هنا -->
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -12,12 +13,18 @@
     <h3>لوحة التحكم</h3>
     <button id="addCircleBtn">➕ إضافة موقع</button>
     <button id="shareBtn">📤 مشاركة الخريطة</button>
-    <p class="hint">تلميح: انقر على الخريطة لإضافة دائرة. اضغط على الدائرة للتحرير.</p>
+    <p class="hint">تلميح: مرر الماوس على الدائرة لعرض الكرت. (على الجوال: اضغط)</p>
   </div>
 
   <div id="map" aria-label="الخريطة"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- ✅ هنا تضع مفتاح Google Maps -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&callback=initMap&libraries=geometry&v=weekly"
+    defer
+  ></script>
+
+  <!-- كودك -->
   <script src="js/main.js"></script>
 </body>
 </html>
