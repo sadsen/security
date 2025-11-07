@@ -64,22 +64,28 @@
   </div>
 
   <!-- الخريطة -->
-  <div id="map" aria-label="الخريطة"></div>
-
-  <!-- ✅ صندوق الطبقات العائم (يظهر في التحرير والعرض) -->
-  <div id="layersControl" class="layers-control" dir="rtl">
-    <div class="lc-row">
-      <label for="basemapSelect">نوع الخريطة</label>
-      <select id="basemapSelect">
-        <option value="roadmap">افتراضي</option>
-        <option value="satellite">صور فضائية</option>
-        <option value="hybrid">هجينة (صور + أسماء)</option>
-        <option value="terrain">تضاريس</option>
-      </select>
+  <div id="map" aria-label="الخريطة">
+    <!-- ✅ لوحة الطبقات داخل الخريطة (لن تغطي الشريط الجانبي) -->
+    <div id="layersControl" class="layers-control" dir="rtl">
+      <div class="lc-head">
+        <span>الطبقات</span>
+        <button id="toggleLayers" class="icon-btn small" title="طي/فتح">▾</button>
+      </div>
+      <div class="lc-body">
+        <div class="lc-row">
+          <label for="basemapSelect">نوع الخريطة</label>
+          <select id="basemapSelect">
+            <option value="roadmap">افتراضي</option>
+            <option value="satellite">صور فضائية</option>
+            <option value="hybrid">هجينة</option>
+            <option value="terrain">تضاريس</option>
+          </select>
+        </div>
+        <label class="chk"><input type="checkbox" id="trafficToggle"> حركة المرور</label>
+        <label class="chk"><input type="checkbox" id="transitToggle"> النقل العام</label>
+        <label class="chk"><input type="checkbox" id="bicyclingToggle"> مسارات الدراجات</label>
+      </div>
     </div>
-    <label class="chk"><input type="checkbox" id="trafficToggle"> حركة المرور</label>
-    <label class="chk"><input type="checkbox" id="transitToggle"> النقل العام</label>
-    <label class="chk"><input type="checkbox" id="bicyclingToggle"> مسارات الدراجات</label>
   </div>
 
   <!-- ضع مفتاحك هنا -->
