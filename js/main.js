@@ -172,10 +172,8 @@ function updateEditorFromCircle(c){
 }
 
 function bindEditorEvents(){
-  // إغلاق
   ed.close.addEventListener('click', ()=> selectCircle(null));
 
-  // نصوص
   ed.name.addEventListener('input', ()=>{
     if(!activeCircle) return;
     activeCircle.__data.name = ed.name.value.trim();
@@ -192,7 +190,6 @@ function bindEditorEvents(){
     ensureInfoWindow(activeCircle);
   });
 
-  // ألوان/شفافية
   ed.stroke.addEventListener('input', ()=>{
     if(!activeCircle) return;
     activeCircle.setOptions({ strokeColor: ed.stroke.value });
@@ -211,7 +208,6 @@ function bindEditorEvents(){
     ensureInfoWindow(activeCircle);
   });
 
-  // نصف القطر (سلايدر + رقم)
   const applyRadius = (v)=>{
     if(!activeCircle) return;
     const val = Math.max(10, Math.round(+v||100));
@@ -224,7 +220,6 @@ function bindEditorEvents(){
   ed.radius.addEventListener('input', ()=> applyRadius(ed.radius.value));
   ed.radiusNum.addEventListener('input', ()=> applyRadius(ed.radiusNum.value));
 
-  // سحب/تعديل الحجم
   ed.draggable.addEventListener('change', ()=>{
     if(!activeCircle) return;
     activeCircle.setDraggable?.(ed.draggable.checked);
@@ -234,7 +229,6 @@ function bindEditorEvents(){
     activeCircle.setEditable?.(ed.editable.checked);
   });
 
-  // نسخ/حذف
   ed.dup.addEventListener('click', ()=>{
     if(!activeCircle) return;
     const ll = activeCircle.getCenter();
@@ -277,13 +271,9 @@ function selectCircle(circle){
   activeCircle = circle;
   updateEditorFromCircle(circle);
   if(!circle) return;
-
-  // افتح الكرت وثبّت المرساة
   const iw = ensureInfoWindow(circle);
   closeAllInfoWindows(iw);
   iw.open({map});
-
-  // تحديث المرساة عند تحريك/تغيير
   circle.addListener('center_changed', ()=> ensureInfoWindow(circle));
   circle.addListener('radius_changed', ()=> ensureInfoWindow(circle));
   circle.addListener('dragend', ()=> ensureInfoWindow(circle));
@@ -380,6 +370,8 @@ function initUI(){
 
 /* ============ طبقات وأنواع الخريطة ============ */
 function setupLayersControl() {
+  const box = document.getElementById('layersControl');
+  const toggleBtn = document.getElementById('toggleLayers');
   const sel = document.getElementById('basemapSelect');
   const tTraffic = document.getElementById('trafficToggle');
   const tTransit = document.getElementById('transitToggle');
@@ -393,11 +385,13 @@ function setupLayersControl() {
   const savedTraffic = localStorage.getItem('gm_layer_traffic') === '1';
   const savedTransit = localStorage.getItem('gm_layer_transit') === '1';
   const savedBike = localStorage.getItem('gm_layer_bike') === '1';
+  const savedMin = localStorage.getItem('gm_layers_min') === '1';
 
   sel.value = savedType;
   tTraffic.checked = savedTraffic;
   tTransit.checked = savedTransit;
   tBike.checked = savedBike;
+  if (savedMin) box.classList.add('min');
 
   map.setMapTypeId(savedType);
   trafficLayer.setMap(savedTraffic ? map : null);
@@ -421,7 +415,12 @@ function setupLayersControl() {
     localStorage.setItem('gm_layer_bike', tBike.checked ? '1' : '0');
   });
 
-  // إظهار أداة Google القياسية أيضًا (اختياري)
+  toggleBtn.addEventListener('click', ()=>{
+    box.classList.toggle('min');
+    localStorage.setItem('gm_layers_min', box.classList.contains('min') ? '1' : '0');
+  });
+
+  // (اختياري) إظهار أداة Google القياسية أيضًا
   map.setOptions({
     mapTypeControl: true,
     mapTypeControlOptions: {
@@ -442,7 +441,7 @@ window.initMap = function initMap(){
     streetViewControl: false
   });
 
-  setupLayersControl();  // ✅ خيارات الطبقات
+  setupLayersControl();  // ✅ اللوحة الآن داخل الخريطة ولن تغطي الشريط الجانبي
   initUI();
   loadFromUrl();
 };
