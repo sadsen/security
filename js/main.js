@@ -7,6 +7,11 @@ const DEFAULT_ZOOM = 14;
 const urlParams = new URLSearchParams(window.location.search);
 const isViewMode = urlParams.has('view');
 
+// عيّن كلاس على <body> لتبديل التخطيط في CSS
+document.addEventListener('DOMContentLoaded', () => {
+  document.body.classList.toggle('view-mode', isViewMode);
+});
+
 /* ========================
    ضغط/فك ضغط بيانات الرابط
 ======================== */
@@ -25,7 +30,6 @@ function compactData(data) {
     }))
   };
 }
-
 function expandData(compact) {
   return {
     center: compact.c,
@@ -42,7 +46,6 @@ function expandData(compact) {
     }))
   };
 }
-
 function encodeData(data) {
   const compact = compactData(data);
   const json = JSON.stringify(compact);
@@ -51,7 +54,6 @@ function encodeData(data) {
   utf8.forEach(byte => binary += String.fromCharCode(byte));
   return btoa(binary);
 }
-
 function decodeData(encoded) {
   const binary = atob(encoded);
   const bytes = new Uint8Array(binary.length);
@@ -62,15 +64,21 @@ function decodeData(encoded) {
 }
 
 /* ========================
-   إنشاء الخريطة + الطبقة
+   إنشاء الخريطة + تحسينات الأداء
 ======================== */
 const map = L.map('map', {
   center: DEFAULT_CENTER,
   zoom: DEFAULT_ZOOM,
-  zoomControl: true
+  zoomControl: true,
+  preferCanvas: true,        // أداء أفضل على الجوال
+  updateWhenIdle: true,
+  inertia: true,
+  zoomAnimation: true,
+  markerZoomAnimation: true,
+  fadeAnimation: true
 });
 
-// ✅ رابط Stadia الصحيح (لا توجد مسافات)
+// طبقة البلاطات
 L.tileLayer(
   'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=5d937485-a301-4455-9ba7-95a93120ff7d',
   {
@@ -79,7 +87,7 @@ L.tileLayer(
   }
 ).addTo(map);
 
-// بديل اختبار الشبكة/المفتاح:
+// بديل اختبار الشبكة/المفتاح
 // L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
 /* ========================
@@ -109,18 +117,15 @@ function escapeHtml(text) {
   div.textContent = text ?? '';
   return div.innerHTML;
 }
-
 function updateTooltip(circle, html) {
   const tt = circle.getTooltip?.();
   if (tt) tt.setContent(html);
   else circle.bindTooltip(html, { className: 'custom-tooltip', direction: 'top', offset: [0, -10] });
 }
-
 function tooltipHtml(d) {
   const name  = escapeHtml(d?.name || 'نقطة مراقبة');
-  const names = escapeHtml(d?.security || '---'); // ستظهر كسطور متعددة بفضل CSS
+  const names = escapeHtml(d?.security || '---'); // Enter = سطر جديد
   const notes = escapeHtml(d?.notes || '');
-
   return `
     <div class="tt">
       <div class="tt-title">${name}</div>
@@ -167,9 +172,9 @@ function shareMap() {
 ======================== */
 function createEditPopup(circle) {
   const d = circle.data || {};
-  const color = circle.options.color || '#1a5fb4';
-  const fillColor = circle.options.fillColor || '#3388ff';
-  const opacity = circle.options.fillOpacity ?? 0.3;
+  const color = circle.options.color || '#7c3aed';
+  const fillColor = circle.options.fillColor || '#c084fc';
+  const opacity = circle.options.fillOpacity ?? 0.35;
   const radius = circle.getRadius() || 100;
 
   const content = `
@@ -257,9 +262,9 @@ window.saveCircleData = function(btn, circleId) {
   const name = popupContent.querySelector('#siteName')?.value.trim() || '';
   const security = popupContent.querySelector('#securityNames')?.value.trim() || '';
   const notes = popupContent.querySelector('#notes')?.value.trim() || '';
-  const color = popupContent.querySelector('#color')?.value || '#1a5fb4';
-  const fillColor = popupContent.querySelector('#fillColor')?.value || '#3388ff';
-  const opacity = parseFloat(popupContent.querySelector('#opacity')?.value) || 0.3;
+  const color = popupContent.querySelector('#color')?.value || '#7c3aed';
+  const fillColor = popupContent.querySelector('#fillColor')?.value || '#c084fc';
+  const opacity = parseFloat(popupContent.querySelector('#opacity')?.value) || 0.35;
   const radius = parseFloat(popupContent.querySelector('#radius')?.value) || 100;
 
   circle.data = { name, security, notes, lat: circle.getLatLng().lat, lng: circle.getLatLng().lng };
@@ -271,10 +276,10 @@ window.saveCircleData = function(btn, circleId) {
 };
 
 /* ========================
-   سحب الدائرة (يدوي بدون إضافات)
+   سحب الدائرة (يدوي)
 ======================== */
 function enableCircleDrag(circle) {
-  if (isViewMode) return; // لا سحب في وضع العرض
+  if (isViewMode) return;
 
   let dragging = false;
   let startPoint = null;
@@ -284,20 +289,16 @@ function enableCircleDrag(circle) {
     dragging = true;
     startPoint = e.containerPoint;
     startLatLng = circle.getLatLng();
-    map.dragging.disable(); // نوقف سحب الخريطة أثناء سحب الدائرة
+    map.dragging.disable();
     L.DomEvent.stopPropagation(e.originalEvent);
   }
-
   function onMouseMove(e) {
     if (!dragging) return;
     const dx = e.containerPoint.x - startPoint.x;
     const dy = e.containerPoint.y - startPoint.y;
-
-    // تحويل بكسل إلى إزاحة جغرافية
     const start = map.latLngToContainerPoint(startLatLng);
     const targetPoint = L.point(start.x + dx, start.y + dy);
     const targetLatLng = map.containerPointToLatLng(targetPoint);
-
     circle.setLatLng(targetLatLng);
     if (circle.data) {
       circle.data.lat = targetLatLng.lat;
@@ -305,14 +306,12 @@ function enableCircleDrag(circle) {
       updateTooltip(circle, tooltipHtml(circle.data));
     }
   }
-
   function onMouseUp() {
     if (!dragging) return;
     dragging = false;
     map.dragging.enable();
   }
 
-  // نربط الأحداث على طبقة الدائرة
   circle.on('mousedown', onMouseDown);
   map.on('mousemove', onMouseMove);
   map.on('mouseup', onMouseUp);
@@ -323,17 +322,28 @@ function enableCircleDrag(circle) {
    ربط أحداث الدائرة
 ======================== */
 function attachEvents(circle) {
-  // فتح نافذة التحرير عند النقر (خارج وضع العرض)
-  if (!isViewMode) {
+  const html = tooltipHtml(circle.data);
+
+  if (isViewMode) {
+    // في وضع العرض: التولتيب عند اللمس (أخف على الأداء)
+    circle.bindTooltip(html, {
+      className: 'custom-tooltip',
+      direction: 'top',
+      offset: [0, -10],
+      permanent: false,
+      interactive: true
+    });
+    circle.on('click', () => {
+      circles.forEach(c => c.setZIndexOffset(0));
+      circle.setZIndexOffset(1000);
+      circle.openTooltip();
+    });
+  } else {
+    updateTooltip(circle, html);
     circle.off('click');
     circle.on('click', (e) => createEditPopup(e.target));
+    enableCircleDrag(circle);
   }
-
-  // Tooltip مبدئي/تحديث
-  updateTooltip(circle, tooltipHtml(circle.data));
-
-  // تمكين السحب اليدوي
-  enableCircleDrag(circle);
 }
 
 /* ========================
@@ -350,15 +360,21 @@ function loadFromUrl() {
     data.circles.forEach(c => {
       const circle = L.circle([c.lat, c.lng], {
         radius: c.radius || 100,
-        color: c.color || '#1a5fb4',
-        fillColor: c.fillColor || '#3388ff',
-        fillOpacity: c.fillOpacity ?? 0.3
+        color: c.color || '#7c3aed',
+        fillColor: c.fillColor || '#c084fc',
+        fillOpacity: c.fillOpacity ?? 0.35
       }).addTo(map);
 
       circle.data = { name: c.name || '', security: c.security || '', notes: c.notes || '', lat: c.lat, lng: c.lng };
       circles.push(circle);
       attachEvents(circle);
     });
+
+    // افتح أول كرت تلقائيًا لتوضيح البيانات
+    if (circles.length) {
+      circles[0].openTooltip();
+      circles[0].setZIndexOffset(1000);
+    }
 
     if (data.center) {
       map.setView([data.center.lat, data.center.lng], data.center.zoom || DEFAULT_ZOOM);
@@ -377,7 +393,6 @@ addCircleBtn?.addEventListener('click', () => {
   alert('انقر على الخريطة لإنشاء دائرة جديدة.');
   map.getContainer().style.cursor = 'crosshair';
 });
-
 shareBtn?.addEventListener('click', shareMap);
 
 map.on('click', (e) => {
@@ -387,8 +402,8 @@ map.on('click', (e) => {
 
   const circle = L.circle(e.latlng, {
     radius: 100,
-    color: '#7c3aed',     // بنفسجي واضح مثل الصورة
-    fillColor: '#c084fc', // بنفسجي فاتح
+    color: '#7c3aed',
+    fillColor: '#c084fc',
     fillOpacity: 0.35
   }).addTo(map);
 
