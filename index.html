@@ -4,8 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>خريطة الأمن</title>
-  <!-- --- تم إزالة المسافة الزائدة --- -->
+
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- أسلوبنا -->
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -13,11 +16,15 @@
     <h3>لوحة التحكم</h3>
     <button id="addCircleBtn">➕ إضافة موقع</button>
     <button id="shareBtn">📤 مشاركة الخريطة</button>
+    <p class="hint">تلميح: انقر على الخريطة لإضافة دائرة. اضغط على الدائرة للسّحب أو التحرير.</p>
   </div>
-  <div id="map"></div>
 
-  <!-- --- تم إزالة المسافة الزائدة --- -->
+  <div id="map" aria-label="الخريطة"></div>
+
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- منطق التطبيق -->
   <script src="js/main.js"></script>
 </body>
 </html>
