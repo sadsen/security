@@ -357,6 +357,7 @@ function initUI(){
 
   addBtn?.addEventListener('click', ()=>{
     addMode = true;
+    document.getElementById('map').classList.add('add-cursor');
     alert('انقر على الخريطة لوضع دائرة جديدة.');
   });
   shareBtnEl?.addEventListener('click', shareMap);
@@ -364,6 +365,7 @@ function initUI(){
   map.addListener('click', (e) => {
     if (!addMode) return;
     addMode = false;
+    document.getElementById('map').classList.remove('add-cursor');
     createCircleAt(e.latLng);
   });
 }
@@ -371,11 +373,16 @@ function initUI(){
 /* ============ طبقات وأنواع الخريطة ============ */
 function setupLayersControl() {
   const box = document.getElementById('layersControl');
+  if (!box) return; // ✅ حماية لو ما وُجد العنصر
+
   const toggleBtn = document.getElementById('toggleLayers');
   const sel = document.getElementById('basemapSelect');
   const tTraffic = document.getElementById('trafficToggle');
   const tTransit = document.getElementById('transitToggle');
   const tBike = document.getElementById('bicyclingToggle');
+
+  // تحقق من وجود العناصر قبل الربط
+  if (!sel || !toggleBtn || !tTraffic || !tTransit || !tBike) return;
 
   const trafficLayer = new google.maps.TrafficLayer();
   const transitLayer = new google.maps.TransitLayer();
@@ -420,7 +427,7 @@ function setupLayersControl() {
     localStorage.setItem('gm_layers_min', box.classList.contains('min') ? '1' : '0');
   });
 
-  // (اختياري) إظهار أداة Google القياسية أيضًا
+  // إظهار أداة Google القياسية أيضًا (اختياري)
   map.setOptions({
     mapTypeControl: true,
     mapTypeControlOptions: {
@@ -436,12 +443,13 @@ window.initMap = function initMap(){
   map = new google.maps.Map(document.getElementById('map'), {
     center: DEFAULT_CENTER,
     zoom: DEFAULT_ZOOM,
-    mapTypeControl: false,      // سنفعّله ونخصّصه في setupLayersControl()
+    gestureHandling: 'greedy',   // ✅ تحسين لمس/نقر الجوال
+    mapTypeControl: false,       // سنفعّله ونخصّصه في setupLayersControl()
     fullscreenControl: true,
     streetViewControl: false
   });
 
-  setupLayersControl();  // ✅ اللوحة الآن داخل الخريطة ولن تغطي الشريط الجانبي
-  initUI();
-  loadFromUrl();
+  setupLayersControl();  // طبقات الخريطة
+  initUI();              // أزرار وواجهة
+  loadFromUrl();         // تحميل أي رابط مشاركة
 };
