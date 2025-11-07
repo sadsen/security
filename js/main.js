@@ -5,15 +5,42 @@ const DEFAULT_CENTER = [24.73722164546818, 46.53877581519047]; // الدرعية
 const DEFAULT_ZOOM = 14;
 
 const urlParams = new URLSearchParams(window.location.search);
-const isViewMode = urlParams.has('view');
+const isViewModeQuery = urlParams.has('view');
+const hash = window.location.hash || "";
+const isViewModeHash = hash.startsWith("#view=") || hash.includes("&view=");
+const isViewMode = isViewModeQuery || isViewModeHash;
 
-// عيّن كلاس على <body> لتبديل التخطيط في CSS
+// طبّق كلاس لوضع العرض لتعديل التخطيط في CSS
 document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.toggle('view-mode', isViewMode);
 });
 
 /* ========================
-   ضغط/فك ضغط بيانات الرابط
+   أدوات Base64-URL آمنة
+======================== */
+function toBase64Url(bytes) {
+  // btoa من بايتات
+  let binary = "";
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  const b64 = btoa(binary);
+  // استبدال الرموز غير الآمنة في روابط
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function fromBase64Url(b64url) {
+  // إعادة الرموز لقيم base64 القياسية
+  let b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+  // أضف padding إن لزم
+  const pad = b64.length % 4;
+  if (pad) b64 += "=".repeat(4 - pad);
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/* ========================
+   ضغط/فك ضغط بيانات الرابط (مُدمج)
 ======================== */
 function compactData(data) {
   return {
@@ -30,6 +57,7 @@ function compactData(data) {
     }))
   };
 }
+
 function expandData(compact) {
   return {
     center: compact.c,
@@ -46,21 +74,43 @@ function expandData(compact) {
     }))
   };
 }
+
 function encodeData(data) {
-  const compact = compactData(data);
-  const json = JSON.stringify(compact);
+  const json = JSON.stringify(compactData(data));
   const utf8 = new TextEncoder().encode(json);
-  let binary = '';
-  utf8.forEach(byte => binary += String.fromCharCode(byte));
-  return btoa(binary);
+  return toBase64Url(utf8); // ← Base64-URL
 }
+
 function decodeData(encoded) {
-  const binary = atob(encoded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const bytes = fromBase64Url(encoded); // ← Base64-URL
   const json = new TextDecoder().decode(bytes);
-  const compact = JSON.parse(json);
-  return expandData(compact);
+  return expandData(JSON.parse(json));
+}
+
+/* ========================
+   قراءة/كتابة قيمة view من/إلى الرابط
+======================== */
+function getViewParam() {
+  // 1) من الهاش #view=...
+  if (window.location.hash) {
+    const h = window.location.hash.replace(/^#/, "");
+    const search = new URLSearchParams(h);
+    if (search.has("view")) return search.get("view");
+    // دعم شكل #view=... بدون باراميترات أخرى
+    if (h.startsWith("view=")) return h.slice(5);
+  }
+  // 2) من الاستعلام ?view=...
+  const sp = new URLSearchParams(window.location.search);
+  if (sp.has("view")) return sp.get("view");
+  return null;
+}
+
+function setViewParam(encoded) {
+  // نكتب في الهاش لضمان أن المنصات لا تقصّه
+  const newHash = `view=${encoded}`;
+  const newUrl = `${location.origin}${location.pathname}#${newHash}`;
+  history.replaceState(null, "", newUrl);
+  return newUrl;
 }
 
 /* ========================
@@ -70,7 +120,7 @@ const map = L.map('map', {
   center: DEFAULT_CENTER,
   zoom: DEFAULT_ZOOM,
   zoomControl: true,
-  preferCanvas: true,        // أداء أفضل على الجوال
+  preferCanvas: true,
   updateWhenIdle: true,
   inertia: true,
   zoomAnimation: true,
@@ -110,7 +160,7 @@ let circles = [];
 let addMode = false;
 
 /* ========================
-   أدوات عامة
+   أدوات عرض
 ======================== */
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -137,7 +187,7 @@ function tooltipHtml(d) {
 }
 
 /* ========================
-   مشاركة الخريطة
+   مشاركة الخريطة (هاش + Web Share)
 ======================== */
 function shareMap() {
   const data = {
@@ -157,10 +207,17 @@ function shareMap() {
 
   try {
     const encoded = encodeData(data);
-    const url = `${location.origin}${location.pathname}?view=${encodeURIComponent(encoded)}`;
-    navigator.clipboard.writeText(url)
-      .then(() => alert('تم نسخ رابط الخريطة!'))
-      .catch(() => prompt('انسخ الرابط:', url));
+    const url = setViewParam(encoded); // ← نكتب في الهاش
+    // دعم Web Share على الجوال
+    if (navigator.share) {
+      navigator.share({ title: document.title, url }).catch(() => {
+        navigator.clipboard.writeText(url).then(() => alert('تم نسخ رابط الخريطة!')).catch(() => prompt('انسخ الرابط:', url));
+      });
+    } else {
+      navigator.clipboard.writeText(url)
+        .then(() => alert('تم نسخ رابط الخريطة!'))
+        .catch(() => prompt('انسخ الرابط:', url));
+    }
   } catch (e) {
     console.error('فشل إنشاء الرابط:', e);
     alert('حدث خطأ أثناء إنشاء الرابط.');
@@ -325,7 +382,7 @@ function attachEvents(circle) {
   const html = tooltipHtml(circle.data);
 
   if (isViewMode) {
-    // في وضع العرض: التولتيب عند اللمس (أخف على الأداء)
+    // التولتيب عند اللمس لتخفيف الحمل
     circle.bindTooltip(html, {
       className: 'custom-tooltip',
       direction: 'top',
@@ -347,14 +404,14 @@ function attachEvents(circle) {
 }
 
 /* ========================
-   تحميل من رابط المشاركة
+   تحميل من رابط المشاركة (أولوية للهاش)
 ======================== */
 function loadFromUrl() {
   if (!isViewMode) return;
   try {
-    const encodedParam = urlParams.get('view');
-    if (!encodedParam) throw new Error('لا توجد بيانات');
-    const encoded = decodeURIComponent(encodedParam);
+    const encoded = getViewParam();
+    if (!encoded) throw new Error('لا توجد بيانات');
+
     const data = decodeData(encoded);
 
     data.circles.forEach(c => {
@@ -370,7 +427,7 @@ function loadFromUrl() {
       attachEvents(circle);
     });
 
-    // افتح أول كرت تلقائيًا لتوضيح البيانات
+    // افتح أول كرت توضيحيًا
     if (circles.length) {
       circles[0].openTooltip();
       circles[0].setZIndexOffset(1000);
@@ -393,6 +450,7 @@ addCircleBtn?.addEventListener('click', () => {
   alert('انقر على الخريطة لإنشاء دائرة جديدة.');
   map.getContainer().style.cursor = 'crosshair';
 });
+
 shareBtn?.addEventListener('click', shareMap);
 
 map.on('click', (e) => {
