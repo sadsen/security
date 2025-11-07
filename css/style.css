@@ -1,4 +1,4 @@
-/* أساسيات */
+/* أساسيات تخطيط */
 html, body {height:100%;margin:0;padding:0;direction:rtl;-webkit-tap-highlight-color:transparent;
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans";}
 body{display:grid;grid-template-columns:300px 1fr;grid-template-rows:100vh;}
@@ -14,44 +14,47 @@ body{display:grid;grid-template-columns:300px 1fr;grid-template-rows:100vh;}
 
 /* الشريط الجانبي */
 .sidebar{box-sizing:border-box;padding:16px;background:#fff;border-left:1px solid #eee;overflow:auto}
-.sidebar h3{margin:0 0 12px 0;font-size:20px}
+.sidebar h3{margin:0 0 12px;font-size:20px}
 .panel{padding:12px;border:1px solid #eee;border-radius:10px;margin-bottom:12px;background:#fafafa}
 .panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.icon-btn{border:none;background:#eee;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:18px}
+.icon-btn{border:none;background:#e5e7eb;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:18px}
 .icon-btn.small{width:24px;height:24px;font-size:14px;line-height:1}
 .hidden{display:none!important}
 .hint{color:#666;font-size:12px;line-height:1.7}
 
 .panel label{display:block;font-size:13px;margin:8px 0 4px}
 .panel input[type="text"], .panel textarea, .panel input[type="number"]{
-  width:100%;box-sizing:border-box;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff}
+  width:100%;box-sizing:border-box;padding:10px;border:1px solid #cfd4dc;border-radius:10px;font-size:14px;background:#fff}
+
+/* أزرار واضحة بتباين عالي */
+.btn{width:100%;padding:12px;border:1px solid #1f2937;background:#1f2937;color:#fff;cursor:pointer;border-radius:10px;font-size:14px;margin-top:10px}
+.btn:hover{filter:brightness(0.95)}
+.btn-primary{background:#0f766e;border-color:#0f766e}      /* أخضر غامق */
+.btn-dark{background:#374151;border-color:#374151}        /* رمادي داكن */
+.btn-danger{background:#b91c1c;border-color:#b91c1c}      /* أحمر واضح */
+.btn:disabled{background:#cbd5e1;border-color:#cbd5e1;color:#475569;cursor:not-allowed}
+
+/* شبكة صغيرة */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .chk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px}
-.panel button{width:100%;padding:10px 12px;border:1px solid #e5e5e5;background:#f7f7f7;cursor:pointer;border-radius:10px;font-size:14px;margin-top:10px}
-.panel button:hover{background:#efefef}
-.danger{background:#e53935;color:#fff;border:none}
-.danger:hover{filter:brightness(.95)}
-.danger.alt{background:#555}
 
 /* كرت المعلومات داخل InfoWindow */
 .info-card{background:#1f2937;color:#fff;border-radius:12px;padding:12px 14px;min-width:260px;max-width:420px;
   font-size:15px;line-height:1.75}
-.info-card .tt-title{font-size:17px;font-weight:800;margin:0 0 6px 0}
+.info-card .tt-title{font-size:17px;font-weight:800;margin:0 0 6px}
 .info-card .tt-label{opacity:.9;margin-top:4px}
 .info-card .tt-names{display:block;margin-top:2px}
 .info-card .name-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl}
 .info-card .tt-notes{color:#d1d5db;margin-top:6px;white-space:pre-line}
 
-/* ✅ لوحة الطبقات داخل الخريطة */
+/* ✅ لوحة الطبقات – أعلى يسار الخريطة */
 .layers-control{
-  position:absolute;                 /* داخل #map فقط */
-  top:12px; inset-inline-end:12px;   /* يمين أعلى داخل الخريطة */
-  z-index:10000;                     /* فوق عناصر قوقل الافتراضية */
+  position:absolute;               /* داخل #map فقط */
+  top:12px; inset-inline-start:12px;
+  z-index:100000;                  /* أعلى من عناصر Google */
   background:#fff;border:1px solid #e5e7eb;border-radius:12px;
   padding:10px 12px;width:230px;box-shadow:0 10px 30px rgba(0,0,0,.12);font-size:14px;
-  pointer-events:auto;               /* تتلقى النقرات بنفسها فقط */
 }
-#map{pointer-events:auto}
 .lc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .lc-body{display:block}
 .layers-control.min .lc-body{display:none}
@@ -59,7 +62,7 @@ body{display:grid;grid-template-columns:300px 1fr;grid-template-rows:100vh;}
 .layers-control select{flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fafafa;font-size:14px}
 .layers-control .chk{display:flex;align-items:center;gap:8px;margin:6px 0}
 @media (max-width: 480px){
-  .layers-control{width: 200px; top: 10px; inset-inline-end:10px; padding: 8px 10px;}
+  .layers-control{width: 200px; top: 10px; inset-inline-start:10px; padding: 8px 10px;}
 }
 
 /* مؤشر وضع الإضافة */
