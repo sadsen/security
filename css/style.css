@@ -1,24 +1,68 @@
-html, body {height:100%;margin:0;padding:0;direction:rtl;-webkit-tap-highlight-color:transparent;
-  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans";}
-body{display:grid;grid-template-columns:280px 1fr;grid-template-rows:100vh;}
-@media (max-width:768px){body{grid-template-columns:1fr}.sidebar{display:none}}
-.view-mode{grid-template-columns:1fr!important}
-.view-mode #sidebar{display:none!important}
-.view-mode #map{position:fixed;inset:0;width:100vw;height:100svh}
-.sidebar{box-sizing:border-box;padding:16px;background:#fff;border-left:1px solid #eee;overflow:auto}
-.sidebar h3{margin:0 0 10px 0;font-size:18px}
-.sidebar .hint{color:#666;font-size:12px;line-height:1.6;margin-top:12px}
-.sidebar button{width:100%;padding:10px 12px;margin-bottom:10px;border:1px solid #e5e5e5;background:#f7f7f7;cursor:pointer;border-radius:8px;font-size:14px}
-.sidebar button:hover{background:#efefef}
-#map{height:100vh;width:100%;position:relative;backface-visibility:hidden;transform:translateZ(0)}
-@supports (height:100svh){#map{height:100svh}}
-.leaflet-control{direction:ltr}
-.leaflet-tooltip.custom-tooltip{background:#1f2937;color:#fff;border:none;border-radius:12px;padding:14px 16px;min-width:260px;max-width:480px;font-size:16px;line-height:1.75;box-shadow:0 10px 30px rgba(0,0,0,.25)}
-.leaflet-tooltip.custom-tooltip .tt-title{font-size:18px;font-weight:800;margin:0 0 6px 0}
-.leaflet-tooltip.custom-tooltip .tt-label{opacity:.9;margin-top:4px}
-.leaflet-tooltip.custom-tooltip .tt-names{display:block;margin-top:2px}
-.leaflet-tooltip.custom-tooltip .tt-names .name-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl}
-.leaflet-tooltip.custom-tooltip .tt-notes{color:#d1d5db;margin-top:6px;white-space:pre-line}
-.hidden{display:none!important}
-.circle-edit-popup button{background:#c27b39;color:#fff}
-.circle-edit-popup button:hover{filter:brightness(0.95)}
+/* الأساس */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  direction: rtl;
+  -webkit-tap-highlight-color: transparent;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
+}
+
+/* تخطيط */
+body {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: 100vh;
+}
+@media (max-width: 768px) {
+  body { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+}
+
+/* وضع العرض عند فتح رابط مشاركة */
+.view-mode { grid-template-columns: 1fr !important; }
+.view-mode #sidebar { display: none !important; }
+.view-mode #map {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100svh;
+}
+
+/* الشريط الجانبي */
+.sidebar {
+  box-sizing: border-box;
+  padding: 16px;
+  background: #fff;
+  border-left: 1px solid #eee; /* RTL */
+  overflow: auto;
+}
+.sidebar h3 { margin: 0 0 10px 0; font-size: 18px; }
+.sidebar .hint { color: #666; font-size: 12px; line-height: 1.6; margin-top: 12px; }
+.sidebar button {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid #e5e5e5;
+  background: #f7f7f7;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.sidebar button:hover { background: #efefef; }
+
+/* الخريطة */
+#map { height: 100vh; width: 100%; }
+@supports (height: 100svh) { #map { height: 100svh; } }
+
+/* شكل كرت المعلومات */
+.info-card {
+  background:#1f2937; color:#fff; border-radius:12px;
+  padding:12px 14px; min-width:260px; max-width:420px;
+  font-size:15px; line-height:1.75; box-shadow:0 10px 30px rgba(0,0,0,.25);
+}
+.info-card .tt-title{font-size:17px;font-weight:800;margin:0 0 6px 0;}
+.info-card .tt-label{opacity:.9;margin-top:4px;}
+.info-card .tt-names{display:block;margin-top:2px;}
+.info-card .name-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;}
+.info-card .tt-notes{color:#d1d5db;margin-top:6px;white-space:pre-line;}
