@@ -1,89 +1,24 @@
-/* الأساس */
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  direction: rtl;
-  -webkit-tap-highlight-color: transparent;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
-}
-
-/* تخطيط سطح المكتب: عمود للسايدبار + عمود للخريطة */
-body {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  grid-template-rows: 100vh;
-}
-
-/* في الشاشات الصغيرة: عمود واحد افتراضيًا */
-@media (max-width: 768px) {
-  body { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
-}
-
-/* وضع المشاهدة (عند ?view=...) نجبر عمود واحد ونخلي الخريطة فل سكرين */
-.view-mode {
-  grid-template-columns: 1fr !important;
-}
-.view-mode #sidebar { display: none !important; }
-.view-mode #map {
-  position: fixed;             /* يغطي الشاشة بالكامل ويزيل أي هوامش */
-  inset: 0;                    /* top/right/bottom/left = 0 */
-  width: 100vw;
-  height: 100svh;              /* يعالج شريط سفاري */
-}
-
-/* الشريط الجانبي */
-.sidebar {
-  box-sizing: border-box;
-  padding: 16px;
-  background: #fff;
-  border-left: 1px solid #eee; /* RTL: الحد على اليسار */
-  overflow: auto;
-}
-.sidebar h3 { margin: 0 0 10px 0; font-size: 18px; }
-.sidebar .hint { color: #666; font-size: 12px; line-height: 1.6; margin-top: 12px; }
-.sidebar button {
-  width: 100%;
-  padding: 10px 12px;
-  margin-bottom: 10px;
-  border: 1px solid #e5e5e5;
-  background: #f7f7f7;
-  cursor: pointer;
-  border-radius: 8px;
-  font-size: 14px;
-}
-.sidebar button:hover { background: #efefef; }
-
-/* الخريطة */
-#map {
-  height: 100vh;               /* سطح المكتب */
-  width: 100%;
-  position: relative;
-  backface-visibility: hidden; /* تسريع */
-  transform: translateZ(0);    /* تسريع */
-}
-@supports (height: 100svh) {
-  #map { height: 100svh; }     /* موبايل */
-}
-
-/* عناصر Leaflet تبقى LTR لعدم انقلاب الأزرار */
-.leaflet-control { direction: ltr; }
-
-/* Tooltip مخصص: أكبر وواضح */
-.leaflet-tooltip.custom-tooltip{
-  background:#1f2937;color:#fff;border:none;border-radius:12px;
-  padding:14px 16px;max-width:420px;font-size:16px;line-height:1.75;
-  box-shadow:0 10px 30px rgba(0,0,0,.25);
-}
-.leaflet-tooltip.custom-tooltip .tt-title{font-size:18px;font-weight:800;margin:0 0 6px 0;}
-.leaflet-tooltip.custom-tooltip .tt-label{opacity:.9;margin-top:4px;}
-.leaflet-tooltip.custom-tooltip .tt-names{white-space:pre-line;display:block;margin-top:2px;}
-.leaflet-tooltip.custom-tooltip .tt-notes{color:#d1d5db;margin-top:6px;white-space:pre-line;}
-
-/* نافذة التحرير */
-.circle-edit-popup button { background:#c27b39;color:#fff; }
-.circle-edit-popup button:hover { filter: brightness(0.95); }
-
-/* اختصار */
-.hidden { display: none !important; }
+html, body {height:100%;margin:0;padding:0;direction:rtl;-webkit-tap-highlight-color:transparent;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans";}
+body{display:grid;grid-template-columns:280px 1fr;grid-template-rows:100vh;}
+@media (max-width:768px){body{grid-template-columns:1fr}.sidebar{display:none}}
+.view-mode{grid-template-columns:1fr!important}
+.view-mode #sidebar{display:none!important}
+.view-mode #map{position:fixed;inset:0;width:100vw;height:100svh}
+.sidebar{box-sizing:border-box;padding:16px;background:#fff;border-left:1px solid #eee;overflow:auto}
+.sidebar h3{margin:0 0 10px 0;font-size:18px}
+.sidebar .hint{color:#666;font-size:12px;line-height:1.6;margin-top:12px}
+.sidebar button{width:100%;padding:10px 12px;margin-bottom:10px;border:1px solid #e5e5e5;background:#f7f7f7;cursor:pointer;border-radius:8px;font-size:14px}
+.sidebar button:hover{background:#efefef}
+#map{height:100vh;width:100%;position:relative;backface-visibility:hidden;transform:translateZ(0)}
+@supports (height:100svh){#map{height:100svh}}
+.leaflet-control{direction:ltr}
+.leaflet-tooltip.custom-tooltip{background:#1f2937;color:#fff;border:none;border-radius:12px;padding:14px 16px;min-width:260px;max-width:480px;font-size:16px;line-height:1.75;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.leaflet-tooltip.custom-tooltip .tt-title{font-size:18px;font-weight:800;margin:0 0 6px 0}
+.leaflet-tooltip.custom-tooltip .tt-label{opacity:.9;margin-top:4px}
+.leaflet-tooltip.custom-tooltip .tt-names{display:block;margin-top:2px}
+.leaflet-tooltip.custom-tooltip .tt-names .name-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl}
+.leaflet-tooltip.custom-tooltip .tt-notes{color:#d1d5db;margin-top:6px;white-space:pre-line}
+.hidden{display:none!important}
+.circle-edit-popup button{background:#c27b39;color:#fff}
+.circle-edit-popup button:hover{filter:brightness(0.95)}
