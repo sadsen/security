@@ -79,7 +79,7 @@ function decodeData(encoded) {
 }
 
 /* ========================
-   قراءة/كتابة الرابط
+   قراءة/كتابة قيمة view
 ======================== */
 function getViewParam() {
   if (location.hash) {
@@ -93,13 +93,13 @@ function getViewParam() {
 }
 function setViewParam(encoded) {
   const newHash = `view=${encoded}`;
-  const newUrl = `${location.origin}${location.pathname}#${newHash}`;
+  const newUrl  = `${location.origin}${location.pathname}#${newHash}`;
   history.replaceState(null, "", newUrl);
   return newUrl;
 }
 
 /* ========================
-   إنشاء الخريطة
+   إنشاء الخريطة + تحسينات الأداء
 ======================== */
 const map = L.map('map', {
   center: DEFAULT_CENTER,
@@ -112,11 +112,15 @@ const map = L.map('map', {
   markerZoomAnimation: true,
   fadeAnimation: true
 });
+
 L.tileLayer(
   'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=5d937485-a301-4455-9ba7-95a93120ff7d',
   { maxZoom: 20, attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>' }
 ).addTo(map);
 
+/* ========================
+   الواجهة
+======================== */
 const sidebar = document.getElementById('sidebar');
 const addCircleBtn = document.getElementById('addCircleBtn');
 const shareBtn = document.getElementById('shareBtn');
@@ -131,7 +135,7 @@ let circles = [];
 let addMode = false;
 
 /* ========================
-   أدوات عرض
+   أدوات عرض + الكرت
 ======================== */
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -139,13 +143,10 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function tooltipHtml(d) {
+function tooltipHtml(d){
   const name  = escapeHtml(d?.name || 'نقطة مراقبة');
   const raw   = d?.security ?? '---';
-  const lines = String(raw)
-    .split(/\r?\n/)
-    .map(s => escapeHtml(s.trim()))
-    .filter(s => s.length);
+  const lines = String(raw).split(/\r?\n/).map(s => escapeHtml(s.trim())).filter(Boolean);
 
   return `
     <div class="tt">
@@ -159,10 +160,23 @@ function tooltipHtml(d) {
   `;
 }
 
-function updateTooltip(circle, html) {
-  const tt = circle.getTooltip?.();
-  if (tt) tt.setContent(html);
-  else circle.bindTooltip(html, { className: 'custom-tooltip', direction: 'top', offset: [0, -10] });
+/* ===== لاصق الكرت بحافة الدائرة (إزاحة ديناميكية) ===== */
+function circlePixelRadius(circle) {
+  const center = circle.getLatLng();
+  const meters = circle.getRadius();
+  const metersPerDegLat = 111320; // تقريب جيد
+  const north = L.latLng(center.lat + (meters / metersPerDegLat), center.lng);
+
+  const pCenter = map.latLngToContainerPoint(center);
+  const pNorth  = map.latLngToContainerPoint(north);
+  return Math.max(0, pCenter.y - pNorth.y);
+}
+function updateTooltipOffset(circle, extra = 10) {
+  const tt = circle.getTooltip && circle.getTooltip();
+  if (!tt) return;
+  const rpx = circlePixelRadius(circle);
+  tt.options.offset = L.point(0, -(rpx + extra)); // فوق حافة الدائرة مباشرة
+  tt.update();
 }
 
 /* ========================
@@ -187,7 +201,6 @@ function shareMap() {
   try {
     const encoded = encodeData(data);
     const url = setViewParam(encoded);
-
     if (navigator.share) {
       navigator.share({ title: document.title, url }).catch(() => {
         navigator.clipboard.writeText(url).then(() => alert('تم نسخ رابط الخريطة!'));
@@ -202,7 +215,7 @@ function shareMap() {
 }
 
 /* ========================
-   التحرير/النسخ/الحذف
+   تحرير/نسخ/حذف
 ======================== */
 function createEditPopup(circle) {
   const d = circle.data || {};
@@ -246,6 +259,25 @@ function createEditPopup(circle) {
     .openOn(map);
 }
 
+window.duplicateCircle = id => {
+  const orig = circles.find(c => c._leaflet_id == id);
+  if (!orig) return;
+  const ll = orig.getLatLng();
+  const off = 0.0003;
+  const nl = [ ll.lat + (Math.random()-0.5)*off*2, ll.lng + (Math.random()-0.5)*off*2 ];
+  const nc = L.circle(nl, {
+    radius: orig.getRadius(),
+    color: orig.options.color,
+    fillColor: orig.options.fillColor,
+    fillOpacity: orig.options.fillOpacity
+  }).addTo(map);
+  nc.data = { ...orig.data };
+  circles.push(nc);
+  attachEvents(nc);
+  createEditPopup(nc);
+  map.closePopup();
+};
+
 window.deleteCircle = id => {
   const i = circles.findIndex(c => c._leaflet_id == id);
   if (i !== -1) { map.removeLayer(circles[i]); circles.splice(i, 1); map.closePopup(); }
@@ -255,32 +287,63 @@ window.saveCircleData = (btn, id) => {
   const popup = btn.closest('.leaflet-popup-content');
   const c = circles.find(c => c._leaflet_id == id);
   if (!c) return;
-  const n = popup.querySelector('#siteName').value.trim();
-  const s = popup.querySelector('#securityNames').value.trim();
-  const t = popup.querySelector('#notes').value.trim();
+  const n  = popup.querySelector('#siteName').value.trim();
+  const s  = popup.querySelector('#securityNames').value.trim();
+  const t  = popup.querySelector('#notes').value.trim();
   const color = popup.querySelector('#color').value;
   const fillColor = popup.querySelector('#fillColor').value;
   const op = parseFloat(popup.querySelector('#opacity').value);
-  const r = parseFloat(popup.querySelector('#radius').value);
+  const r  = parseFloat(popup.querySelector('#radius').value);
   c.data = { name:n, security:s, notes:t, lat:c.getLatLng().lat, lng:c.getLatLng().lng };
-  c.setStyle({ color, fillColor, fillOpacity:op });
+  c.setStyle({ color, fillColor, fillOpacity: op });
   c.setRadius(r);
-  updateTooltip(c, tooltipHtml(c.data));
+  const html = tooltipHtml(c.data);
+  const tt = c.getTooltip();
+  if (tt) tt.setContent(html); else c.bindTooltip(html, { className:'custom-tooltip', direction:'top' });
+  updateTooltipOffset(c); // ← مهم بعد تغيير نصف القطر
   map.closePopup();
 };
 
 /* ========================
-   ربط الأحداث
+   ربط الأحداث + لاصق الكرت
 ======================== */
-function attachEvents(c) {
-  const html = tooltipHtml(c.data);
+function attachEvents(circle) {
+  const html = tooltipHtml(circle.data);
+
+  // اربط التولتيب ثم اضبط إزاحته حسب نصف القطر
+  circle.bindTooltip(html, {
+    className: 'custom-tooltip',
+    direction: 'top',
+    offset: [0, -12], // مؤقت؛ سنحدّثه ديناميكيًا
+    interactive: true
+  });
+
+  // تحديث الإزاحة فور الإضافة
+  circle.once('add', () => updateTooltipOffset(circle));
+
+  // حدّث الإزاحة مع تغيّر الزووم/التحريك/حجم الخريطة
+  const refresh = () => updateTooltipOffset(circle);
+  map.on('zoom', refresh);
+  map.on('move', refresh);
+  map.on('resize', refresh);
+  circle.on('tooltipopen', refresh);
+  circle.on('popupopen', refresh);
+
   if (isViewMode) {
-    c.bindTooltip(html,{className:'custom-tooltip',direction:'top',offset:[0,-10],interactive:true});
-    c.on('click',()=>{circles.forEach(x=>x.setZIndexOffset(0));c.setZIndexOffset(1000);c.openTooltip();});
+    circle.on('click', () => {
+      circles.forEach(c => c.setZIndexOffset(0));
+      circle.setZIndexOffset(1000);
+      circle.openTooltip();
+      updateTooltipOffset(circle);
+    });
   } else {
-    updateTooltip(c,html);
-    c.on('click',e=>createEditPopup(e.target));
+    circle.off('click');
+    circle.on('click', e => createEditPopup(e.target));
   }
+
+  // تأكيد تحديث المحتوى والإزاحة
+  const tt = circle.getTooltip();
+  if (tt) { tt.setContent(html); updateTooltipOffset(circle); }
 }
 
 /* ========================
@@ -292,43 +355,53 @@ function loadFromUrl() {
     const encoded = getViewParam();
     if (!encoded) return;
     const data = decodeData(encoded);
+
     data.circles.forEach(c => {
-      const circle = L.circle([c.lat,c.lng],{
-        radius:c.radius||100,
-        color:c.color||'#7c3aed',
-        fillColor:c.fillColor||'#c084fc',
-        fillOpacity:c.fillOpacity??0.35
+      const circle = L.circle([c.lat, c.lng], {
+        radius: c.radius || 100,
+        color: c.color || '#7c3aed',
+        fillColor: c.fillColor || '#c084fc',
+        fillOpacity: c.fillOpacity ?? 0.35
       }).addTo(map);
-      circle.data = { name:c.name||'',security:c.security||'',notes:c.notes||'',lat:c.lat,lng:c.lng };
+
+      circle.data = { name: c.name || '', security: c.security || '', notes: c.notes || '', lat: c.lat, lng: c.lng };
       circles.push(circle);
       attachEvents(circle);
     });
-    if(circles.length){circles[0].openTooltip();circles[0].setZIndexOffset(1000);}
-    if(data.center){map.setView([data.center.lat,data.center.lng],data.center.zoom||DEFAULT_ZOOM);}
-  } catch(e){
-    console.warn("فشل تحميل الخريطة من الرابط:", e);
+
+    if (circles.length) { circles[0].openTooltip(); circles[0].setZIndexOffset(1000); }
+    if (data.center) { map.setView([data.center.lat, data.center.lng], data.center.zoom || DEFAULT_ZOOM); }
+  } catch (e) {
+    console.warn('فشل تحميل الخريطة من الرابط:', e);
   }
 }
 
 /* ========================
    واجهة المستخدم
 ======================== */
-addCircleBtn?.addEventListener('click',()=>{
-  addMode=true;
+addCircleBtn?.addEventListener('click', () => {
+  addMode = true;
   alert('انقر على الخريطة لإنشاء دائرة جديدة.');
-  map.getContainer().style.cursor='crosshair';
+  map.getContainer().style.cursor = 'crosshair';
 });
-shareBtn?.addEventListener('click',shareMap);
+shareBtn?.addEventListener('click', shareMap);
 
-map.on('click',e=>{
-  if(isViewMode||!addMode)return;
-  addMode=false;
-  map.getContainer().style.cursor='';
-  const c=L.circle(e.latlng,{radius:100,color:'#7c3aed',fillColor:'#c084fc',fillOpacity:0.35}).addTo(map);
-  c.data={name:'',security:'',notes:'',lat:e.latlng.lat,lng:e.latlng.lng};
-  circles.push(c);
-  attachEvents(c);
-  createEditPopup(c);
+map.on('click', (e) => {
+  if (isViewMode || !addMode) return;
+  addMode = false;
+  map.getContainer().style.cursor = '';
+
+  const circle = L.circle(e.latlng, {
+    radius: 100,
+    color: '#7c3aed',
+    fillColor: '#c084fc',
+    fillOpacity: 0.35
+  }).addTo(map);
+
+  circle.data = { name: '', security: '', notes: '', lat: e.latlng.lat, lng: e.latlng.lng };
+  circles.push(circle);
+  attachEvents(circle);
+  createEditPopup(circle);
 });
 
 /* ========================
