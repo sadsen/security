@@ -1,388 +1,73 @@
-/* =========================
-   أساسيات وتعيينات عامة
-   ========================= */
-@font-face {
-  font-family: 'Tajawal';
-  font-style: normal;
-  font-weight: 400;
-  src: local('Tajawal'), local('Tajawal-Regular');
-  font-display: swap;
-}
-
+/* ===== الأساس ===== */
+*{box-sizing:border-box}
 :root{
-  /* ألوان واجهة داكنة مريحة */
-  --bg: #0f172a;            /* خلفية عامة */
-  --panel: #0b1326;         /* لوحات */
-  --panel-soft:#111b36;
-  --text: #e6edf7;          /* نص */
-  --muted:#97a4b6;          /* نص ثانوي */
-  --border:#203053;         /* حدود خفيفة */
-  --accent:#22c55e;         /* زر أساسي */
-  --accent-2:#60a5fa;       /* زر ثانوي */
-  --chip:#1f2b4a;           /* كبسولات */
-  --danger:#ef4444;
-  --shadow: 0 10px 30px rgba(0,0,0,.25);
+  --bg:#0b1326; --bg2:#111b36; --card:#0f1a34; --border:#203053;
+  --txt:#e6ecff; --muted:#9fb2d7; --accent:#7c3aed; --accent2:#a78bfa;
+  --ok:#19c37d; --ok-ink:#052c1c; --btn:#2e66ff; --btn-ink:#0b1f55;
+}
+html,body{height:100%}
+body{
+  margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Tajawal",Arial,sans-serif;
+  background:var(--bg); color:var(--txt); overflow:hidden;
 }
 
-*{ box-sizing: border-box; }
+/* ===== الخريطة أسفل الواجهة دائماً ===== */
+#map{position:fixed; inset:0; z-index:0}
 
-html, body{
-  height:100%;
-  margin:0;
-  padding:0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Tajawal', system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  direction: rtl;
-}
-
-/* =========================
-   الخريطة تملأ الشاشة
-   ========================= */
-#map{
-  position: fixed;
-  inset: 0;            /* top/right/bottom/left = 0 */
-  width: 100vw;
-  height: 100vh;
-  background:#e9eef3;  /* لون احتياطي قبل تحميل البلاطات */
-  z-index: 0;          /* تبقى تحت الواجهات العائمة */
-}
-
-/* عند وجود شريط سفلي للمتصفحات على الجوال قد يحتاج هذا */
-@supports (height: 100dvh){
-  #map{ height: 100dvh; }
-}
-
-/* =========================
-   البطاقات/الكروت العامة
-   ========================= */
-.card{
-  background: var(--panel);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-  padding: 14px 16px;
-}
-
-.card-title{
-  font-weight:700;
-  margin-bottom:10px;
-  color: var(--text);
-}
-
-.row{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin:8px 0;
-  color: var(--text);
-}
-
-/* =========================
-   صندوق الطبقات العائم
-   ========================= */
+/* ===== صندوق الطبقات ===== */
 #layersBox{
-  position: fixed;
-  top: 18px;
-  left: 18px;          /* لأن الواجهة RTL، لكن مكان الطبقات غالباً يسار */
-  z-index: 15;
-  min-width: 230px;
+  position:fixed; top:18px; left:18px; width:260px;
+  padding:12px 14px; border-radius:14px;
+  background:var(--card); border:1px solid var(--border);
+  box-shadow:0 12px 28px rgba(0,0,0,.28);
+  z-index:100000;
 }
+#layersBox .card-title{font-weight:700; margin-bottom:10px}
+#layersBox .row{display:flex; align-items:center; gap:8px; margin:8px 0; color:var(--muted)}
+#layersBox select{flex:1; padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:#0b1531; color:var(--txt)}
+#layersBox input[type=checkbox]{inline-size:18px; block-size:18px}
 
-#layersBox select{
-  appearance:none;
-  background: var(--chip);
-  border:1px solid var(--border);
-  color: var(--text);
-  padding:8px 10px;
-  border-radius:10px;
-  width: 120px;
-  outline:none;
-}
-
-#layersBox input[type="checkbox"]{
-  width:18px;
-  height:18px;
-  accent-color: var(--accent-2);
-}
-
-/* =========================
-   لوحة التحرير الجانبية
-   ========================= */
+/* ===== لوحة التحرير ===== */
 .panel{
-  position: fixed;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 360px;
-  max-width: 92vw;
-  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-soft) 100%);
-  border-left: 1px solid var(--border);
-  z-index: 20;
-  display:flex;
-  flex-direction: column;
-  box-shadow: var(--shadow);
+  position:fixed; right:0; top:0; bottom:0; width:380px; max-width:92vw;
+  display:flex; flex-direction:column;
+  background:linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+  border-left:1px solid var(--border);
+  box-shadow:-12px 0 28px rgba(0,0,0,.28);
+  z-index:100001;
 }
+.panel-header{padding:14px 16px; border-bottom:1px solid var(--border)}
+.panel-header h3{margin:0; font-size:18px}
+.panel-body{padding:16px; overflow:auto}
 
-.panel-header{
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border);
-}
+.btn{display:block; width:100%; padding:14px 16px; border-radius:12px; border:0; font-weight:700; cursor:pointer; margin-bottom:12px}
+.btn-primary{background:var(--ok); color:#071a13}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-secondary{background:#4a7dff; color:#fff}
+.btn-secondary:hover{filter:brightness(1.05)}
 
-.panel-header h3{
-  margin:0;
-  font-size: 20px;
-}
+.hint{color:var(--muted); font-size:12px; margin:6px 0 14px}
+.section{padding:12px; border:1px solid var(--border); border-radius:12px; background:#0c1730}
+.section-title{font-weight:700; margin-bottom:10px}
+.label{display:block; margin:10px 0 6px; color:var(--muted)}
+.input,.textarea{width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:#0b1531; color:var(--txt)}
+.textarea{min-height:92px; resize:vertical}
+.grid-2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
 
-.panel-body{
-  padding:16px 18px;
-  overflow: auto;          /* مهم كي لا يُقصّ المحتوى الطويل */
-}
-
-/* عناوين أقسام صغيرة */
-.section{
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--border);
-}
-.section-title{
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-/* شبكة 2 أعمدة */
-.grid-2{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:12px;
-}
-
-/* ============ عناصر النموذج ============ */
-.label{ 
-  display:block; 
-  margin:10px 0 6px; 
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.input, .textarea, input[type="color"]{
-  width:100%;
-  background: var(--chip);
-  color: var(--text);
-  border:1px solid var(--border);
-  outline:none;
-  border-radius:12px;
-  padding:10px 12px;
-  transition: box-shadow .2s, border-color .2s;
-}
-
-.input:focus, .textarea:focus, input[type="color"]:focus{
-  border-color: var(--accent-2);
-  box-shadow: 0 0 0 3px rgba(96,165,250,.2);
-}
-
-.textarea{
-  min-height: 96px;
-  resize: vertical;
-  line-height: 1.6;
-}
-
-/* شريط التمرير داخل اللوحة فقط */
-.panel-body::-webkit-scrollbar{
-  width: 10px;
-}
-.panel-body::-webkit-scrollbar-thumb{
-  background: #22345a;
-  border-radius: 8px;
-}
-
-/* ============ الأزرار ============ */
-.btn{
-  display:block;
-  width:100%;
-  border:none;
-  border-radius: 14px;
-  padding: 12px 14px;
-  font-weight:700;
-  cursor:pointer;
-  transition: transform .06s ease, filter .2s ease;
-  color:#0b1220;
-}
-
-.btn:active{ transform: scale(.98); }
-
-.btn-primary{
-  background: linear-gradient(90deg, var(--accent) 0%, #16a34a 100%);
-  color:#072414;
-}
-
-.btn-secondary{
-  margin-top:10px;
-  background: linear-gradient(90deg, var(--accent-2) 0%, #3b82f6 100%);
-  color:#041424;
-}
-
-/* منزلقات */
-input[type="range"]{
-  width: 100%;
-  appearance:none;
-  height: 4px;
-  border-radius: 999px;
-  background: #24406f;
-  margin: 6px 0 12px;
-}
-input[type="range"]::-webkit-slider-thumb{
-  appearance:none;
-  width:16px;
-  height:16px;
-  border-radius:50%;
-  background: var(--accent-2);
-  border: 2px solid white;
-  box-shadow: 0 0 0 3px rgba(96,165,250,.25);
-}
-
-/* ألوان */
-input[type="color"]{
-  height: 42px;
-  padding: 0;
-  border-radius: 12px;
-  cursor:pointer;
-}
-
-/* تلميح */
-.hint{
-  font-size: 12px;
-  color: var(--muted);
-  margin: 10px 0 18px;
-}
-
-/* =========================
-   بطاقة المعلومات (الكرت المنبثق)
-   تُستخدم في وضع العرض
-   ========================= */
+/* ===== كرت المعلومات (InfoWindow) ===== */
 .info-card{
-  background: #0b1220;
-  color: #f1f5f9;
-  border:1px solid #1e2a4a;
-  border-radius: 14px;
-  box-shadow: var(--shadow);
-  min-width: 220px;
-  max-width: 280px;
-  padding: 10px 12px;
-  position: relative;
+  min-width:220px; max-width:280px; color:#fff;
+  background:#111a2f; border:1px solid #2b3f6b; border-radius:18px; padding:10px 12px;
+  box-shadow:0 14px 34px rgba(0,0,0,.35); direction:rtl;
 }
+.info-card .title{font-weight:800; font-size:16px; margin-bottom:6px}
+.info-card .tag{color:#a7b8de; font-size:12px; margin-bottom:4px}
+.info-card ul{list-style:none; padding:0; margin:0}
+.info-card li{padding:2px 0; border-bottom:1px dashed #27395f}
+.info-card li:last-child{border-bottom:0}
 
-.info-card .title{
-  font-weight: 800;
-  font-size: 16px;
-  margin-bottom: 6px;
-  line-height: 1.4;
+/* ===== الشاشات الصغيرة ===== */
+@media (max-width:768px){
+  #layersBox{top:auto; bottom:16px; left:16px}
+  .panel{width:100vw}
 }
-
-.info-card .label{
-  color:#cbd5e1;
-  margin: 4px 0 2px;
-  font-size: 12px;
-}
-
-.info-card .names{
-  font-size: 14px;
-  line-height: 1.6;
-  white-space: pre-line;  /* يظهر كل اسم بسطر كما أُدخل */
-}
-
-/* مثلث المؤشر أسفل الكرت */
-.info-card::after{
-  content:"";
-  position:absolute;
-  bottom: -10px;
-  right: 26px;           /* يضبط اتجاه السهم */
-  border-width: 10px 10px 0 10px;
-  border-style: solid;
-  border-color: #0b1220 transparent transparent transparent;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,.15));
-}
-
-/* =========================
-   عناصر عائمة مساعدة (اختياري)
-   ========================= */
-.fab{
-  position: fixed;
-  left: 16px;
-  bottom: 16px;
-  z-index: 16;
-  background:#111b36;
-  border:1px solid var(--border);
-  color: var(--text);
-  border-radius: 999px;
-  padding: 10px 14px;
-  box-shadow: var(--shadow);
-  cursor: pointer;
-}
-
-/* =========================
-   تجاوبية
-   ========================= */
-@media (max-width: 640px){
-  #layersBox{
-    top: 12px;
-    left: 12px;
-    min-width: 210px;
-  }
-  .panel{
-    width: 92vw;
-  }
-  .grid-2{ grid-template-columns: 1fr; }
-}
-
-/* =========================
-   طبقات z-index لضمان الترتيب
-   ========================= */
-#map{ z-index: 0; }
-#layersBox{ z-index: 15; }
-.panel{ z-index: 20; }
-
-/* =========================
-   حالات مساعدة
-   ========================= */
-.hidden{ display:none !important; }
-.disabled{ opacity:.55; pointer-events:none; }
-
-/* لمعالجة أي عناصر خرائط تغطي اللوحات (أحياناً عناصر تحكم قوقل) */
-.gm-control-active, .gm-style-cc, .gmnoprint{
-  direction: ltr; /* تبقى عناصر جوجل صحيحة الاتجاه */
-}
-/* ======== Failsafe: أرغِم الأدوات على الظهور فوق الخريطة ======== */
-#layersBox, .panel{
-  position: fixed !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-}
-
-#layersBox{
-  top: 18px !important;
-  left: 18px !important;     /* ضعها يسار أعلى */
-  display: block !important;
-  z-index: 10010 !important; /* أعلى من الخريطة وأزرار Google */
-}
-
-.panel{
-  right: 0 !important;
-  top: 0 !important;
-  bottom: 0 !important;
-  width: 360px !important;
-  max-width: 92vw !important;
-  display: flex !important;
-  flex-direction: column !important;
-  z-index: 10020 !important;
-  background: linear-gradient(180deg, #0b1326 0%, #111b36 100%) !important;
-  border-left: 1px solid #203053 !important;
-  box-shadow: 0 10px 30px rgba(0,0,0,.25) !important;
-}
-
-/* لا تجعل طبقة الخريطة تمنع النقر على الأدوات العائمة */
-#map{ z-index: 0 !important; }
-.gm-style, .gm-style > div{ z-index: 1 !important; }
-
