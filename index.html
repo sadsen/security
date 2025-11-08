@@ -1,142 +1,33 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>خريطة الأمن — تحرير</title>
-
-  <!-- تحسين سرعة تحميل خرائط Google -->
-  <link rel="dns-prefetch" href="https://maps.googleapis.com">
-  <link rel="dns-prefetch" href="https://maps.gstatic.com">
-  <link rel="preconnect" href="https://maps.googleapis.com" crossorigin>
-  <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
-
-  <!-- الأنماط -->
-  <link rel="stylesheet" href="css/style.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>خريطة الأمن — تشخيص</title>
+  <style>
+    /* أقل قدر من CSS يضمن ظهور الخريطة */
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100vh; width: 100%; }
+    /* بانر صغير لمعرفة حالة التحميل */
+    #debug {
+      position: fixed; inset-inline-start: 12px; inset-block-start: 12px;
+      background:#111b; color:#fff; padding:8px 12px; border-radius:12px; font: 13px/1.2 system-ui,Segoe UI,Arial; z-index: 9999;
+      backdrop-filter: blur(6px);
+    }
+    #debug b { color:#9cf; }
+  </style>
 </head>
 <body>
-
-  <!-- الخريطة تملأ الشاشة -->
+  <div id="debug">الحالة: <b id="dbg">بدء</b></div>
   <div id="map" aria-label="الخريطة"></div>
 
-  <!-- صندوق الطبقات أعلى اليسار -->
-  <div id="layersControl" class="layers">
-    <button class="handle" type="button" onclick="this.parentElement.classList.toggle('open')">الطبقات</button>
-    <div class="body">
-      <h4>الطبقات</h4>
-      <div class="row">
-        <label for="baseType">نوع الخريطة</label>
-        <select id="baseType">
-          <option value="roadmap">خريطة</option>
-          <option value="hybrid">قمر صناعي</option>
-        </select>
-      </div>
-      <div class="row">
-        <label><input type="checkbox" id="trafficLayer"> حركة المرور</label>
-      </div>
-      <div class="row">
-        <label><input type="checkbox" id="transitLayer"> النقل العام</label>
-      </div>
-      <div class="row">
-        <label><input type="checkbox" id="bicyclingLayer"> مسارات الدراجات</label>
-      </div>
-    </div>
-  </div>
-
-  <!-- زر فتح اللوحة (على الجوال) -->
-  <button id="mobileToggle" type="button">تحرير ☰</button>
-
-  <!-- طبقة تغطية خلف اللوحة (للجوال) -->
-  <div id="drawerBackdrop" class="hidden"></div>
-
-  <!-- لوحة التحرير الجانبية -->
-  <aside class="sidebar">
-    <h2 style="margin:0 0 10px; font-weight:900">لوحة التحكم</h2>
-
-    <div class="section">
-      <button id="addCircleBtn" class="btn btn-primary">➕ إضافة موقع</button>
-    </div>
-
-    <div class="section">
-      <button id="shareBtn" class="btn btn-dark">📤 مشاركة الخريطة</button>
-      <p id="addHint" class="hidden" style="color:#9ca3af; margin:8px 2px 0">انقر على الخريطة لوضع الدائرة…</p>
-      <p class="hint" style="color:#9ca3af; margin:8px 2px 0">نصيحة: مرّر الماوس على الدائرة لعرض الكرت؛ على الجوال: اضغط/المس.</p>
-    </div>
-
-    <!-- حالة فارغة -->
-    <div id="emptyState" class="section">
-      <div style="color:#cbd5e1; background:#0f172a; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:14px">
-        لا توجد دائرة محدّدة. اضغط على أي دائرة لبدء التحرير.
-      </div>
-    </div>
-
-    <!-- محرّر الدائرة -->
-    <div id="editor" class="section hidden">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px">
-        <h3 style="margin:0; font-weight:900">تحرير الدائرة</h3>
-        <button id="closeEditor" type="button" style="background:#0f172a; color:#fff; border:0; border-radius:10px; padding:6px 10px">×</button>
-      </div>
-
-      <label for="ed-name">اسم الموقع</label>
-      <input id="ed-name" type="text" placeholder="اسم الموقع" />
-
-      <div class="section" style="margin-top:12px">
-        <label for="ed-security">أفراد الأمن (كل اسم في سطر)</label>
-        <textarea id="ed-security" placeholder="اكتب كل اسم في سطر"></textarea>
-      </div>
-
-      <div class="section">
-        <label for="ed-notes">ملاحظات</label>
-        <textarea id="ed-notes" placeholder="...ملاحظتك"></textarea>
-      </div>
-
-      <div class="section" style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
-        <div>
-          <label for="ed-fill">لون التعبئة</label>
-          <input id="ed-fill" type="color" />
-        </div>
-        <div>
-          <label for="ed-stroke">لون الحدود</label>
-          <input id="ed-stroke" type="color" />
-        </div>
-      </div>
-
-      <div class="section">
-        <label for="ed-opacity">شفافية التعبئة: <span id="op-val">0.25</span></label>
-        <input id="ed-opacity" type="range" min="0" max="1" step="0.01" />
-      </div>
-
-      <div class="section">
-        <label for="ed-radius">نصف القطر (م): <span id="radius-val">15</span></label>
-        <input id="ed-radius" type="range" min="5" max="200" step="1" />
-        <div style="margin-top:8px">
-          <input id="ed-radius-num" type="number" min="1" step="1" style="width:120px" /> م
-        </div>
-      </div>
-
-      <div class="section" style="display:flex; gap:16px; align-items:center">
-        <label style="display:flex; align-items:center; gap:8px">
-          <input id="ed-draggable" type="checkbox" />
-          سحب الدائرة
-        </label>
-        <label style="display:flex; align-items:center; gap:8px">
-          <input id="ed-editable" type="checkbox" />
-          تغيير الحجم
-        </label>
-      </div>
-
-      <div class="section" style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
-        <button id="dupBtn" class="btn btn-dark">نسخ الدائرة</button>
-        <button id="delBtn" class="btn btn-danger" disabled>حذف الدائرة</button>
-      </div>
-    </div>
-  </aside>
-
-  <!-- سكربت التطبيق (تحرير) -->
+  <!-- سكربت التطبيق أولاً (يعرّف initApp) -->
   <script src="js/main.js"></script>
 
-  <!-- خرائط Google (استبدل مفتاحك) -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&libraries=geometry&v=weekly&loading=async" async defer></script>
+  <!-- سكربت خرائط Google أخيراً مع callback -->
+  <!-- بدّل YOUR_API_KEY بمفتاحك -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&v=weekly&libraries=geometry&callback=initApp"
+    async defer></script>
 </body>
 </html>
-
