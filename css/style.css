@@ -1,84 +1,79 @@
+/* ====== الأساسيات ====== */
 :root{
-  --bg:#0b1220;
-  --panel:#0f172a;
-  --text:#e5e7eb;
-  --muted:#94a3b8;
-  --accent:#0ea5e9;
-  --card:#ffffff;
-  --shadow:0 16px 40px rgba(2,6,23,.28);
+  --bg: #0b1220;
+  --panel: #0f172a;
+  --panel-2: #0b1220;
+  --border: rgba(255,255,255,.08);
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+  --accent: #7c3aed;        /* بنفسجي رايق للحدود */
+  --accent-2:#a78bfa;       /* بنفسجي فاتح للتعبئة */
+  --btn: #10b981;           /* زر رئيسي أخضر */
+  --btn-2:#0ea5e9;          /* زر ثانوي سماوي */
+  --danger:#ef4444;
 }
 
-*{box-sizing:border-box}
-html,body,#map{height:100%;width:100%;margin:0;padding:0}
-body{background:#0b1220;color:var(--text);font-family:system-ui,"Segoe UI",Tahoma,Arial}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:"Tajawal",system-ui,Segoe UI,Roboto,Arial,"Noto Naskh Arabic",sans-serif}
+#map{position:fixed;inset:0}
 
-.card{
-  position:fixed; top:16px; left:16px;
-  background:#fff; color:#0b1220;
-  border-radius:14px; padding:12px; min-width:220px;
-  box-shadow: var(--shadow);
-  z-index: 9990;
+/* ====== بطاقة الطبقات (أعلى اليسار) ====== */
+.layers-card{
+  position:fixed;inset-inline-start:16px;inset-block-start:16px;z-index:30;
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  padding:12px 14px; min-width:240px; box-shadow:0 12px 30px rgba(0,0,0,.28)
 }
-.card-title{font-weight:800;margin-bottom:8px}
-.card .row{display:flex;align-items:center;gap:8px;margin:6px 0}
-.card select{padding:6px 8px;border:1px solid #e5e7eb;border-radius:8px}
+.layers-card h4{margin:0 0 8px;font-size:14px;color:#cbd5e1}
+.layers-card label{display:flex;gap:8px;align-items:center;margin:.35rem 0;color:var(--muted);font-size:13px}
+.layers-card select{width:100%;background:#0b1220;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px}
 
-#map{position:fixed; inset:0; z-index:1}
-
-/* زر التحرير العائم */
+/* ====== زر التحرير العائم (أسفل اليسار) ====== */
 #editFab{
-  position:fixed; left:18px; bottom:18px;
-  padding:10px 14px; border:0; border-radius:12px;
-  background:var(--accent); color:#fff; font-weight:800;
-  box-shadow:0 8px 24px rgba(2,6,23,.25);
-  cursor:pointer; z-index: 9999;
+  position:fixed;inset-inline-start:16px;inset-block-end:16px;z-index:32;
+  background:var(--btn-2);color:#fff;border:none;border-radius:12px;padding:10px 14px;
+  box-shadow:0 12px 28px rgba(14,165,233,.35);cursor:pointer
 }
 
-/* لوحة التحكم */
+/* ====== لوحة التحرير اليمنى ====== */
 #editorPanel{
-  position:fixed; top:0; right:0;
-  width:380px; max-width:92vw; height:100dvh;
-  background:var(--panel); color:var(--text);
-  box-shadow:-24px 0 48px rgba(2,6,23,.35);
-  overflow:auto; padding:16px 16px 28px;
-  z-index: 9998;
+  position:fixed;inset-block:0;inset-inline-end:0;width:380px;max-width:95vw;z-index:35;
+  background:linear-gradient(180deg,var(--panel),var(--panel-2));
+  border-inline-start:1px solid var(--border); box-shadow:-20px 0 50px rgba(0,0,0,.35);
+  transform:translateX(0); transition:.25s transform ease; display:flex;flex-direction:column
 }
-#editorPanel[hidden]{display:none!important}
-body[data-mode="edit"] #editorPanel{display:block!important}
-
-.panel-header{display:flex;justify-content:space-between;align-items:center}
-.panel-header h2{margin:4px 0 12px 0}
-.panel-body{display:block}
-
-.btn{display:block;width:100%;padding:12px 14px;border-radius:12px;border:0;cursor:pointer;
-     font-weight:800;margin:8px 0;box-shadow:0 8px 20px rgba(2,6,23,.2)}
-.btn-primary{background:#10b981;color:white}
-.btn-secondary{background:#111827;color:#fff;border:1px solid #1f2937}
-.btn-outline{background:#0b1220;border:1px solid #334155;color:#e5e7eb}
-.btn-danger{background:#ef4444;color:#fff}
-
-.hint{color:var(--muted);margin:8px 2px 14px 2px;font-size:13px}
-
-.edit-box{background:#0b1220;border:1px solid #1f2937;border-radius:14px;padding:14px}
-.edit-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.icon-btn{background:transparent;border:0;color:#94a3b8;font-size:20px;cursor:pointer}
-
-.lbl{display:block;margin:10px 2px 6px 2px;font-weight:700}
-.inp{width:100%;padding:10px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#e5e7eb}
-.inp-color{width:100%;height:40px;border-radius:10px;border:1px solid #334155;background:#0b1220}
+#editorHeader{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--border)
+}
+#editorTitle{font-weight:800}
+#editorClose{background:transparent;border:none;color:#cbd5e1;font-size:20px;cursor:pointer}
+#editorBody{padding:14px 16px;overflow:auto}
+.form-row{margin-bottom:12px}
+.form-row label{display:block;margin:0 0 6px;color:#cbd5e1;font-size:13px}
+.input, .textarea, .color{
+  width:100%;background:#0b1220;border:1px solid var(--border);color:var(--text);
+  border-radius:10px;padding:10px 12px;font-size:14px
+}
+.textarea{min-height:110px;resize:vertical}
 .range{width:100%}
-.row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.mt{margin-top:10px}
+.switches{display:flex;gap:14px;align-items:center;margin-top:8px}
+.btn{display:block;width:100%;padding:12px;border:none;border-radius:12px;color:#fff;cursor:pointer;margin-top:10px}
+.btn-primary{background:var(--btn)}
+.btn-danger{background:var(--danger)}
+.btn-secondary{background:var(--btn-2)}
 
-/* كرت المعلومات (Tooltip مخصص) */
+/* ====== Google InfoWindow (كرت المنبثق) ====== */
 .gm-style .gm-style-iw-c{
-  background:#111827!important;color:#fff!important;border-radius:14px!important;
-  box-shadow: var(--shadow)!important; padding:0!important;
+  background:#111827;color:#fff;border-radius:12px;padding:12px 12px 10px;
+  max-width:340px !important;box-shadow:0 12px 30px rgba(0,0,0,.35)
 }
-.info-card{padding:12px 14px;min-width:220px;max-width:280px}
-.info-title{font-size:18px;font-weight:800;margin-bottom:4px}
-.info-sub{color:#cbd5e1;font-size:13px;margin-bottom:8px}
-.info-list{white-space:pre-line;line-height:1.6}
+.gm-style .gm-style-iw-d{overflow:auto !important;max-height:none !important}
+.gm-ui-hover-effect{filter:invert(1)}
 
-/* ضمان أن الخريطة لا تغطي اللوحة */
-.gm-style{z-index:1}
+.custom-badge{display:inline-block;background:#111827;color:#cbd5e1;font-size:12px;
+  border:1px solid var(--border);border-radius:8px;padding:3px 8px;margin-bottom:6px}
+
+/* ====== Tooltip بسيط لو احتجته ====== */
+.custom-tooltip{
+  background:#111827 !important;color:#fff !important;border:none !important;border-radius:10px !important;
+  padding:8px 10px !important; box-shadow:0 8px 20px rgba(0,0,0,.35) !important; font-size:13px !important;
+}
