@@ -1,10 +1,10 @@
-/* ============ أساسيات عامة ============ */
+/* ===================== أساسيات عامة ===================== */
 :root{
-  --bg: #0b1220;         /* خلفية داكنة خفيفة للبطاقات */
+  --bg: #0b1220;         /* خلفية داكنة لمدخلات/بطاقات */
   --bg-2:#111827;
   --text:#e5e7eb;
   --muted:#9ca3af;
-  --brand:#0ea5e9;       /* أزرق */
+  --brand:#0ea5e9;       /* أزرق رئيسي */
   --ok:#10b981;          /* أخضر */
   --warn:#f59e0b;        /* برتقالي */
   --danger:#ef4444;      /* أحمر */
@@ -20,12 +20,12 @@ body{
   font-family: "Tajawal","Cairo",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
   color:var(--text);
   background:#0f172a;
-  overflow:hidden;
+  overflow:hidden; /* الخريطة بملء الشاشة */
 }
 a{color:var(--brand)}
 .hidden{display:none!important}
 
-/* ============ الخريطة ============ */
+/* ===================== الخريطة ===================== */
 #map{
   position:fixed;
   inset:0;
@@ -36,7 +36,7 @@ a{color:var(--brand)}
   #map{height:100svh}
 }
 
-/* اجعل عناصرنا فوق الخريطة */
+/* تأكد أن عناصرنا فوق عناصر Google */
 .sidebar,
 .mobile-toggle,
 .add-hint,
@@ -44,21 +44,26 @@ a{color:var(--brand)}
 .layers-panel,
 .backdrop{
   position:fixed;
-  z-index: 1001; /* Google controls حوالي 100، فنرفع فوقها */
+  z-index: 1001; /* عناصر Google عادة < 200 */
 }
 
-/* ============ لوحة التحرير (يمين) ============ */
+/* ===================== لوحة التحرير (يمين) ===================== */
 .sidebar{
   top:24px;
   right:24px;
   width: 420px;
   max-width: 92vw;
-  background: linear-gradient(180deg, rgba(17,24,39,.9), rgba(11,18,32,.95));
+  background: linear-gradient(180deg, rgba(17,24,39,.94), rgba(11,18,32,.97));
   backdrop-filter: blur(10px);
   border:1px solid rgba(255,255,255,.06);
   border-radius: var(--radius);
   box-shadow: var(--card-shadow);
   padding:20px;
+
+  /* تمرير داخلي كامل الشاشة */
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
 }
 
 .sidebar h3{
@@ -108,9 +113,10 @@ textarea{
   color:var(--text);
   border:1px solid rgba(255,255,255,.08);
   border-radius:10px;
-  padding:10px 12px;
+  padding:12px 14px;
   outline:none;
-  transition:.15s border;
+  transition:.15s border, .15s box-shadow;
+  box-shadow:none;
 }
 textarea{ resize:vertical }
 input[type="text"]:focus,
@@ -155,7 +161,7 @@ input[type="range"]{
   border-radius:12px;
   padding:12px 14px;
   cursor:pointer;
-  transition: .2s background, .2s transform, .2s border;
+  transition: .2s background, .2s transform, .2s border, .2s filter;
 }
 .btn:hover{ background:#141b2d }
 .btn:active{ transform: translateY(1px) }
@@ -196,7 +202,7 @@ input[type="range"]{
   font-size:14px;
 }
 
-/* ============ زر فتح لوحة التحرير للجوال ============ */
+/* ===================== زر فتح لوحة التحرير (جوال) ===================== */
 .mobile-toggle{
   left:16px;
   bottom:16px;
@@ -218,25 +224,23 @@ input[type="range"]{
 }
 .backdrop.hidden{ display:none!important }
 
-/* إظهار اللوحة كمُشغّلة على الجوال */
+/* اللوحة سحب من اليمين على الشاشات الصغيرة مع تمرير كامل */
 @media (max-width: 1024px){
   .sidebar{
-    right: 0;
-    top: 0;
-    bottom: 0;
+    right: 0; top: 0; bottom: 0;
     height: 100%;
-    max-width: min(90vw, 420px);
-    border-radius: 0 0 0 0;
+    max-height: 100svh;
+    border-radius: 0;
     border-left: 1px solid rgba(255,255,255,.08);
-    overflow:auto;
     padding:18px;
+    overflow-y: auto;
     transform: translateX(100%);
     transition: transform .25s ease;
   }
   .sidebar.open{ transform: translateX(0) }
 }
 
-/* ============ لوحة تلميح وضع الإضافة ============ */
+/* ===================== تلميح وضع الإضافة ===================== */
 .add-hint{
   top: 18px;
   left: 50%;
@@ -250,7 +254,7 @@ input[type="range"]{
   font-size:14px;
 }
 
-/* ============ لوحة الطبقات أعلى اليسار ============ */
+/* ===================== لوحة الطبقات أعلى اليسار ===================== */
 .layers-toggle{
   top: 16px;
   left: 16px;
@@ -292,53 +296,58 @@ input[type="range"]{
   accent-color: var(--brand);
 }
 
-/* ============ بطاقة التولتيب (كرت المعلومات) ============ */
+/* ===================== كرت المعلومات (Tooltip) ===================== */
 .tooltip-card{
-  background: rgba(17,24,39,.98);
-  color:#f1f5f9;
-  border-radius: 12px;
-  border:1px solid rgba(255,255,255,.08);
-  box-shadow: var(--card-shadow);
-  padding:12px 14px;
-  font-size: 15px;
-  line-height:1.6;
-  min-width: 220px;
-  max-width: 320px;
+  background: #1f2937;                       /* رمادي داكن واضح */
+  color:#f8fafc;                             /* أبيض ناعم */
+  border:1px solid rgba(255,255,255,.12);    /* حد خفيف */
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.35);   /* ظل واضح */
+  padding:14px 16px;
+  min-width: 240px;
+  max-width: 360px;
+  line-height: 1.7;
+  font-size: 16px;
 }
 .tooltip-card h4{
-  margin:0 0 6px 0;
-  font-size:17px;
+  margin:0 0 8px 0;
+  font-size:18px;
   font-weight:800;
+  letter-spacing:.2px;
 }
 .tooltip-card .label{
-  color:#94a3b8;
+  display:block;
+  color:#cbd5e1;
   font-size:13px;
-  margin-bottom:4px;
+  margin:6px 0 4px;
 }
-.tooltip-card .sep{ height:1px; background:rgba(255,255,255,.06); margin:8px 0 }
-
-/* يظهر الأسماء كسطور حسب الأسطر المدخلة في textarea */
+.tooltip-card .sep{
+  height:1px;
+  background:rgba(255,255,255,.08);
+  margin:10px 0;
+}
+/* يحترم الأسطر كما كتبتها في الـ textarea */
 .tooltip-card .names{
-  white-space: pre-line;       /* مهم: يحترم أسطر الإدخال */
+  white-space: pre-line;
   margin:0;
+  color:#e5e7eb;
+  font-size:15px;
 }
 
-/* حبوب صغيرة عامة */
-.pill{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:4px 8px;
-  border-radius:999px;
-  font-size:12px;
-  background: rgba(124,58,237,.15);
-  color:#e9d5ff;
-  border:1px solid rgba(124,58,237,.35);
-}
-
-/* ============ تصحيحات لعناصر Google ============ */
+/* ===================== تصحيحات لعناصر Google ===================== */
 /* لا تجعل عناصر التحكم تغطي أزرارنا السفلية */
 .gm-fullscreen-control,
 .gm-bundled-control-on-bottom{
   margin-bottom: 68px;
+}
+/* اصغر ظل لعلامات Google الافتراضية قليلاً */
+.gm-style .gm-style-iw-c{
+  border-radius: 12px!important;
+  box-shadow: 0 16px 40px rgba(0,0,0,.3)!important;
+}
+
+/* ===================== تباعد داخلي سفلي (في حال وجود شريط سفلي للمتصفح) ===================== */
+@supports(padding-bottom: env(safe-area-inset-bottom)){
+  .mobile-toggle{ padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+  .sidebar{ padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
 }
