@@ -1,34 +1,52 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <title>خريطة الأمن – عرض</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>خريطة الأمن — عرض</title>
 
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self';
-                 script-src 'self' https://maps.googleapis.com https://maps.gstatic.com 'unsafe-inline';
-                 style-src 'self' 'unsafe-inline';
-                 img-src 'self' data: https://*.googleapis.com https://*.gstatic.com https://maps.gstatic.com https://maps.googleapis.com;
-                 connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com;
-                 frame-ancestors 'none'">
+  <!-- تحسين سرعة تحميل خرائط Google -->
+  <link rel="dns-prefetch" href="https://maps.googleapis.com">
+  <link rel="dns-prefetch" href="https://maps.gstatic.com">
+  <link rel="preconnect" href="https://maps.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
 
+  <!-- الأنماط -->
   <link rel="stylesheet" href="css/style.css" />
-  <!-- منع ظهور أي عناصر تحرير -->
-  <style>.sidebar,.mobile-toggle,.backdrop,.add-hint{display:none!important}</style>
 </head>
 <body>
+
+  <!-- الخريطة -->
   <div id="map" aria-label="الخريطة"></div>
 
-  <noscript>يجب تفعيل JavaScript لعرض الخرائط.</noscript>
+  <!-- صندوق الطبقات أعلى اليسار (يعمل في العرض أيضًا) -->
+  <div id="layersControl" class="layers">
+    <button class="handle" type="button" onclick="this.parentElement.classList.toggle('open')">الطبقات</button>
+    <div class="body">
+      <h4>الطبقات</h4>
+      <div class="row">
+        <label for="baseType">نوع الخريطة</label>
+        <select id="baseType">
+          <option value="roadmap">خريطة</option>
+          <option value="hybrid">قمر صناعي</option>
+        </select>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="trafficLayer"> حركة المرور</label>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="transitLayer"> النقل العام</label>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="bicyclingLayer"> مسارات الدراجات</label>
+      </div>
+    </div>
+  </div>
 
-  <!-- منطق العرض فقط أولاً -->
-  <script defer src="js/view.js"></script>
+  <!-- سكربت العرض -->
+  <script src="js/view.js"></script>
 
-  <!-- ثم مكتبة الخرائط بـ defer -->
-  <script
-    defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&callback=initMap&libraries=geometry&v=weekly">
-  </script>
+  <!-- خرائط Google (استبدل مفتاحك) -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=geometry&v=weekly&loading=async" async defer></script>
 </body>
 </html>
