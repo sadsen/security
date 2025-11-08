@@ -1,16 +1,50 @@
+/* خطوط عامة */
 html, body {height:100%;margin:0;padding:0;direction:rtl;-webkit-tap-highlight-color:transparent;
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans";}
-body{display:grid;grid-template-columns:300px 1fr;grid-template-rows:100vh;}
-@media (max-width:900px){body{grid-template-columns:1fr}.sidebar{display:none}}
 
+/* تخطيط سطح المكتب: شريط جانبي + خريطة */
+body{
+  display:grid;
+  grid-template-columns:300px 1fr;
+  grid-template-rows:100vh;
+}
+
+/* وضع العرض: أخفِ اللوحة واعرض الخريطة مالئة الشاشة */
 .view-mode{grid-template-columns:1fr!important}
 .view-mode #sidebar{display:none!important}
 .view-mode #map{position:fixed;inset:0;width:100vw;height:100svh}
 
+/* الخريطة */
 #map{position:relative;height:100vh;width:100%}
 @supports(height:100svh){#map{height:100svh}}
 
-.sidebar{box-sizing:border-box;padding:16px;background:#fff;border-left:1px solid #eee;overflow:auto}
+/* الشريط الجانبي (سطح المكتب) */
+.sidebar{
+  box-sizing:border-box;padding:16px;background:#fff;border-left:1px solid #eee;overflow:auto;
+}
+
+/* زر الجوال (مخفي في سطح المكتب) */
+.mobile-toggle{
+  position:fixed; inset-inline-end:12px; inset-block-end:16px;
+  z-index:100000; border:none; background:#111827; color:#fff;
+  padding:10px 14px; border-radius:999px; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,.25);
+  display:none; cursor:pointer;
+}
+
+/* ===== وضع الجوال (<= 900px): اللوحة تصبح Drawer ===== */
+@media (max-width: 900px){
+  body{grid-template-columns:1fr}      /* الخريطة تأخذ الشاشة */
+  .sidebar{
+    position:fixed; inset-block:0; inset-inline-end:0;
+    width:min(92vw, 420px); max-width:100%;
+    transform:translateX(100%); transition:transform .25s ease;
+    z-index:100000; border-left:1px solid #e5e7eb; box-shadow:-10px 0 30px rgba(0,0,0,.15);
+  }
+  .sidebar.open{ transform:translateX(0); }
+  .mobile-toggle{ display:inline-block; }
+}
+
+/* بطاقات وعناصر */
 .sidebar h3{margin:0 0 12px;font-size:20px}
 .panel{padding:12px;border:1px solid #eee;border-radius:10px;margin-bottom:12px;background:#fafafa}
 .panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -23,6 +57,7 @@ body{display:grid;grid-template-columns:300px 1fr;grid-template-rows:100vh;}
 .panel input[type="text"], .panel textarea, .panel input[type="number"]{
   width:100%;box-sizing:border-box;padding:10px;border:1px solid #cfd4dc;border-radius:10px;font-size:14px;background:#fff}
 
+/* أزرار واضحة */
 .btn{width:100%;padding:12px;border:1px solid #1f2937;background:#1f2937;color:#fff;cursor:pointer;border-radius:10px;font-size:14px;margin-top:10px}
 .btn:hover{filter:brightness(.95)}
 .btn-primary{background:#0f766e;border-color:#0f766e}
@@ -30,6 +65,7 @@ body{display:grid;grid-template-columns:300px 1fr;grid-template-rows:100vh;}
 .btn-danger{background:#b91c1c;border-color:#b91c1c}
 .btn:disabled{background:#cbd5e1;border-color:#cbd5e1;color:#475569;cursor:not-allowed}
 
+/* شبكة صغيرة */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .chk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px}
 
@@ -41,18 +77,6 @@ body{display:grid;grid-template-columns:300px 1fr;grid-template-rows:100vh;}
 .info-card .tt-names{display:block;margin-top:2px}
 .info-card .name-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl}
 .info-card .tt-notes{color:#d1d5db;margin-top:6px;white-space:pre-line}
-
-/* لوحة الطبقات كـ Google Control (نستهدف العنصر الذي سنبنيه برمجياً) */
-.godj-layers{
-  background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-  padding:10px 12px;width:230px;box-shadow:0 10px 30px rgba(0,0,0,.12);font-size:14px;
-}
-.godj-layers .lc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.godj-layers .lc-body{display:block}
-.godj-layers.min .lc-body{display:none}
-.godj-layers .lc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
-.godj-layers select{flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fafafa;font-size:14px}
-.godj-layers .chk{display:flex;align-items:center;gap:8px;margin:6px 0}
 
 /* مؤشر وضع الإضافة */
 .add-cursor{cursor:crosshair!important}
