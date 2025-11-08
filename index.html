@@ -1,108 +1,96 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>خريطة الأمن — تحرير</title>
-
+  <title>خريطة الأمن</title>
   <link rel="stylesheet" href="css/style.css" />
-
-  <!-- Google Maps JS -->
-  <script
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&libraries=geometry&v=weekly"
-    defer></script>
-
-  <!-- وضع التحرير مثبت على index -->
-  <script>
-    document.documentElement.classList.add('js');
-    document.addEventListener('DOMContentLoaded', () => {
-      document.body.setAttribute('data-mode', 'edit');
-    });
-  </script>
 </head>
 <body>
-
-  <!-- زر تحرير عائم (يضمن ظهور اللوحة دائماً) -->
-  <button id="editFab" type="button" aria-label="تحرير">تحرير ☰</button>
-
-  <!-- لوحة الطبقات (أعلى اليسار) -->
-  <section id="layersCard" class="card">
+  <!-- صندوق الطبقات -->
+  <div id="layersBox" class="card">
     <div class="card-title">الطبقات</div>
     <label class="row">
       <span>نوع الخريطة</span>
-      <select id="baseMapSelect">
+      <select id="mapTypeSelect">
         <option value="roadmap">خريطة</option>
-        <option value="hybrid">قمر صناعي</option>
+        <option value="satellite">قمر صناعي</option>
+        <option value="hybrid">هجين</option>
         <option value="terrain">تضاريس</option>
-        <option value="satellite">صور</option>
       </select>
     </label>
-    <label class="row"><input type="checkbox" id="trafficToggle"> حركة المرور</label>
-    <label class="row"><input type="checkbox" id="transitToggle"> النقل العام</label>
-    <label class="row"><input type="checkbox" id="bicyclingToggle"> مسارات الدراجات</label>
-  </section>
+    <label class="row"><input type="checkbox" id="layerTraffic" /> حركة المرور</label>
+    <label class="row"><input type="checkbox" id="layerTransit" /> النقل العام</label>
+    <label class="row"><input type="checkbox" id="layerBike" /> مسارات الدراجات</label>
+  </div>
 
-  <!-- الخريطة -->
-  <div id="map" aria-label="الخريطة"></div>
-
-  <!-- لوحة التحكم (يمين) -->
-  <aside id="editorPanel" aria-label="لوحة التحكم" hidden>
-    <header class="panel-header">
-      <h2>لوحة التحكم</h2>
-    </header>
+  <!-- لوحة التحرير -->
+  <aside id="editorPanel" class="panel">
+    <div class="panel-header">
+      <h3>لوحة التحكم</h3>
+    </div>
 
     <div class="panel-body">
       <button id="addCircleBtn" class="btn btn-primary">إضافة موقع +</button>
-      <button id="shareBtn" class="btn btn-secondary">مشاركة الخريطة 📤</button>
+      <button id="shareBtn" class="btn btn-secondary">مشاركة الخريطة</button>
 
       <p class="hint">نصيحة: مرّر الماوس على الدائرة لعرض الكرت؛ على الجوال: اضغط/المس.</p>
 
-      <div id="editBox" class="edit-box">
-        <div class="edit-title">
-          <span>تحرير الدائرة</span>
-          <button id="closeEdit" class="icon-btn" title="إغلاق">×</button>
-        </div>
+      <div class="section">
+        <div class="section-title">تحرير الدائرة</div>
 
-        <label class="lbl">اسم الموقع</label>
-        <input id="siteName" type="text" class="inp" placeholder="مثال: دوار البجيري" />
+        <label class="label">اسم الموقع</label>
+        <input id="siteName" class="input" placeholder="مثال: دوار البجيري" />
 
-        <label class="lbl">أفراد الأمن (كل اسم في سطر)</label>
-        <textarea id="securityNames" class="inp" rows="5" placeholder="اكتب كل اسم في سطر"></textarea>
+        <label class="label">أفراد الأمن (كل اسم في سطر)</label>
+        <textarea id="securityNames" class="textarea" placeholder="اكتب كل اسم في سطر"></textarea>
 
-        <label class="lbl">ملاحظات</label>
-        <textarea id="notes" class="inp" rows="3" placeholder="...ملاحظات"></textarea>
+        <label class="label">ملاحظات</label>
+        <textarea id="notes" class="textarea" placeholder="...ملاحظاتك"></textarea>
 
-        <div class="row-2">
+        <div class="grid-2">
           <div>
-            <label class="lbl">لون الحدود</label>
-            <input id="strokeColor" type="color" value="#7c3aed" class="inp-color" />
+            <label class="label">لون التعبة</label>
+            <input type="color" id="fillColor" class="input" value="#a78bfa" />
           </div>
           <div>
-            <label class="lbl">لون التعبئة</label>
-            <input id="fillColor" type="color" value="#c084fc" class="inp-color" />
+            <label class="label">لون الحدود</label>
+            <input type="color" id="strokeColor" class="input" value="#7c3aed" />
           </div>
         </div>
 
-        <label class="lbl">شفافية التعبئة: <span id="opacityVal">0.25</span></label>
-        <input id="fillOpacity" type="range" min="0" max="1" step="0.05" value="0.25" class="range" />
+        <label class="label">شفافية التعبة</label>
+        <input type="range" id="fillOpacity" min="0" max="1" step="0.01" value="0.25" />
 
-        <label class="lbl">نصف القطر (م): <span id="radiusVal">15</span></label>
-        <input id="radiusRange" type="range" min="5" max="200" step="1" value="15" class="range" />
-        <input id="radiusNumber" type="number" min="1" value="15" class="inp" />
+        <label class="label">نصف القطر (م)</label>
+        <input id="radius" class="input" type="number" min="1" value="15" />
 
-        <div class="row-2 mt">
-          <label class="row"><input id="dragToggle" type="checkbox"> سحب الدائرة</label>
-          <label class="row"><input id="resizeToggle" type="checkbox"> تغيير الحجم</label>
-        </div>
-
-        <div class="row-2 mt">
-          <button id="dupBtn" class="btn btn-outline">نسخ الدائرة</button>
-          <button id="delBtn" class="btn btn-danger">حذف الدائرة</button>
+        <div class="grid-2">
+          <label class="row"><input type="checkbox" id="dragToggle" /> سحب الدائرة</label>
+          <label class="row"><input type="checkbox" id="editToggle" /> تغيير الحجم</label>
         </div>
       </div>
     </div>
   </aside>
 
+  <!-- عنصر الخريطة يجب أن يملأ الشاشة -->
+  <div id="map" aria-label="الخريطة"></div>
+
+  <!-- مكتبة قوقل: تأكد من وجود مفتاحك الصحيح -->
+  <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&libraries=geometry&v=weekly&callback=initMap">
+  </script>
+
+  <!-- سكربت التطبيق -->
   <script src="js/main.js" defer></script>
+
+  <!-- استدعاء احتياطي في حال لم يعمل callback لأي سبب -->
+  <script>
+    window.addEventListener('load', function(){
+      if (typeof window.initMap === 'function' && !window.__mapBootstrapped){
+        try { window.initMap(); } catch(e){}
+      }
+    });
+  </script>
 </body>
 </html>
