@@ -1,154 +1,64 @@
-/* ===== Reset بسيط ===== */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body {
-  margin: 0;
-  font-family: "Tajawal", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  color: #e5e7eb;
-  background: #0b1220; /* خلفية داكنة */
-  overflow: hidden;    /* عشان ما يطلع سكرول خارجي، اللوحات لها سكرولها الخاص */
+:root{
+  --bg:#0b1320;
+  --panel:#0f172a;
+  --muted:#94a3b8;
+  --fg:#e6ebff;
+  --accent:#22c55e;
+  --accent2:#60a5fa;
+  --card:#111827;
+  --border:#1f2937;
+  --shadow:0 10px 25px rgba(0,0,0,.35);
 }
 
-/* ===== عنصر الخريطة (ممتد لكامل الشاشة) ===== */
-#map {
-  position: fixed;
-  inset: 0;        /* top/right/bottom/left = 0 */
-  z-index: 0;      /* تحت اللوحات */
-}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,"Segoe UI",Tahoma}
+#map{position:fixed;inset:0;z-index:0}
 
-/* ===== بطاقة الطبقات (أعلى يسار) ===== */
-.card {
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  width: 240px;
-  z-index: 10;             /* فوق الخريطة */
-  background: rgba(17, 24, 39, 0.92); /* داكن مع شفافية بسيطة */
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.35);
-  padding: 12px 14px;
-  backdrop-filter: blur(6px);
+/* طبقات */
+.card{
+  position:fixed;top:16px;left:16px;z-index:5;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);min-width:210px
 }
+.card-title{font-weight:700;margin-bottom:8px}
+.row{display:flex;align-items:center;gap:8px;margin:8px 0}
+.row span{flex:1}
+.row input[type="checkbox"]{inline-size:18px;block-size:18px}
+#mapTypeSelect{background:#0b1220;color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:6px}
 
-.card-title {
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: #fff;
+/* لوحة التحرير */
+.panel{
+  position:fixed;top:0;right:0;bottom:0;width:min(380px,92vw);z-index:6;
+  background:var(--panel);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;box-shadow:var(--shadow)
 }
+.panel-header{padding:14px 16px;border-bottom:1px solid var(--border)}
+.panel-body{padding:16px;overflow:auto}
+.section{margin-top:14px;padding-top:8px;border-top:1px dashed var(--border)}
+.section-title{font-weight:700;margin-bottom:8px}
+.label{display:block;margin:10px 0 6px}
+.input,.textarea{width:100%;background:#0b1220;color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.textarea{min-height:110px;resize:vertical}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0}
+.btn{display:block;width:100%;padding:12px 14px;border-radius:12px;border:none;cursor:pointer;margin:8px 0;font-weight:700}
+.btn-primary{background:var(--accent);color:#04210e}
+.btn-secondary{background:var(--accent2);color:#081a2b}
+.hint{color:var(--muted);font-size:13px}
 
-.row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 8px 0;
-  font-size: 14px;
+/* Overlay أخطاء */
+#gmap-error{
+  position:fixed;inset:0;display:grid;place-items:center;background:rgba(2,6,17,.86);z-index:10
 }
-
-.card select,
-.card input[type="checkbox"] {
-  accent-color: #8b5cf6;
+#gmap-error .box{
+  background:#101827;border:1px solid #374151;border-radius:14px;
+  padding:18px 20px;max-width:840px;box-shadow:var(--shadow)
 }
-.card select {
-  width: 120px;
-  height: 32px;
-  border: 1px solid rgba(148,163,184,.25);
-  background: #0f172a;
-  color: #e5e7eb;
-  border-radius: 8px;
-  padding: 0 8px;
+#gmap-error pre{white-space:pre-wrap;color:#fca5a5;background:#0b1220;border:1px solid #374151;border-radius:10px;padding:10px}
+
+/* Infowindow (الكرت) */
+.gm-style .gm-style-iw-c{
+  background:#0f172a !important;color:var(--fg) !important;border-radius:14px !important;
+  box-shadow:var(--shadow) !important;border:1px solid var(--border) !important
 }
-
-/* ===== لوحة التحرير (يمين) ===== */
-.panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  height: 100vh;
-  width: 380px;
-  z-index: 9;                 /* فوق الخريطة وتحت إشعارات المتصفح */
-  display: flex;
-  flex-direction: column;
-  background: rgba(12, 17, 28, 0.95);
-  border-left: 1px solid rgba(148, 163, 184, 0.12);
-  backdrop-filter: blur(6px);
-}
-
-.panel-header {
-  padding: 16px 18px;
-  border-bottom: 1px solid rgba(148,163,184,.12);
-}
-.panel-header h3 { margin: 0; color: #fff; }
-
-.panel-body {
-  padding: 16px;
-  overflow: auto;    /* سكرول داخلي */
-  height: 100%;
-  scrollbar-gutter: stable;
-}
-
-.section { margin-top: 14px; }
-.section-title {
-  font-weight: 700;
-  margin: 10px 0 8px;
-  color: #e5e7eb;
-}
-
-.label { display:block; margin:12px 0 6px; color:#cbd5e1; font-size: 13px; }
-.input, .textarea, input[type="color"] {
-  width: 100%;
-  background: #0f172a;
-  color: #e5e7eb;
-  border: 1px solid rgba(148,163,184,.22);
-  border-radius: 10px;
-  padding: 10px 12px;
-  outline: none;
-}
-.input:focus, .textarea:focus { border-color:#8b5cf6; }
-
-.textarea { min-height: 90px; resize: vertical; }
-
-.grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-.btn {
-  width: 100%;
-  border: none;
-  border-radius: 12px;
-  padding: 12px 14px;
-  font-weight: 700;
-  cursor: pointer;
-  margin-bottom: 10px;
-}
-.btn-primary { background:#22c55e; color:#052e12; }
-.btn-primary:hover { filter: brightness(0.95); }
-.btn-secondary { background:#60a5fa; color:#0b1220; }
-.btn-secondary:hover { filter: brightness(0.96); }
-
-/* سلايدر */
-input[type="range"] { width:100%; }
-
-/* ===== كرت المعلومات المنبثق (Tooltip) ===== */
-.info-card {
-  background: #0f172a;
-  color: #e5e7eb;
-  border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.25);
-  padding: 10px 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.35);
-  min-width: 210px;
-  max-width: 260px;
-}
-.info-title {
-  font-size: 15px;
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 6px;
-}
-.info-subtitle { font-size: 12px; color:#cbd5e1; margin-bottom: 4px; }
-.info-list { margin:0; padding:0 0 0 14px; font-size:13px; }
-
-/* ===== استجابة للجوال ===== */
-@media (max-width: 900px) {
-  .panel { width: 100%; }
-  .card { top: 12px; left: 12px; width: 220px; }
-}
+.gm-style .gm-style-iw-d{overflow:auto !important}
+.gm-ui-hover-effect{filter:invert(100%)}
