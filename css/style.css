@@ -353,3 +353,36 @@ input[type="color"]{
 .gm-control-active, .gm-style-cc, .gmnoprint{
   direction: ltr; /* تبقى عناصر جوجل صحيحة الاتجاه */
 }
+/* ======== Failsafe: أرغِم الأدوات على الظهور فوق الخريطة ======== */
+#layersBox, .panel{
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+#layersBox{
+  top: 18px !important;
+  left: 18px !important;     /* ضعها يسار أعلى */
+  display: block !important;
+  z-index: 10010 !important; /* أعلى من الخريطة وأزرار Google */
+}
+
+.panel{
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 360px !important;
+  max-width: 92vw !important;
+  display: flex !important;
+  flex-direction: column !important;
+  z-index: 10020 !important;
+  background: linear-gradient(180deg, #0b1326 0%, #111b36 100%) !important;
+  border-left: 1px solid #203053 !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25) !important;
+}
+
+/* لا تجعل طبقة الخريطة تمنع النقر على الأدوات العائمة */
+#map{ z-index: 0 !important; }
+.gm-style, .gm-style > div{ z-index: 1 !important; }
+
