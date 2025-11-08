@@ -3,25 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <title>خريطة الأمن – Google Maps</title>
-
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self';
-                 script-src 'self' https://maps.googleapis.com 'unsafe-inline';
-                 style-src 'self' 'unsafe-inline';
-                 img-src 'self' data: https://*.googleapis.com https://*.gstatic.com https://maps.gstatic.com https://maps.googleapis.com;
-                 connect-src 'self' https://maps.googleapis.com;
-                 frame-ancestors 'none'">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta http-equiv="Referrer-Policy" content="no-referrer">
-
+  <title>خريطة الأمن – تحرير</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <!-- خلفية تغطية للمحرر -->
   <div id="drawerBackdrop" class="backdrop hidden" aria-hidden="true"></div>
 
-  <!-- لوحة التحرير (ستختفي تماماً في وضع العرض) -->
+  <!-- لوحة التحرير -->
   <aside id="sidebar" class="sidebar" aria-label="لوحة التحرير">
     <h3>لوحة التحكم</h3>
 
@@ -82,7 +71,7 @@
   <!-- تلميح وضع الإضافة -->
   <div id="addHint" class="add-hint hidden">انقر على الخريطة لوضع دائرة جديدة.</div>
 
-  <!-- زر فتح المحرر (يُخفى في وضع العرض) -->
+  <!-- زر فتح المحرر (محمول) -->
   <button id="mobileToggle" class="mobile-toggle" aria-label="فتح لوحة التحرير">☰ تحرير</button>
 
   <!-- خرائط قوقل: ضع مفتاحك -->
