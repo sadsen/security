@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>خريطة الأمن – Google Maps</title>
 
-  <!-- سياسة أمان مبسطة -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self';
                  script-src 'self' https://maps.googleapis.com 'unsafe-inline';
@@ -22,7 +21,7 @@
   <!-- خلفية تغطية عند فتح لوحة التحرير -->
   <div id="drawerBackdrop" class="backdrop hidden" aria-hidden="true"></div>
 
-  <!-- لوحة التحرير (Drawer) -->
+  <!-- لوحة التحرير -->
   <aside id="sidebar" class="sidebar" aria-label="لوحة التحرير">
     <h3>لوحة التحكم</h3>
 
@@ -79,6 +78,9 @@
 
   <!-- الخريطة -->
   <div id="map" aria-label="الخريطة"></div>
+
+  <!-- شريط تلميح عند وضع دائرة -->
+  <div id="addHint" class="add-hint hidden">انقر على الخريطة لوضع دائرة جديدة.</div>
 
   <!-- زر “تحرير” ثابت أسفل يسار -->
   <button id="mobileToggle" class="mobile-toggle" aria-label="فتح لوحة التحرير">☰ تحرير</button>
