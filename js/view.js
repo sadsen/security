@@ -1,7 +1,8 @@
+"use strict";
+
 const DEFAULT_CENTER = { lat: 24.73722164546818, lng: 46.53877581519047 };
 const DEFAULT_ZOOM   = 14;
 const DEFAULT_RADIUS = 15;
-
 const STYLE_STROKE = "#7c3aed";
 const STYLE_FILL   = "#c084fc";
 const STYLE_OPAC   = 0.25;
@@ -28,6 +29,7 @@ const DEFAULT_SITES = [
   { name:"مزرعة الحبيب",                        lat:24.709445443672344, lng:46.593971867951346 }
 ].map(s => ({ ...s, radius: DEFAULT_RADIUS, strokeColor: STYLE_STROKE, fillColor: STYLE_FILL, fillOpacity: STYLE_OPAC, security:"", notes:"" }));
 
+/* ترميز/فك ترميز */
 function expandData(obj) {
   return {
     center: { lat: obj.c?.L ?? DEFAULT_CENTER.lat, lng: obj.c?.G ?? DEFAULT_CENTER.lng, zoom: obj.c?.z ?? DEFAULT_ZOOM },
@@ -45,33 +47,7 @@ function decodeData(encoded) {
   return expandData(JSON.parse(new TextDecoder().decode(bytes)));
 }
 
-let map, infoWindow;
-
-window.initMap = function initMap() {
-  map = new google.maps.Map(document.getElementById("map"), {
-    center: DEFAULT_CENTER,
-    zoom: DEFAULT_ZOOM,
-    mapId: "DIRIYAH_SECURITY_MAP",
-    gestureHandling: "greedy",
-    fullscreenControl: true
-  });
-  infoWindow = new google.maps.InfoWindow({});
-
-  const url = new URL(location.href);
-  const view = url.searchParams.get("view");
-
-  if (view) {
-    try {
-      const data = decodeData(decodeURIComponent(view));
-      draw(data);
-      map.setCenter({lat: data.center.lat, lng: data.center.lng});
-      map.setZoom(data.center.zoom);
-      return;
-    } catch(e){ console.error("فشل قراءة الرابط:", e); }
-  }
-  draw({ center:{...DEFAULT_CENTER, zoom:DEFAULT_ZOOM}, circles: DEFAULT_SITES });
-};
-
+/* كرت معلومات */
 function infoHtml(d){
   return `
     <div class="infocard">
@@ -85,7 +61,39 @@ function infoHtml(d){
   `;
 }
 
-function draw(data){
+/* تهيئة العرض */
+function initApp(){
+  if (!(window.google && google.maps)) {
+    setTimeout(initApp, 80);
+    return;
+  }
+
+  const map = new google.maps.Map(document.getElementById("map"), {
+    center: DEFAULT_CENTER,
+    zoom: DEFAULT_ZOOM,
+    mapTypeId: "roadmap",
+    gestureHandling: "greedy",
+    fullscreenControl: true,
+    streetViewControl: false,
+    mapTypeControl: false
+  });
+  const infoWindow = new google.maps.InfoWindow({});
+
+  // بيانات من الرابط أو افتراضي
+  const url = new URL(location.href);
+  const view = url.searchParams.get("view");
+  let data;
+  if (view) {
+    try {
+      data = decodeData(decodeURIComponent(view));
+      map.setCenter({lat: data.center.lat, lng: data.center.lng});
+      map.setZoom(data.center.zoom);
+    } catch { data = { center:{...DEFAULT_CENTER, zoom:DEFAULT_ZOOM}, circles: DEFAULT_SITES }; }
+  } else {
+    data = { center:{...DEFAULT_CENTER, zoom:DEFAULT_ZOOM}, circles: DEFAULT_SITES };
+  }
+
+  // رسم
   (data.circles || []).forEach(d => {
     const c = new google.maps.Circle({
       map,
@@ -99,7 +107,6 @@ function draw(data){
       draggable: false,
       editable: false
     });
-
     c.addListener("mouseover", () => {
       infoWindow.setContent(infoHtml(d));
       infoWindow.setPosition(c.getCenter());
@@ -107,10 +114,28 @@ function draw(data){
     });
     c.addListener("mouseout", () => infoWindow.close());
   });
+
+  setupLayersUI(map);
+}
+window.initApp = initApp;
+
+/* طبقات */
+function setupLayersUI(map){
+  const baseSel   = document.getElementById("baseType");
+  const chkTraffic= document.getElementById("trafficLayer");
+  const chkTransit= document.getElementById("transitLayer");
+  const chkBike   = document.getElementById("bicyclingLayer");
+  if(!baseSel) return;
+
+  const traffic  = new google.maps.TrafficLayer();
+  const transit  = new google.maps.TransitLayer();
+  const bicycling= new google.maps.BicyclingLayer();
+
+  baseSel.addEventListener("change", () => map.setMapTypeId(baseSel.value));
+  chkTraffic.addEventListener("change", () => chkTraffic.checked ? traffic.setMap(map) : traffic.setMap(null));
+  chkTransit.addEventListener("change", () => chkTransit.checked ? transit.setMap(map) : transit.setMap(null));
+  chkBike.addEventListener("change", () => chkBike.checked ? bicycling.setMap(map) : bicycling.setMap(null));
 }
 
-function escapeHtml(t=""){
-  const div = document.createElement("div");
-  div.textContent = t;
-  return div.innerHTML;
-}
+/* مساعد */
+function escapeHtml(t=""){ const div=document.createElement("div"); div.textContent=t; return div.innerHTML; }
