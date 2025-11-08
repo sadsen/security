@@ -23,12 +23,6 @@ html,body{height:100%;margin:0;padding:0;direction:rtl;-webkit-tap-highlight-col
   cursor:pointer;
 }
 
-/* إخفاء كل التحرير في وضع العرض */
-.view-mode .sidebar,
-.view-mode #mobileToggle,
-.view-mode #addHint { display:none!important; }
-
-/* بطاقات/أزرار */
 .sidebar h3{margin:0 0 12px;font-size:20px}
 .panel{padding:12px;border:1px solid #eee;border-radius:10px;margin-bottom:12px;background:#fafafa}
 .panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -37,6 +31,8 @@ html,body{height:100%;margin:0;padding:0;direction:rtl;-webkit-tap-highlight-col
 .panel label{display:block;font-size:13px;margin:8px 0 4px}
 .panel input[type="text"], .panel textarea, .panel input[type="number"]{
   width:100%;box-sizing:border-box;padding:10px;border:1px solid #cfd4dc;border-radius:10px;font-size:14px;background:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
 .btn{width:100%;padding:12px;border:1px solid #1f2937;background:#1f2937;color:#fff;cursor:pointer;border-radius:10px;font-size:14px;margin-top:10px}
 .btn:hover{filter:brightness(.95)}
 .btn-primary{background:#0f766e;border-color:#0f766e}
@@ -69,7 +65,6 @@ html,body{height:100%;margin:0;padding:0;direction:rtl;-webkit-tap-highlight-col
   font-size:14px; z-index:100020;
 }
 .godj-layers .lc-head{display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
-.godj-layers .lc-btn{display:none} /* زر السهم مخفي؛ ننقر على الرأس كاملاً */
 .godj-layers .lc-body{display:block;margin-top:8px}
 .godj-layers.min .lc-body{display:none}
 .godj-layers .lc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
