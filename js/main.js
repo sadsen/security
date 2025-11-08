@@ -1,5 +1,4 @@
-/* ================= Google Maps – Main ================= */
-
+// ===== إعدادات عامة =====
 const DEFAULT_CENTER = { lat: 24.73722164546818, lng: 46.53877581519047 };
 const DEFAULT_ZOOM   = 14;
 
@@ -9,31 +8,20 @@ const circles = [];
 const infoWindows = new Map();
 let activeCircle = null;
 
-/* كشف وضع العرض من الرابط (#view= أو ?view=) */
-const hasView = () => {
-  if ((location.hash || "").includes("view=")) return true;
-  const sp = new URLSearchParams(location.search);
-  return sp.has('view');
-};
-const isViewMode = hasView();
-
-/* ضع class على الـ body مبكرًا قدر الإمكان */
-document.addEventListener('DOMContentLoaded', () => {
-  if (isViewMode) document.body.classList.add('view-mode');
-});
-
-/* ====== ترميز/فك ترميز ====== */
+// ===== أدوات ترميز/فك ترميز مضغوط =====
 function toBase64Url(bytes){let b="";bytes.forEach(x=>b+=String.fromCharCode(x));return btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");}
 function fromBase64Url(s){let b=s.replace(/-/g,"+").replace(/_/g,"/");const p=b.length%4;if(p)b+="=".repeat(4-p);const bin=atob(b);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
 function compactData(data){return{c:data.center,r:data.circles.map(c=>({l:[c.center.lat,c.center.lng],r:c.radius,co:c.strokeColor,fc:c.fillColor,o:c.fillOpacity,n:c.name,s:c.security,t:c.notes}))};}
 function expandData(c){return{center:c.c,circles:c.r.map(x=>({center:{lat:x.l[0],lng:x.l[1]},radius:x.r,strokeColor:x.co,fillColor:x.fc,fillOpacity:x.o,name:x.n||'',security:x.s||'',notes:x.t||''}))};}
 function encodeData(d){const json=JSON.stringify(compactData(d));return toBase64Url(new TextEncoder().encode(json));}
-function decodeData(s){const json=new TextDecoder().decode(fromBase64Url(s));return expandData(JSON.parse(json));}
-function getViewParam(){ if(location.hash.includes('view=')){ return new URLSearchParams(location.hash.slice(1)).get('view'); }
-  const sp=new URLSearchParams(location.search); return sp.get('view'); }
-function setViewParam(e){const url=`${location.origin}${location.pathname}#view=${e}`; history.replaceState(null,"",url); return url;}
 
-/* ====== كرت المعلومات ====== */
+// ===== توليد رابط view.html فقط =====
+function buildViewUrl(encoded){
+  const base = `${location.origin}${location.pathname}`.replace(/index\.html$/,"");
+  return `${base}view.html#view=${encoded}`;
+}
+
+// ===== كرت المعلومات =====
 function escapeHtml(t){const d=document.createElement('div');d.textContent=t??'';return d.innerHTML;}
 function infoHtml(d){
   const name  = escapeHtml(d?.name || 'نقطة مراقبة');
@@ -65,7 +53,7 @@ function closeAllInfoWindows(except){
   infoWindows.forEach(iw => { if (iw !== except) iw.close(); });
 }
 
-/* ====== دوائر ====== */
+// ===== دوائر =====
 function wireCircleHover(circle){
   const open = ()=>{ const iw=ensureInfoWindow(circle); closeAllInfoWindows(iw); iw.open({map}); };
   const move = ()=>{ const iw=ensureInfoWindow(circle); iw.setPosition(topEdgeLatLng(circle.getCenter(),circle.getRadius())); };
@@ -75,8 +63,7 @@ function wireCircleHover(circle){
   circle.addListener('mouseover', open);
   circle.addListener('mousemove', move);
   circle.addListener('mouseout',  close);
-  // في وضع العرض: لا نحدد الدائرة للتحرير
-  circle.addListener('click', ()=>{ open(); if(!isViewMode) selectCircle(circle); });
+  circle.addListener('click', ()=>{ open(); selectCircle(circle); });
 }
 
 function createCircleAt(latLng){
@@ -84,17 +71,16 @@ function createCircleAt(latLng){
     map, center:latLng, radius:100,
     strokeColor:'#7c3aed', strokeOpacity:1, strokeWeight:2,
     fillColor:'#c084fc', fillOpacity:0.35,
-    clickable:true,
-    draggable:false, editable:false           // دائماً افتراضيًا غير قابل للتعديل
+    clickable:true, draggable:false, editable:false
   });
   circle.__id   = Math.random().toString(36).slice(2);
   circle.__data = { name:'', security:'', notes:'' };
   wireCircleHover(circle);
   circles.push(circle);
-  if (!isViewMode) selectCircle(circle);
+  selectCircle(circle);
 }
 
-/* ====== المحرر ====== */
+// ===== عناصر واجهة التحرير =====
 const ed = {};
 function cacheEditorEls(){
   ed.sidebar   = document.getElementById('sidebar');
@@ -123,12 +109,10 @@ function cacheEditorEls(){
   ed.addHint  = document.getElementById('addHint');
   ed.mapEl    = document.getElementById('map');
 }
-
-function openDrawer(){ if(!isViewMode) { ed.sidebar?.classList.add('open'); ed.backdrop?.classList.remove('hidden'); } }
+function openDrawer(){ ed.sidebar?.classList.add('open'); ed.backdrop?.classList.remove('hidden'); }
 function closeDrawer(){ ed.sidebar?.classList.remove('open'); ed.backdrop?.classList.add('hidden'); }
 
 function updateEditorFromCircle(c){
-  if (isViewMode){ ed.wrap?.classList.add('hidden'); ed.empty?.classList.add('hidden'); return; }
   const has = !!c;
   if (ed.del) ed.del.disabled = !has;
   if (!c){ ed.wrap.classList.add('hidden'); ed.empty.classList.remove('hidden'); return; }
@@ -152,9 +136,6 @@ function updateEditorFromCircle(c){
 }
 
 function bindEditorEvents(){
-  // في وضع العرض لا نربط أي أحداث تحرير
-  if (isViewMode) return;
-
   ed.mobileBtn?.addEventListener('click', ()=> openDrawer());
   ed.backdrop ?.addEventListener('click', ()=> closeDrawer());
   ed.close    ?.addEventListener('click', ()=> { selectCircle(null); closeDrawer(); });
@@ -207,7 +188,7 @@ function bindEditorEvents(){
 function selectCircle(circle){
   activeCircle = circle;
   updateEditorFromCircle(circle);
-  if(!circle || isViewMode) return;   // لا نفتح المحرر في وضع العرض
+  if(!circle) return;
   const iw = ensureInfoWindow(circle); closeAllInfoWindows(iw); iw.open({map});
   circle.addListener('center_changed', ()=> ensureInfoWindow(circle));
   circle.addListener('radius_changed', ()=> ensureInfoWindow(circle));
@@ -215,7 +196,7 @@ function selectCircle(circle){
   openDrawer();
 }
 
-/* ====== مشاركة/تحميل ====== */
+// ===== مشاركة =====
 function shareMap(){
   const data = {
     center: { lat: map.getCenter().lat(), lng: map.getCenter().lng(), zoom: map.getZoom() },
@@ -232,7 +213,7 @@ function shareMap(){
   };
   try{
     const encoded = encodeData(data);
-    const url = setViewParam(encoded);
+    const url = buildViewUrl(encoded); // <<— رابط عرض فقط
     if (navigator.share){
       navigator.share({ title: document.title, url }).catch(()=>{
         navigator.clipboard.writeText(url).then(()=> alert('تم نسخ رابط الخريطة!'));
@@ -246,43 +227,10 @@ function shareMap(){
   }
 }
 
-function loadFromUrl(){
-  if(!isViewMode) return;
-  try{
-    const encoded = getViewParam(); if(!encoded) return;
-    const data = decodeData(encoded);
-    if (data.center){
-      map.setCenter(new google.maps.LatLng(data.center.lat, data.center.lng));
-      map.setZoom(data.center.zoom || DEFAULT_ZOOM);
-    }
-    (data.circles || []).forEach(c=>{
-      const circle = new google.maps.Circle({
-        map,
-        center: new google.maps.LatLng(c.center.lat, c.center.lng),
-        radius: c.radius || 100,
-        strokeColor: c.strokeColor || '#7c3aed',
-        strokeOpacity: 1, strokeWeight: 2,
-        fillColor: c.fillColor || '#c084fc',
-        fillOpacity: (typeof c.fillOpacity==='number') ? c.fillOpacity : 0.35,
-        clickable: true,
-        draggable: false, editable: false   // إجبارياً للعرض فقط
-      });
-      circle.__id = Math.random().toString(36).slice(2);
-      circle.__data = { name:c.name||'', security:c.security||'', notes:c.notes||'' };
-      wireCircleHover(circle);
-      circles.push(circle);
-    });
-  }catch(e){
-    console.warn('فشل تحميل الخريطة من الرابط:', e);
-  }
-}
-
-/* ====== لوحة الطبقات ====== */
+// ===== لوحة الطبقات =====
 function setupLayersControl(){
   const box = document.createElement('div');
   box.className = 'godj-layers min';
-  try { const saved = localStorage.getItem('godj_layers_open'); if (saved === '1') box.classList.remove('min'); } catch {}
-
   box.innerHTML = `
     <div class="lc-head" id="lcHead" title="الطبقات">الطبقات</div>
     <div class="lc-body" id="lcBody">
@@ -299,7 +247,6 @@ function setupLayersControl(){
       <label class="chk"><input type="checkbox" id="lcTransit"> النقل العام</label>
       <label class="chk"><input type="checkbox" id="lcBike"> مسارات الدراجات</label>
     </div>`;
-
   map.controls[google.maps.ControlPosition.TOP_LEFT].push(box);
 
   const sel      = box.querySelector('#lcBase');
@@ -317,14 +264,10 @@ function setupLayersControl(){
   tTransit.addEventListener('change',()=> transitLayer  .setMap(tTransit.checked ? map : null));
   tBike   .addEventListener('change',()=> bicyclingLayer.setMap(tBike.checked    ? map : null));
 
-  const toggleMin = ()=>{
-    box.classList.toggle('min');
-    try{ localStorage.setItem('godj_layers_open', box.classList.contains('min') ? '0':'1'); }catch{}
-  };
-  head.addEventListener('click',  toggleMin);
+  head.addEventListener('click',()=> box.classList.toggle('min'));
 }
 
-/* ====== تهيئة ====== */
+// ===== تهيئة =====
 window.initMap = function(){
   map = new google.maps.Map(document.getElementById('map'),{
     center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM, gestureHandling:'greedy',
@@ -333,28 +276,22 @@ window.initMap = function(){
 
   setupLayersControl();
   cacheEditorEls();
+  bindEditorEvents();
 
-  if (!isViewMode) {
-    bindEditorEvents();
+  document.getElementById('addCircleBtn')?.addEventListener('click', ()=>{
+    addMode = true;
+    ed.mapEl.classList.add('add-cursor');
+    ed.addHint.classList.remove('hidden');
+    closeDrawer();
+  });
 
-    document.getElementById('addCircleBtn')?.addEventListener('click', ()=>{
-      addMode = true;
-      ed.mapEl.classList.add('add-cursor');
-      ed.addHint.classList.remove('hidden');
-      closeDrawer();
-    });
+  document.getElementById('shareBtn')?.addEventListener('click', shareMap);
 
-    document.getElementById('shareBtn')?.addEventListener('click', shareMap);
-
-    map.addListener('click', (e)=>{
-      if (!addMode) return;
-      addMode = false;
-      ed.mapEl.classList.remove('add-cursor');
-      ed.addHint.classList.add('hidden');
-      createCircleAt(e.latLng);
-    });
-  } else {
-    // وضع العرض: لا ربط لأزرار التحرير إطلاقًا
-    loadFromUrl();
-  }
+  map.addListener('click', (e)=>{
+    if (!addMode) return;
+    addMode = false;
+    ed.mapEl.classList.remove('add-cursor');
+    ed.addHint.classList.add('hidden');
+    createCircleAt(e.latLng);
+  });
 };
