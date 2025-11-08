@@ -14,22 +14,21 @@
                  frame-ancestors 'none'">
 
   <link rel="stylesheet" href="css/style.css" />
-  <!-- إخفاء أي عناصر تحرير بشكل قاطع في صفحة العرض -->
+  <!-- منع ظهور أي عناصر تحرير -->
   <style>.sidebar,.mobile-toggle,.backdrop,.add-hint{display:none!important}</style>
 </head>
 <body>
-  <!-- الخريطة فقط -->
   <div id="map" aria-label="الخريطة"></div>
 
   <noscript>يجب تفعيل JavaScript لعرض الخرائط.</noscript>
 
-  <!-- مكتبة خرائط Google (مفتاحك مضمن) -->
-  <script
-    async
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&callback=initMap&libraries=geometry&v=weekly&loading=async">
-  </script>
+  <!-- منطق العرض فقط أولاً -->
+  <script defer src="js/view.js"></script>
 
-  <!-- منطق العرض فقط -->
-  <script src="js/view.js"></script>
+  <!-- ثم مكتبة الخرائط بـ defer -->
+  <script
+    defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&callback=initMap&libraries=geometry&v=weekly">
+  </script>
 </body>
 </html>
