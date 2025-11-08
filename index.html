@@ -5,29 +5,98 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>خريطة الأمن</title>
 
-  <!-- نمط الواجهة -->
+  <!-- ستايل -->
   <link rel="stylesheet" href="css/style.css" />
 
-  <!-- لون المتصفح على الجوال -->
-  <meta name="theme-color" content="#0b1220" />
+  <!-- تحسين عرض الخط العربي على كل المتصفحات -->
+  <meta http-equiv="x-ua-compatible" content="ie=edge" />
 </head>
 <body>
-  <!-- عنصر الخريطة يملأ الشاشة -->
+  <!-- صندوق الطبقات -->
+  <div id="layersBox" class="card">
+    <div class="card-title">الطبقات</div>
+    <label class="row">
+      <span>نوع الخريطة</span>
+      <select id="mapTypeSelect">
+        <option value="roadmap">خريطة</option>
+        <option value="satellite">قمر صناعي</option>
+        <option value="hybrid">هجين</option>
+        <option value="terrain">تضاريس</option>
+      </select>
+    </label>
+    <label class="row"><input type="checkbox" id="layerTraffic" /> حركة المرور</label>
+    <label class="row"><input type="checkbox" id="layerTransit" /> النقل العام</label>
+    <label class="row"><input type="checkbox" id="layerBike" /> مسارات الدراجات</label>
+  </div>
+
+  <!-- لوحة التحرير -->
+  <aside id="editorPanel" class="panel">
+    <div class="panel-header">
+      <h3>لوحة التحكم</h3>
+    </div>
+
+    <div class="panel-body">
+      <button id="addCircleBtn" class="btn btn-primary">إضافة موقع +</button>
+      <button id="shareBtn" class="btn btn-secondary">مشاركة الخريطة</button>
+
+      <p class="hint">نصيحة: مرّر الماوس على الدائرة لعرض الكرت؛ على الجوال: اضغط/المس.</p>
+
+      <div class="section">
+        <div class="section-title">تحرير الدائرة</div>
+
+        <label class="label">اسم الموقع</label>
+        <input id="siteName" class="input" placeholder="مثال: دوار البجيري" />
+
+        <label class="label">أفراد الأمن (كل اسم في سطر)</label>
+        <textarea id="securityNames" class="textarea" placeholder="اكتب كل اسم في سطر"></textarea>
+
+        <label class="label">ملاحظات</label>
+        <textarea id="notes" class="textarea" placeholder="...ملاحظاتك"></textarea>
+
+        <div class="grid-2">
+          <div>
+            <label class="label">لون التعبئة</label>
+            <input type="color" id="fillColor" class="input" value="#a78bfa" />
+          </div>
+          <div>
+            <label class="label">لون الحدود</label>
+            <input type="color" id="strokeColor" class="input" value="#7c3aed" />
+          </div>
+        </div>
+
+        <label class="label">شفافية التعبئة</label>
+        <input type="range" id="fillOpacity" min="0" max="1" step="0.01" value="0.25" />
+
+        <label class="label">نصف القطر (م)</label>
+        <input id="radius" class="input" type="number" min="1" value="15" />
+
+        <div class="grid-2">
+          <label class="row"><input type="checkbox" id="dragToggle" /> سحب الدائرة</label>
+          <label class="row"><input type="checkbox" id="editToggle" /> تغيير الحجم</label>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- عنصر الخريطة يجب أن يملأ الشاشة -->
   <div id="map" aria-label="الخريطة"></div>
 
-  <!-- سكربت التطبيق (يبني لوحـة الطبقات ولوحة التحرير تلقائيًا) -->
-  <script src="js/main.js" defer></script>
+  <!-- حمّل التطبيق أولاً (يعرّف window.initMap) -->
+  <script src="js/main.js"></script>
 
-  <!-- Google Maps (استبدل المفتاح إن لزم) -->
+  <!-- ثم خرائط قوقل مع callback جاهز. وضع async/.defer الآن آمن لأن الدالة معرّفة مسبقاً -->
   <script
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&v=weekly&callback=initMap"
-    async defer></script>
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&libraries=geometry&v=weekly&callback=initMap"
+    async defer>
+  </script>
 
-  <!-- استدعاء احتياطي إذا لم يُنفّذ الـ callback لأي سبب -->
+  <!-- احتياطي: لو (لا قدر الله) لم تُستدعَ callback لأي سبب، نشغّل initMap بعد التحميل الكامل -->
   <script>
-    window.addEventListener('load', () => {
-      if (typeof window.initMap === 'function' && !window.__mapBootstrapped) {
-        try { window.initMap(); } catch (_) {}
+    window.addEventListener('load', function(){
+      if (typeof window.google === 'object' &&
+          typeof google.maps === 'object' &&
+          typeof window.initMap === 'function') {
+        try { window.initMap(); } catch(e) { console.error(e); }
       }
     });
   </script>
