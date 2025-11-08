@@ -1,4 +1,3 @@
-/* === قاعدة عامة للخريطة والصفحة === */
 :root{
   --panel-bg:#0b1220;
   --panel-bd:rgba(255,255,255,.08);
@@ -10,44 +9,48 @@
 html,body{height:100%}
 body{
   margin:0;
-  background:#e9ebef;
+  background:#eef1f5;
   font-family:"Tajawal","Cairo",system-ui,Arial;
   color:#111827;
 }
 
-/* الخريطة تملأ الشاشة فورًا */
+/* الخريطة */
 #map{
   position:fixed;
   inset:0;
-  height:100vh;
   width:100vw;
-  transform:translateZ(0);            /* يساعد الـ GPU على الرسم */
-  backface-visibility:hidden;
-  will-change:transform;
+  height:100vh;
 }
 
-/* زر تحرير (الجوال) إن وجد */
+/* زر فتح اللوحة (جوال) */
 #mobileToggle{
   position:fixed; bottom:18px; left:18px; z-index:1100;
   background:#0b1220; color:#fff; border:0; border-radius:14px;
   padding:12px 16px; box-shadow:0 6px 20px rgba(0,0,0,.25);
 }
 
-/* الشريط الجانبي (لوحة التحرير) */
+/* اللوحة الجانبية */
 .sidebar{
   position:fixed; top:0; right:0; height:100%; width:380px; max-width:92vw;
   background:var(--panel-bg); color:var(--txt); border-left:1px solid var(--panel-bd);
-  z-index:1090; overflow:auto; padding:18px; transform:translateX(0);
+  z-index:1090; overflow:auto; padding:18px;
 }
 @media (max-width: 992px){
   .sidebar{ transform:translateX(100%); transition:.28s ease; }
   .sidebar.open{ transform:translateX(0); }
 }
 #drawerBackdrop{
-  position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:1085; display:none;
+  position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:1085;
 }
 #drawerBackdrop.hidden{ display:none }
-.sidebar .section{ margin:14px 0 }
+
+.section{ margin:14px 0 }
+.panel{
+  color:#cbd5e1; background:#0f172a; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:14px
+}
+.grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:10px }
+.row-inline{ display:flex; gap:12px; align-items:center }
+
 .sidebar label{ display:block; font-weight:700; color:#cbd5e1; margin-bottom:6px }
 .sidebar input[type="text"],
 .sidebar input[type="number"],
@@ -57,20 +60,17 @@ body{
   color:#fff; border-radius:10px; padding:10px 12px;
 }
 .sidebar textarea{ min-height:120px; resize:vertical }
-
-/* أزرار أسفل اللوحة */
-.btn{
-  display:inline-block; width:100%; text-align:center; border:0; cursor:pointer;
-  padding:12px 14px; border-radius:12px; font-weight:800;
-}
+.btn{ display:inline-block; width:100%; text-align:center; border:0; cursor:pointer; padding:12px 14px; border-radius:12px; font-weight:800 }
 .btn-primary{ background:#10b981; color:#061015 }
 .btn-dark{ background:#1f2937; color:#e5e7eb }
 .btn-danger{ background:#ef4444; color:#fff }
+.editor-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px }
+.chip{ background:#0f172a; color:#fff; border:0; border-radius:10px; padding:6px 10px }
 
-/* === بطاقة معلومات الـ InfoWindow (أوسع) === */
+/* بطاقة المعلومات (InfoWindow) — أوسع */
 .infocard{
-  min-width: 360px;     /* كان ضيّق؛ وسعناه */
-  max-width: 420px;
+  min-width: 360px;
+  max-width: 440px;
   color:#f3f4f6;
   background:#111827;
   border-radius:16px;
@@ -97,12 +97,12 @@ body{
 .infocard .names{ white-space:pre-line; font-weight:700; color:#fff }
 .infocard .notes{ color:#e5e7eb }
 
-/* === صندوق الطبقات أعلى اليسار === */
+/* صندوق الطبقات */
 .layers{
   position:fixed; top:12px; left:12px; z-index:1200;
   background:#ffffff; border-radius:12px; border:1px solid rgba(0,0,0,.08);
   box-shadow:0 10px 26px rgba(0,0,0,.18);
-  padding:10px; width: 230px; max-width:92vw;
+  padding:10px; width: 260px; max-width:92vw;
   direction:rtl;
 }
 .layers h4{ margin:0 0 8px; font-size:14px; font-weight:900; color:#111827 }
@@ -121,5 +121,4 @@ body{
   .layers .handle{ display:block }
 }
 
-/* helper */
 .hidden{ display:none !important }
