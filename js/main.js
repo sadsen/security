@@ -8,35 +8,36 @@ function b64Decode(b64){ return decodeURIComponent(escape(atob(b64))); }
 function toBase64Url(b64){ return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 function fromBase64Url(b64url){ let b64=b64url.replace(/-/g,'+').replace(/_/g,'/'); while(b64.length%4)b64+='='; return b64; }
 
-// ===== ترميز مضغوط للغاية v=c2 =====
+// ===== ضغط شديد v=c2 =====
 // الشكل: {v:'c2', t:0/1, s:[ [name, type, latB36, lngB36, style? , rec?] ... ] }
-// latB36/lngB36: أعداد قاعدة 36 (lat*1e5 ، lng*1e5 مع الإشارة)
-// style = [r, fillHex, fop, strokeHex, sw] فقط إذا اختلف عن الافتراضي
-// rec = "a|b|c" إن وُجدت
+// latB36/lngB36 = (lat*1e5 | lng*1e5) بالأساس 36 (تدعم الإشارة)
+// style = [r, fillHex, fop, strokeHex, sw] إذا تغيّر عن الافتراضي
+// rec = "a|b|c" إن وُجد
 const DEF_STYLE = { radius:15, fill:'#60a5fa', fillOpacity:0.16, stroke:'#60a5fa', strokeWeight:2 };
 
-function nToB36(n){ // يدعم السالب
-  const s = Math.round(n).toString(36);
-  return s;
-}
-function b36ToN(s){
-  const n = parseInt(s, 36);
-  return n;
-}
+function nToB36(n){ return Math.round(n).toString(36); }      // يدعم السالب
+function b36ToN(s){ return parseInt(s, 36); }
+
 function packSite(site){
   const latE5 = Math.round(site.lat*1e5);
   const lngE5 = Math.round(site.lng*1e5);
   const arr = [site.name, site.type||'', nToB36(latE5), nToB36(lngE5)];
   const st = site.style || DEF_STYLE;
-  const stIsDef = st.radius===DEF_STYLE.radius && st.fill===DEF_STYLE.fill &&
-                  Math.abs(st.fillOpacity-DEF_STYLE.fillOpacity)<1e-9 &&
-                  st.stroke===DEF_STYLE.stroke && st.strokeWeight===DEF_STYLE.strokeWeight;
+  const stIsDef = st.radius===DEF_STYLE.radius &&
+                  (st.fill||'').toLowerCase()===(DEF_STYLE.fill).toLowerCase() &&
+                  Math.abs((+st.fillOpacity)-(DEF_STYLE.fillOpacity))<1e-9 &&
+                  (st.stroke||'').toLowerCase()===(DEF_STYLE.stroke).toLowerCase() &&
+                  (st.strokeWeight||2)===(DEF_STYLE.strokeWeight);
   if (!stIsDef){
-    arr.push([st.radius||15, (st.fill||DEF_STYLE.fill).replace('#',''),
-              +(+st.fillOpacity).toFixed(2), (st.stroke||DEF_STYLE.stroke).replace('#',''),
-              st.strokeWeight||2]);
+    arr.push([
+      st.radius||15,
+      (st.fill||DEF_STYLE.fill).replace('#','').toLowerCase(),
+      +(+st.fillOpacity).toFixed(2),
+      (st.stroke||DEF_STYLE.stroke).replace('#','').toLowerCase(),
+      st.strokeWeight||2
+    ]);
   } else {
-    arr.push(0); // افتراضي
+    arr.push(0);
   }
   const rec = (site.recipients && site.recipients.length) ? site.recipients.join('|') : '';
   arr.push(rec);
@@ -46,16 +47,19 @@ function unpackSite(arr){
   const [name,type,latB36,lngB36,styleOrZero,recStr=''] = arr;
   const lat = b36ToN(latB36)/1e5;
   const lng = b36ToN(lngB36)/1e5;
-  let style = DEF_STYLE;
+  let style = { ...DEF_STYLE };
   if (styleOrZero && styleOrZero!==0){
     const [r,fillHex,fop,strokeHex,sw] = styleOrZero;
-    style = { radius:r??15, fill:'#'+(fillHex||'60a5fa'),
-              fillOpacity: fop??0.16, stroke:'#'+(strokeHex||'60a5fa'),
-              strokeWeight: sw??2 };
+    style = {
+      radius: r ?? 15,
+      fill: '#'+(fillHex||'60a5fa'),
+      fillOpacity: fop ?? 0.16,
+      stroke: '#'+(strokeHex||'60a5fa'),
+      strokeWeight: sw ?? 2
+    };
   }
   const recipients = recStr ? recStr.split('|') : [];
-  // ننشئ id تلقائيًا (قصير) لأننا لا ننقله داخل الرابط
-  const id = 's-' + Math.random().toString(36).slice(2,8);
+  const id = 's-' + Math.random().toString(36).slice(2,8); // معرف قصير
   return { id, name, type, lat, lng, recipients, style };
 }
 function encodeShareState(state){
@@ -65,26 +69,23 @@ function encodeShareState(state){
 function decodeShareState(s){
   try{
     const o = JSON.parse(b64Decode(fromBase64Url(s)));
-    if (o && o.v === 'c2' && Array.isArray(o.s)){
-      return { traffic: !!o.t, sites: o.s.map(unpackSite) };
-    }
-    // توافق خلفي (c1/كلاسيكي)
+    if (o && o.v==='c2' && Array.isArray(o.s)) return { traffic: !!o.t, sites: o.s.map(unpackSite) };
     return null;
   }catch{ return null; }
 }
 
-// ===== LocalStorage (للوضع العادي فقط) =====
+// ===== LocalStorage =====
 const LS_KEY = 'security:state.v3';
 function loadLocal(){ try{ const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null; }catch{ return null; } }
 function saveLocal(state){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch{} }
 
-// ===== الحالة الافتراضية =====
+// ===== الحالة الافتراضية (مواقعك) =====
 function defaultState(){
   const S = (name,lat,lng,type) => ({
     id: 's-' + Math.random().toString(36).slice(2,8),
     name, type, lat, lng,
     recipients: [],
-    style: {...DEF_STYLE}
+    style: { ...DEF_STYLE }
   });
   return {
     traffic: false,
@@ -118,12 +119,10 @@ window.initMap = function () {
   const isShare = params.get('view') === 'share';
   if (isShare) document.body.classList.add('share');
 
-  let state;
-  if (isShare) {
-    state = params.get('s') ? (decodeShareState(params.get('s')) || defaultState()) : defaultState();
-  } else {
-    state = loadLocal() || defaultState();
-  }
+  // الحالة: في العرض من s= فقط، وفي العادي من LocalStorage أو الافتراضي
+  let state = isShare
+    ? (params.get('s') ? (decodeShareState(params.get('s')) || defaultState()) : defaultState())
+    : (loadLocal() || defaultState());
 
   // الخريطة
   const map = new google.maps.Map(document.getElementById('map'), {
@@ -141,9 +140,8 @@ window.initMap = function () {
   setTraffic(trafficOn);
   trafficBtn.addEventListener('click', () => setTraffic(!trafficOn));
 
-  // عناصر الكرت والمحرر
+  // عناصر الكرت/المحرر
   const card = document.getElementById('info-card');
-  const closeBtn = card.querySelector('.close');
   const nameEl = document.getElementById('site-name');
   const typeEl = document.getElementById('site-type');
   const coordEl = document.getElementById('site-coord');
@@ -155,6 +153,7 @@ window.initMap = function () {
   const editorInput = document.getElementById('editor-input');
   const editorSave = document.getElementById('editor-save');
   const editorCancel = document.getElementById('editor-cancel');
+  card.querySelector('.close').addEventListener('click', () => { pinnedId=null; closeCard(); });
 
   const markers = [];
   const circles = [];
@@ -192,12 +191,13 @@ window.initMap = function () {
       radius: site.style.radius, fillColor: site.style.fill, fillOpacity: site.style.fillOpacity,
       strokeColor: site.style.stroke, strokeWeight: site.style.strokeWeight
     });
-    if (!isShare) localStorage.setItem(LS_KEY, JSON.stringify(state));
     if (selectedId === site.id){
       coordEl.textContent = `${toFixed6(site.lat)}, ${toFixed6(site.lng)}`;
       radiusEl.textContent = `${site.style.radius} م`;
       recEl.textContent = renderRecipients(site.recipients);
     }
+    // خزّن لقطة حديثة دائمًا
+    if (!isShare) saveLocal(snapshotState());
   }
 
   function createFeature(site){
@@ -221,7 +221,6 @@ window.initMap = function () {
 
     function flash(){ circle.setOptions({ strokeOpacity:1, fillOpacity:Math.min(site.style.fillOpacity+0.06,1) });
                       setTimeout(()=>circle.setOptions({ strokeOpacity:0.95, fillOpacity:site.style.fillOpacity }),240); }
-
     const pinOpen = () => { pinnedId = site.id; openCard(site); map.panTo(pos); flash(); };
     marker.addListener('click', pinOpen);
     circle.addListener('click', pinOpen);
@@ -236,11 +235,12 @@ window.initMap = function () {
     });
   }
 
+  // أنشئ المواقع + حدّد حدود العرض
   const bounds = new google.maps.LatLngBounds();
   state.sites.forEach(s => { createFeature(s); bounds.extend({lat:s.lat, lng:s.lng}); });
   if (isShare && !bounds.isEmpty()) map.fitBounds(bounds, 60);
 
-  // أدوات التحرير (الوضع العادي فقط)
+  // ===== أدوات التحرير (الوضع العادي فقط) =====
   if (!isShare) {
     const toggleMarkers = document.getElementById('toggle-markers');
     const toggleCircles = document.getElementById('toggle-circles');
@@ -261,19 +261,21 @@ window.initMap = function () {
     toggleCircles.addEventListener('change', () => { const on = toggleCircles.checked; circles.forEach(c=>c.setMap(on?map:null)); });
     baseMapSel.addEventListener('change', () => map.setMapTypeId(baseMapSel.value));
 
+    // ==== تعديل خصائص الدائرة المختارة (مع أرقام فعلية) ====
     function withSel(fn){ if (!selectedId) return; const s = byId[selectedId]; fn(s); syncFeature(s); }
-    edRadius.addEventListener('input', () => withSel(s => s.style.radius = parseInt(edRadius.value,10)));
-    edFill.addEventListener('input',   () => withSel(s => s.style.fill = edFill.value));
-    edFillOp.addEventListener('input', () => withSel(s => s.style.fillOpacity = parseFloat(edFillOp.value)));
-    edStroke.addEventListener('input', () => withSel(s => s.style.stroke = edStroke.value));
-    edStrokeW.addEventListener('input',() => withSel(s => s.style.strokeWeight = parseInt(edStrokeW.value,10)));
+    edRadius.addEventListener('input',  () => withSel(s => s.style.radius       = edRadius.valueAsNumber || parseInt(edRadius.value,10)));
+    edFill  .addEventListener('input',  () => withSel(s => s.style.fill         = (edFill.value||'#60a5fa').toLowerCase()));
+    edFillOp.addEventListener('input',  () => withSel(s => s.style.fillOpacity  = (edFillOp.valueAsNumber ?? parseFloat(edFillOp.value))));
+    edStroke.addEventListener('input',  () => withSel(s => s.style.stroke       = (edStroke.value||'#60a5fa').toLowerCase()));
+    edStrokeW.addEventListener('input', () => withSel(s => s.style.strokeWeight = edStrokeW.valueAsNumber || parseInt(edStrokeW.value,10)));
 
+    // إضافة/حذف
     btnAdd.addEventListener('click', () => {
       const c = map.getCenter();
       const site = { id:'s-'+Math.random().toString(36).slice(2,8), name:'موقع جديد', type:'نقطة', lat:c.lat(), lng:c.lng(),
-        recipients:[], style:{...DEF_STYLE} };
+        recipients:[], style:{ ...DEF_STYLE } };
       state.sites.push(site); createFeature(site); bounds.extend({lat:site.lat,lng:site.lng});
-      pinnedId = site.id; openCard(site); saveLocal(state);
+      pinnedId = site.id; openCard(site); saveLocal(snapshotState());
     });
     btnDel.addEventListener('click', () => {
       if (!selectedId) return;
@@ -285,25 +287,49 @@ window.initMap = function () {
         if (cIdx>=0){ circles[cIdx].setMap(null); circles.splice(cIdx,1); }
         delete byId[selectedId];
         state.sites.splice(i,1);
-        pinnedId=null; closeCard(); saveLocal(state);
+        pinnedId=null; closeCard(); saveLocal(snapshotState());
       }
     });
 
     // محرر المستلمين
-    document.getElementById('edit-recipients')?.addEventListener('click', () => {
+    editBtn?.addEventListener('click', () => {
       if (!selectedId) return; const s = byId[selectedId];
-      editorInput.value = (s.recipients||[]).join('\n'); editor.classList.remove('hidden'); editorInput.focus();
+      editorInput.value = (s.recipients || []).join('\n'); editor.classList.remove('hidden'); editorInput.focus();
     });
-    editorCancel.addEventListener('click', ()=> editor.classList.add('hidden'));
+    editorCancel.addEventListener('click', () => editor.classList.add('hidden'));
     editorSave.addEventListener('click', () => {
       if (!selectedId) return; const s = byId[selectedId];
       s.recipients = editorInput.value.split('\n').map(x=>x.trim()).filter(Boolean);
-      syncFeature(s); editor.classList.add('hidden'); saveLocal(state);
+      syncFeature(s); editor.classList.add('hidden'); saveLocal(snapshotState());
     });
 
-    // رابط المشاركة القصير: ?view=share&s=...
-    shareBtn.addEventListener('click', async () => {
-      const s = encodeShareState({ traffic: trafficOn, sites: state.sites });
+    // ===== لقطة لحظية + رابط مشاركة قصير =====
+    function normalizeStyle(st){
+      return {
+        radius: Number(st.radius ?? 15),
+        fill: (st.fill || '#60a5fa').toLowerCase(),
+        fillOpacity: Number(st.fillOpacity ?? 0.16),
+        stroke: (st.stroke || '#60a5fa').toLowerCase(),
+        strokeWeight: Number(st.strokeWeight ?? 2)
+      };
+    }
+    function snapshotState(){
+      const sites = Object.values(byId).map(s => ({
+        id: s.id,
+        name: s.name,
+        type: s.type || '',
+        lat: Number(s.lat),
+        lng: Number(s.lng),
+        recipients: Array.isArray(s.recipients) ? s.recipients.slice() : [],
+        style: normalizeStyle(s.style || {})
+      }));
+      return { traffic: trafficOn, sites };
+    }
+
+    const shareBtnEl = document.getElementById('share-btn');
+    const toast = document.getElementById('toast');
+    shareBtnEl.addEventListener('click', async () => {
+      const s = encodeShareState(snapshotState());       // لقطة فورية + ضغط c2
       const url = `${location.origin}${location.pathname}?view=share&s=${s}`;
       try{ await navigator.clipboard.writeText(url); }catch{}
       toast.textContent='تم النسخ ✅'; toast.classList.remove('hidden');
@@ -311,7 +337,7 @@ window.initMap = function () {
     });
   }
 
-  // إغلاق الكرت عند الضغط على الخريطة وفك التثبيت
+  // الضغط على الخريطة = فك التثبيت وإخفاء الكرت
   map.addListener('click', () => { pinnedId=null; closeCard(); });
 
   console.log(isShare ? 'Share View (c2 compact)' : 'Editor View');
