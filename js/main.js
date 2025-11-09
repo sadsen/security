@@ -1,19 +1,19 @@
 /* =======================
-   خريطة الأمن – main.js  (c3 short share, mobile-safe)
+   خريطة الأمن – main.js  (c4 delta sharing, mobile-safe)
    ======================= */
 
-/* ---------- Utilities ---------- */
+/* ---------- Helpers ---------- */
 function toFixed6(x){ return Number(x).toFixed ? Number(x).toFixed(6) : x; }
 function qs(){ return new URLSearchParams(location.search); }
+const DEF_STYLE = { radius:15, fill:'#60a5fa', fillOpacity:0.16, stroke:'#60a5fa', strokeWeight:2 };
 
-/* ---------- Base64URL helpers (للصيغة c2 القديمة) ---------- */
+/* ---------- Base64URL (للصيغة c2 القديمة) ---------- */
 function b64e(s){ return btoa(unescape(encodeURIComponent(s))); }
 function b64d(s){ return decodeURIComponent(escape(atob(s))); }
 function toUrl(b){ return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 function fromUrl(u){ let b=u.replace(/-/g,'+').replace(/_/g,'/'); while(b.length%4)b+='='; return b; }
 
-/* ---------- LZ-String (نسخة مصغرة – آمنة للـ URI بدون استخدام +) ---------- */
-/* المصدر الأصلي: pieroxy/lz-string – معدّلة لإرجاع/أخذ سلاسل encodeURIComponent الخالصة */
+/* ---------- LZ-String (URI-safe بدون +) ---------- */
 const LZ = (function(){
   function o(r){return String.fromCharCode(r);}
   const keyURI = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";
@@ -81,15 +81,13 @@ const LZ = (function(){
     value=2;
     for(i=0;i<numBits;i++){ outVal=(outVal<<1)|(value&1); if(outPos==bitsPerChar-1){ outPos=0; out.push(getCharFromInt(outVal)); outVal=0; } else outPos++; value>>=1; }
     while(true){ outVal=(outVal<<1); if(outPos==bitsPerChar-1){ out.push(getCharFromInt(outVal)); break; } else outPos++; }
-    // ⚠️ نعيد النص من غير استبدال %20 بـ +  (مهم للجوال)
-    return encodeURIComponent(out.join(''));
+    return encodeURIComponent(out.join('')); // بدون + نهائيًا
   }
   function decompressFromEncodedURIComponent(input){
     if(input==null) return "";
-    // لا نستبدل + إطلاقًا — ندخل النص كما هو لـ decodeURIComponent
-    input = decodeURIComponent(input);
+    input = decodeURIComponent(input); // بدون استبدالات
     if(input=="") return null;
-    return _decompress(input.length, 32, index => input.charCodeAt(index));
+    return _decompress(input.length, 32, i => input.charCodeAt(i));
   }
   function _decompress(length, resetValue, getNextValue){
     const dictionary=[], result=[], data={val:getNextValue(0), position:resetValue, index:1};
@@ -106,13 +104,13 @@ const LZ = (function(){
       return bits;
     }
     let next = readBits(2);
-    switch(next){ case 0: c=o(readBits(8)); break; case 1: c=o(readBits(16)); break; case 2: return ""; }
-    dictionary[3] = w = c; result.push(c);
+    switch(next){ case 0: c=String.fromCharCode(readBits(8)); break; case 1: c=String.fromCharCode(readBits(16)); break; case 2: return ""; }
+    dictionary[3]=w=c; result.push(c);
     while(true){
       if(data.index>length) return "";
-      const cc = readBits(numBits); let code = cc;
-      if(code===0){ c=o(readBits(8)); dictionary[dictSize++]=c; code=dictSize-1; enlargeIn--; }
-      else if(code===1){ c=o(readBits(16)); dictionary[dictSize++]=c; code=dictSize-1; enlargeIn--; }
+      const cc=readBits(numBits); let code=cc;
+      if(code===0){ c=String.fromCharCode(readBits(8)); dictionary[dictSize++]=c; code=dictSize-1; enlargeIn--; }
+      else if(code===1){ c=String.fromCharCode(readBits(16)); dictionary[dictSize++]=c; code=dictSize-1; enlargeIn--; }
       else if(code===2){ return result.join(''); }
       if(enlargeIn==0){ enlargeIn=Math.pow(2,numBits); numBits++; }
       if(dictionary[code]) entry=dictionary[code];
@@ -125,55 +123,175 @@ const LZ = (function(){
   return { cURI: compressToEncodedURIComponent, dURI: decompressFromEncodedURIComponent };
 })();
 
-/* ---------- ترميز المواقع (c2) – كطبقة قبل ضغط c3 ---------- */
-const DEF_STYLE = { radius:15, fill:'#60a5fa', fillOpacity:0.16, stroke:'#60a5fa', strokeWeight:2 };
+/* ---------- المواقع الافتراضية (ثابتة الترتيب) ---------- */
+const DEFAULT_SITES = [
+  ['بوابة سمحان',24.742132284177778,46.569503913805825,'بوابة'],
+  ['منطقة سمحان',24.74091335108621,46.571891407130025,'منطقة'],
+  ['دوار البجيري',24.737521801476476,46.57406918772067,'دوار'],
+  ['إشارة البجيري',24.73766260194535,46.575429040147306,'إشارة'],
+  ['طريق الملك فيصل',24.736133848943062,46.57696607050239,'طريق'],
+  ['نقطة فرز الشلهوب',24.73523670533632,46.57785639752234,'نقطة فرز'],
+  ['المسار الرياضي المديد',24.735301077804944,46.58178092599035,'مسار رياضي'],
+  ['ميدان الملك سلمان',24.73611373368281,46.58407097038162,'ميدان'],
+  ['دوار الضوء الخافت',24.739718342668006,46.58352614787052,'دوار'],
+  ['المسار الرياضي طريق الملك خالد الفرعي',24.740797019998627,46.5866145907347,'مسار رياضي'],
+  ['دوار البلدية',24.739266101368777,46.58172727078356,'دوار'],
+  ['مدخل ساحة البلدية الفرعي',24.738638518378387,46.579858026042785,'مدخل'],
+  ['مدخل مواقف البجيري (كار بارك)',24.73826438056506,46.57789576275729,'مدخل'],
+  ['مواقف الامن',24.73808736962705,46.57771858346317,'مواقف'],
+  ['دوار الروقية',24.741985907266145,46.56269186990043,'دوار'],
+  ['بيت مبارك',24.732609768937607,46.57827089439368,'موقع'],
+  ['دوار وادي صفار',24.72491458984474,46.57345489743978,'دوار'],
+  ['دوار راس النعامة',24.710329841152387,46.572921959358204,'دوار'],
+  ['مزرعة الحبيب',24.709445443672344,46.593971867951346,'مزرعة']
+];
+
+/* مصفوفة كائنات من الافتراضيات */
+function defaultState(){
+  return {
+    traffic:false,
+    sites: DEFAULT_SITES.map(([name,lat,lng,type]) => ({
+      id:'s-'+Math.random().toString(36).slice(2,8),
+      name,type,lat,lng,recipients:[], style:{...DEF_STYLE}
+    }))
+  };
+}
+
+/* ---------- مشاركة c2 (قديمة) ---------- */
 const nToB36 = n => Math.round(n).toString(36);
 const b36ToN = s => parseInt(s,36);
-
-function packSite(s){
-  const latE5 = Math.round(s.lat*1e5), lngE5 = Math.round(s.lng*1e5);
-  const st = s.style || DEF_STYLE;
+function packSiteC2(s){
+  const latE5=Math.round(s.lat*1e5), lngE5=Math.round(s.lng*1e5);
+  const st=s.style||DEF_STYLE;
   const def = st.radius===DEF_STYLE.radius &&
               (st.fill||'').toLowerCase()===(DEF_STYLE.fill).toLowerCase() &&
               Math.abs((+st.fillOpacity)-(DEF_STYLE.fillOpacity))<1e-9 &&
               (st.stroke||'').toLowerCase()===(DEF_STYLE.stroke).toLowerCase() &&
               (st.strokeWeight||2)===(DEF_STYLE.strokeWeight);
-  return [
-    s.name, s.type||'', nToB36(latE5), nToB36(lngE5),
-    def ? 0 : [st.radius||15,(st.fill||DEF_STYLE.fill).replace('#','').toLowerCase(),
-               +(+st.fillOpacity).toFixed(2),(st.stroke||DEF_STYLE.stroke).replace('#','').toLowerCase(),st.strokeWeight||2],
-    (s.recipients && s.recipients.length) ? s.recipients.join('|') : ''
-  ];
+  return [ s.name, s.type||'', nToB36(latE5), nToB36(lngE5),
+           def?0:[st.radius||15,(st.fill||DEF_STYLE.fill).replace('#','').toLowerCase(),
+           +(+st.fillOpacity).toFixed(2),(st.stroke||DEF_STYLE.stroke).replace('#','').toLowerCase(),st.strokeWeight||2],
+           (s.recipients&&s.recipients.length)?s.recipients.join('|'):'' ];
 }
-function unpackSite(a){
+function unpackSiteC2(a){
   const [name,type,latB,lngB,styleOr0,recStr=''] = a;
   const lat=b36ToN(latB)/1e5, lng=b36ToN(lngB)/1e5;
-  let style = { ...DEF_STYLE };
-  if (styleOr0 && styleOr0!==0){
-    const [r,fillHex,fop,strokeHex,sw] = styleOr0;
-    style = { radius:r??15, fill:'#'+(fillHex||'60a5fa'), fillOpacity:fop??0.16, stroke:'#'+(strokeHex||'60a5fa'), strokeWeight:sw??2 };
+  let style={...DEF_STYLE};
+  if(styleOr0 && styleOr0!==0){
+    const [r,fillHex,fop,strokeHex,sw]=styleOr0;
+    style={radius:r??15, fill:'#'+(fillHex||'60a5fa'), fillOpacity:fop??0.16, stroke:'#'+(strokeHex||'60a5fa'), strokeWeight:sw??2};
   }
-  return { id:'s-'+Math.random().toString(36).slice(2,8), name, type, lat, lng, recipients: recStr?recStr.split('|'):[], style };
+  return { id:'s-'+Math.random().toString(36).slice(2,8), name,type,lat,lng,recipients:recStr?recStr.split('|'):[], style };
 }
+function encC2(state){ return toUrl(b64e(JSON.stringify({v:'c2', t:state.traffic?1:0, s:state.sites.map(packSiteC2)}))); }
+function decC2(s){ try{ const o=JSON.parse(b64d(fromUrl(s))); if(o&&o.v==='c2'&&Array.isArray(o.s)) return {traffic:!!o.t, sites:o.s.map(unpackSiteC2)};}catch{} return null; }
 
-/* ---------- الصيغ ---------- */
-function encC2(state){ return toUrl(b64e(JSON.stringify({v:'c2', t: state.traffic?1:0, s: state.sites.map(packSite)}))); }
-function decC2(s){
-  try{ const o = JSON.parse(b64d(fromUrl(s))); if(o && o.v==='c2' && Array.isArray(o.s)) return { traffic:!!o.t, sites:o.s.map(unpackSite) }; }catch{}
-  return null;
-}
+/* ---------- مشاركة c3 (قديمة مضغوطة) ---------- */
 function encC3(state){
-  const c2json = JSON.stringify({v:'c2', t: state.traffic?1:0, s: state.sites.map(packSite)});
-  return 'c3.'+ LZ.cURI(c2json);     // أقصر + آمن للجوال (بدون +)
+  const c2json = JSON.stringify({v:'c2', t: state.traffic?1:0, s: state.sites.map(packSiteC2)});
+  return 'c3.'+ LZ.cURI(c2json);
 }
 function decC3(x){
+  try{ const raw=x.startsWith('c3.')?x.slice(3):x; const json=LZ.dURI(raw); const o=JSON.parse(json);
+       if(o&&o.v==='c2'&&Array.isArray(o.s)) return {traffic:!!o.t, sites:o.s.map(unpackSiteC2)}; }catch{} return null;
+}
+
+/* ---------- مشاركة c4 (جديدة قصيرة جدًا بالـ Delta) ----------
+   الشكل: {v:'c4', t:0/1, d:[ [i, r?, f?, p?, s?, w? , rec? ], ... ] }
+   i = index للموقع الافتراضي (0..DEFAULT_SITES.length-1)
+   r=radius (إن تغيّر عن 15)  f=fill hex بدون #  p=fillOpacity  s=stroke hex بدون #  w=strokeWeight
+   rec = أسماء المستلمين مفصولة بـ "|"  (يُهمل إن لم توجد أسماء)
+--------------------------------------------------------------- */
+function toHexNoHash(c){ c=(c||'').toLowerCase(); return c.startsWith('#')?c.slice(1):c; }
+function fromHexNoHash(h){ return '#'+(h||'60a5fa'); }
+
+function buildIndexByNameLatLng(){
+  const map = new Map();
+  DEFAULT_SITES.forEach(([name,lat,lng], idx)=>{
+    map.set(`${name}|${lat.toFixed(6)}|${lng.toFixed(6)}`, idx);
+  });
+  return map;
+}
+const DEF_INDEX = buildIndexByNameLatLng();
+
+function encC4(state){
+  const d = [];
+  state.sites.forEach(s=>{
+    // نحاول مطابقة الموقع الافتراضي بالاسم + الإحداثي
+    const key = `${s.name}|${s.lat.toFixed(6)}|${s.lng.toFixed(6)}`;
+    if(!DEF_INDEX.has(key)){
+      // موقع غير موجود ضمن الافتراضي: نرسله كـ "إضافة" قصيرة: i = -1, ثم الإحداثيات والاسم (محدود)
+      d.push([-1, +s.lat.toFixed(5), +s.lng.toFixed(5), s.name, s.type || '', s.recipients && s.recipients.length ? s.recipients.join('|') : '' ,
+              s.style.radius!==DEF_STYLE.radius ? s.style.radius : undefined,
+              s.style.fill!==DEF_STYLE.fill ? toHexNoHash(s.style.fill) : undefined,
+              s.style.fillOpacity!==DEF_STYLE.fillOpacity ? +(s.style.fillOpacity).toFixed(2) : undefined,
+              s.style.stroke!==DEF_STYLE.stroke ? toHexNoHash(s.style.stroke) : undefined,
+              s.style.strokeWeight!==DEF_STYLE.strokeWeight ? s.style.strokeWeight : undefined
+      ]);
+      return;
+    }
+    const i = DEF_INDEX.get(key);
+    const row = [i];
+
+    // غيّرات النمط
+    const st = s.style || DEF_STYLE;
+    if(st.radius!==DEF_STYLE.radius) row[1]=st.radius;
+    if((st.fill||'').toLowerCase()!==(DEF_STYLE.fill).toLowerCase()) row[2]=toHexNoHash(st.fill);
+    if(+st.fillOpacity!==DEF_STYLE.fillOpacity) row[3]=+(st.fillOpacity).toFixed(2);
+    if((st.stroke||'').toLowerCase()!==(DEF_STYLE.stroke).toLowerCase()) row[4]=toHexNoHash(st.stroke);
+    if((st.strokeWeight||2)!==DEF_STYLE.strokeWeight) row[5]=st.strokeWeight;
+
+    // مستلمين
+    if(s.recipients && s.recipients.length) row[6]=s.recipients.join('|');
+
+    d.push(row);
+  });
+  const payload = { v:'c4', t: state.traffic?1:0, d };
+  return 'c4.' + LZ.cURI(JSON.stringify(payload));
+}
+
+function decC4(x){
   try{
-    const raw = x.startsWith('c3.') ? x.slice(3) : x;
-    const json = LZ.dURI(raw);
-    const o = JSON.parse(json);
-    if (o && o.v==='c2' && Array.isArray(o.s)) return { traffic: !!o.t, sites: o.s.map(unpackSite) };
-  }catch{}
-  return null;
+    const raw = x.startsWith('c4.') ? x.slice(3) : x;
+    const o = JSON.parse(LZ.dURI(raw));
+    if(!(o && o.v==='c4' && Array.isArray(o.d))) return null;
+
+    // ابدأ من الافتراضي
+    const base = defaultState();
+    const byIdx = base.sites;
+
+    // طبّق الفروقات
+    o.d.forEach(row=>{
+      const i = row[0];
+      if(i===-1){
+        // إدخال يدوي خارج الافتراضي
+        const lat=row[1], lng=row[2], name=row[3]||'موقع', type=row[4]||'نقطة';
+        const rec = row[5]? String(row[5]).split('|').filter(Boolean):[];
+        const r = row[6] ?? DEF_STYLE.radius;
+        const f = row[7] ? fromHexNoHash(row[7]) : DEF_STYLE.fill;
+        const p = row[8] ?? DEF_STYLE.fillOpacity;
+        const s = row[9] ? fromHexNoHash(row[9]) : DEF_STYLE.stroke;
+        const w = row[10] ?? DEF_STYLE.strokeWeight;
+        byIdx.push({ id:'s-'+Math.random().toString(36).slice(2,8), name, type, lat, lng, recipients:rec,
+                     style:{ radius:r, fill:f, fillOpacity:p, stroke:s, strokeWeight:w }});
+        return;
+      }
+      if(i<0 || i>=byIdx.length) return;
+      const site = byIdx[i];
+      // نمط
+      const r = row[1], f=row[2], p=row[3], s=row[4], w=row[5];
+      if(r!==undefined) site.style.radius = r;
+      if(f!==undefined) site.style.fill = fromHexNoHash(f);
+      if(p!==undefined) site.style.fillOpacity = p;
+      if(s!==undefined) site.style.stroke = fromHexNoHash(s);
+      if(w!==undefined) site.style.strokeWeight = w;
+      // مستلمين
+      const rec=row[6];
+      if(rec!==undefined) site.recipients = String(rec).split('|').filter(Boolean);
+    });
+
+    return { traffic: !!o.t, sites: byIdx };
+  }catch{ return null; }
 }
 
 /* ---------- التخزين ---------- */
@@ -181,52 +299,28 @@ const LS_KEY='security:state.v3';
 const loadLocal=()=>{ try{const s=localStorage.getItem(LS_KEY);return s?JSON.parse(s):null;}catch{return null;} };
 const saveLocal=s=>{ try{localStorage.setItem(LS_KEY,JSON.stringify(s));}catch{} };
 
-/* ---------- الحالة الافتراضية (مواقعك) ---------- */
-function defaultState(){
-  const S=(n,la,ln,t)=>({id:'s-'+Math.random().toString(36).slice(2,8),name:n,type:t,lat:la,lng:ln,recipients:[],style:{...DEF_STYLE}});
-  return { traffic:false, sites:[
-    S('بوابة سمحان',24.742132284177778,46.569503913805825,'بوابة'),
-    S('منطقة سمحان',24.74091335108621,46.571891407130025,'منطقة'),
-    S('دوار البجيري',24.737521801476476,46.57406918772067,'دوار'),
-    S('إشارة البجيري',24.73766260194535,46.575429040147306,'إشارة'),
-    S('طريق الملك فيصل',24.736133848943062,46.57696607050239,'طريق'),
-    S('نقطة فرز الشلهوب',24.73523670533632,46.57785639752234,'نقطة فرز'),
-    S('المسار الرياضي المديد',24.735301077804944,46.58178092599035,'مسار رياضي'),
-    S('ميدان الملك سلمان',24.73611373368281,46.58407097038162,'ميدان'),
-    S('دوار الضوء الخافت',24.739718342668006,46.58352614787052,'دوار'),
-    S('المسار الرياضي طريق الملك خالد الفرعي',24.740797019998627,46.5866145907347,'مسار رياضي'),
-    S('دوار البلدية',24.739266101368777,46.58172727078356,'دوار'),
-    S('مدخل ساحة البلدية الفرعي',24.738638518378387,46.579858026042785,'مدخل'),
-    S('مدخل مواقف البجيري (كار بارك)',24.73826438056506,46.57789576275729,'مدخل'),
-    S('مواقف الامن',24.73808736962705,46.57771858346317,'مواقف'),
-    S('دوار الروقية',24.741985907266145,46.56269186990043,'دوار'),
-    S('بيت مبارك',24.732609768937607,46.57827089439368,'موقع'),
-    S('دوار وادي صفار',24.72491458984474,46.57345489743978,'دوار'),
-    S('دوار راس النعامة',24.710329841152387,46.572921959358204,'دوار'),
-    S('مزرعة الحبيب',24.709445443672344,46.593971867951346,'مزرعة')
-  ]};
-}
-
 /* =====================  التطبيق  ===================== */
 window.initMap = function () {
   const sp = qs();
-  const isShare = (sp.get('view')||'').toLowerCase()==='share' || !!sp.get('s') || !!sp.get('x');
+  const isShare = (sp.get('view')||'').toLowerCase()==='share' || !!sp.get('x') || !!sp.get('s');
   if (isShare){ document.body.classList.add('share'); document.getElementById('panel')?.remove(); document.getElementById('editor')?.remove(); document.getElementById('edit-actions')?.remove(); }
 
   let state = defaultState();
   if (isShare){
-    if (sp.get('x')) state = decC3(sp.get('x')) || state;
-    else if (sp.get('s')) state = decC2(sp.get('s')) || state;
+    if (sp.get('x')) state = decC4(sp.get('x')) || decC3(sp.get('x')) || state; // x يدعم c4 ثم c3
+    else if (sp.get('s')) state = decC3(sp.get('s')) || decC2(sp.get('s')) || state; // s قديم: c3 ثم c2
   } else {
     state = loadLocal() || state;
   }
 
+  // الخريطة
   const map = new google.maps.Map(document.getElementById('map'), {
     center:{lat:24.7418,lng:46.5758}, zoom:14, mapTypeId:'roadmap',
     gestureHandling:'greedy', disableDefaultUI:false, mapTypeControl:true, zoomControl:true,
     streetViewControl:false, fullscreenControl:true
   });
 
+  // حركة المرور
   const trafficLayer = new google.maps.TrafficLayer();
   let trafficOn = !!state.traffic;
   const trafficBtn = document.getElementById('traffic-toggle');
@@ -234,6 +328,7 @@ window.initMap = function () {
   setTraffic(trafficOn);
   trafficBtn?.addEventListener('click',()=>setTraffic(!trafficOn));
 
+  // كرت
   const card=document.getElementById('info-card');
   const nameEl=document.getElementById('site-name');
   const typeEl=document.getElementById('site-type');
@@ -382,10 +477,10 @@ window.initMap = function () {
       }
     });
 
-    // مشاركة قصيرة c3 + منع الكاش
+    // مشاركة قصيرة c4 + منع الكاش
     async function doShare(){
       const snap = snapshotFromMap();
-      const x = encC3(snap);   // c3 آمن للجوال
+      const x = encC4(snap); // قصير جدًا
       const url = `${location.origin}${location.pathname}?view=share&x=${x}&t=${Date.now()}`;
       previewBox?.classList.remove('hidden');
       if(shareInput) shareInput.value=url;
@@ -399,5 +494,5 @@ window.initMap = function () {
   }
 
   map.addListener('click',()=>{ pinnedId=null; closeCard(); });
-  console.log(isShare ? 'Share View (locked)' : 'Editor View');
+  console.log(isShare ? 'Share View (locked / c4-ready)' : 'Editor View');
 };
