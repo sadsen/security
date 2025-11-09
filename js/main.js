@@ -294,11 +294,14 @@ window.initMap = function () {
   var closeBtn = card ? card.querySelector('.close') : null;
   if(closeBtn) closeBtn.addEventListener('click',function(){ pinnedId=null; closeCard(); });
 
-  // عناصر التحرير الخاصة بالمستلمين
+  // عناصر تحرير المستلمين
   var editBtn      = document.getElementById('edit-recipients'); // زر "تعديل المستلمين"
-  var editorBox    = document.getElementById('editor');          // صندوق التحرير (جانبي/منبثق)
+  var editorBox    = document.getElementById('editor');          // صندوق التحرير
   var editorInput  = document.getElementById('editor-input');    // textarea
-  var editorClose  = document.getElementById('editor-close');    // زر إغلاق (اختياري)
+  var editorClose  = document.getElementById('editor-close');    // زر إغلاق
+  var editorSave   = document.getElementById('editor-save');     // زر حفظ
+  var editorCancel = document.getElementById('editor-cancel');   // زر إلغاء
+  var editorOriginal = [];                                       // لحفظ النسخة قبل التحرير
 
   var markers=[], circles=[], byId={};
   var selectedId=null, pinnedId=null, hoverId=null;
@@ -327,9 +330,10 @@ window.initMap = function () {
 
   function openEditor(s){
     if(!editorBox) return;
+    editorOriginal = (s.recipients || []).slice();           // حفظ النسخة الأصلية
     editorBox.classList.remove('hidden');
     if(editorInput){
-      editorInput.value = (s.recipients||[]).join('\n');
+      editorInput.value = editorOriginal.join('\n');
       setTimeout(function(){ try{editorInput.focus(); editorInput.selectionStart=editorInput.value.length; editorInput.selectionEnd=editorInput.value.length;}catch(e){} },0);
     }
   }
@@ -342,16 +346,38 @@ window.initMap = function () {
       var s=byId[selectedId]; if(s) openEditor(s);
     });
   }
-  if(editorClose){ editorClose.addEventListener('click',function(){ closeEditor(); }); }
+  if(editorClose)  editorClose.addEventListener('click',function(){ closeEditor(); });
+  if(editorCancel) editorCancel.addEventListener('click',function(){
+    if(!selectedId) return;
+    var s=byId[selectedId]; if(!s) return;
+    s.recipients = editorOriginal.slice();                   // استرجاع الأصل
+    if(editorInput) editorInput.value = editorOriginal.join('\n');
+    if(recEl) recEl.textContent = renderRecipients(s.recipients);
+    saveLocal(snapshotFromMap());
+    closeEditor();
+  });
+  if(editorSave) editorSave.addEventListener('click',function(){
+    if(!selectedId) return;
+    var s=byId[selectedId]; if(!s) return;
+    var txt = editorInput ? String(editorInput.value||'') : '';
+    s.recipients = txt.split('\n').map(function(x){return x.trim();}).filter(Boolean);
+    if(recEl) recEl.textContent = renderRecipients(s.recipients);
+    saveLocal(snapshotFromMap());
+    closeEditor();
+  });
+
+  // تحديث أثناء الكتابة (اختياري: يظل موجودًا)
+  if(editorInput) editorInput.addEventListener('input',function(){
+    if(!selectedId) return; var ss=byId[selectedId];
+    ss.recipients=String(editorInput.value||'').split('\n').map(function(x){return x.trim();}).filter(Boolean);
+    if(recEl) recEl.textContent=renderRecipients(ss.recipients);
+    saveLocal(snapshotFromMap());
+  });
 
   function getCircleById(id){ for(var i=0;i<circles.length;i++){ if(circles[i].__id===id) return circles[i]; } return null; }
   function normHex(c){ c=String(c||'#60a5fa').toLowerCase(); return c.charAt(0)==='#'?c:'#'+c; }
 
   function snapshotFromMap(){
-    if(editorInput && selectedId){
-      var ss=byId[selectedId];
-      if(ss){ ss.recipients=String(editorInput.value||'').split('\n').map(function(x){return x.trim();}).filter(Boolean); }
-    }
     var sites = circles.map(function(c){
       var id=c.__id, s=byId[id]||{}, ctr=c.getCenter();
       return { id:id, name:s.name||'', type:s.type||'',
@@ -394,9 +420,9 @@ window.initMap = function () {
     var circle=new google.maps.Circle({
       map:map, center:pos, radius:s.style.radius,
       strokeColor:s.style.stroke, strokeOpacity:0.95, strokeWeight:s.style.strokeWeight,
-      fillColor:s.style.fill, fillOpacity:s.style.fillOpacity,
+      fillColor:s.style.fill,  fillOpacity:s.style.fillOpacity,
       clickable:true, cursor:'pointer', zIndex:1,
-      editable: !isShare
+      editable:false                      // ⚠️ لا مقابض تكبير/تصغير – التغيير من الإعدادات فقط
     });
     circle.__id=s.id; circles.push(circle);
 
@@ -408,15 +434,6 @@ window.initMap = function () {
     circle.addListener('mouseout', function(){ if(pinnedId) return; if(hoverId===s.id) closeCard(); });
 
     marker.addListener('dragend',function(e){ if(isShare) return; s.lat=e.latLng.lat(); s.lng=e.latLng.lng(); syncFeature(s); });
-
-    google.maps.event.addListener(circle,'radius_changed',function(){
-      if(isShare) return;
-      if(circle.__id!==selectedId) return;
-      var cs=byId[selectedId];
-      cs.style.radius=Math.round(circle.getRadius());
-      if(radiusEl) radiusEl.textContent=cs.style.radius+' م';
-      saveLocal(snapshotFromMap());
-    });
   }
 
   var bounds=new google.maps.LatLngBounds();
@@ -478,32 +495,6 @@ window.initMap = function () {
         var v=edStrokeW.valueAsNumber || parseInt(edStrokeW.value,10); if(!v) v=2;
         s.style.strokeWeight=v; c.setOptions({strokeWeight:v});
       });
-    });
-
-    // حفظ المستلمين أثناء الكتابة
-    if(editorInput) editorInput.addEventListener('input',function(){
-      if(!selectedId) return; var ss=byId[selectedId];
-      ss.recipients=String(editorInput.value||'').split('\n').map(function(x){return x.trim();}).filter(Boolean);
-      if(recEl) recEl.textContent=renderRecipients(ss.recipients);
-      saveLocal(snapshotFromMap());
-    });
-
-    // إضافة / حذف
-    if(btnAdd) btnAdd.addEventListener('click',function(){
-      var c=map.getCenter();
-      var s={id:'s-'+Math.random().toString(36).slice(2,8),name:'موقع جديد',type:'نقطة',lat:c.lat(),lng:c.lng(),recipients:[],style:clone(DEF_STYLE)};
-      state.sites.push(s); createFeature(s); bounds.extend({lat:s.lat,lng:s.lng});
-      pinnedId=s.id; openCard(s); saveLocal(snapshotFromMap());
-    });
-    if(btnDel) btnDel.addEventListener('click',function(){
-      if(!selectedId) return;
-      var idx=-1; for(var i=0;i<state.sites.length;i++){ if(state.sites[i].id===selectedId){ idx=i; break; } }
-      if(idx>=0){
-        for(var mi=0;mi<markers.length;mi++) if(markers[mi].__id===selectedId){ markers[mi].setMap(null); markers.splice(mi,1); break; }
-        for(var ci=0;ci<circles.length;ci++) if(circles[ci].__id===selectedId){ circles[ci].setMap(null); circles.splice(ci,1); break; }
-        delete byId[selectedId]; state.sites.splice(idx,1);
-        pinnedId=null; closeCard(); saveLocal(snapshotFromMap());
-      }
     });
 
     // مشاركة قصيرة c4 + منع الكاش للجوال
