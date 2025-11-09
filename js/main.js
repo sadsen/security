@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v8 (short share token + mobile-safe + glass card) */
+/* Diriyah Security Map – v8 (short share token + mobile-safe + glass card + Tajawal) */
 'use strict';
 
 /* ---------- Safe init guard ---------- */
