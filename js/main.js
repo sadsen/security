@@ -1,15 +1,16 @@
-/* Diriyah Security Map – v7 (Base64URL token + delta state + strict view-only on share) */
+/* Diriyah Security Map – v7.1 (mobile FAB share + sticky toolbar) */
 'use strict';
 
-/* ===== حارس تهيئة لتفادي شاشة سوداء لو تأخر سكربت Google ===== */
+/* ---------- Safe init guard ---------- */
 window.__MAP_INITED__ = false;
 window.initMap = function(){ if(window.__MAP_INITED__) return; window.__MAP_INITED__ = true; try{ boot(); }catch(e){ console.error(e); } };
 (function wait(){ if(window.google && google.maps){ if(!window.__MAP_INITED__) window.initMap(); } else { setTimeout(wait, 150); } })();
 
-/* ===== عناصر عامة ===== */
+/* ---------- Globals ---------- */
 let map, trafficLayer, infoWin=null;
 let cardPinned=false, editMode=false, shareMode=false, hideTimer=null;
-let btnRoadmap, btnSatellite, btnTraffic, btnEditMode, btnShare, modeBadge, toast;
+
+let btnRoadmap, btnSatellite, btnTraffic, btnEditMode, btnShare, modeBadge, toast, fabShare;
 
 const DEFAULT_CENTER = { lat:24.7399, lng:46.5731 };
 const DEFAULT_RADIUS = 15;
@@ -40,27 +41,23 @@ const LOCATIONS = [
   { id:18, name:"مزرعة الحبيب",                          lat:24.709445443672344, lng:46.593971867951346 },
 ];
 
-const circles = []; // [{id, circle, meta:{name, recipients:[]}}]
+const circles = [];
 
-/* ===== Base64URL utils (بدون + / =) ===== */
+/* ---------- Base64URL (بدون + / =) ---------- */
 function b64uEncode(str){
   const b = btoa(unescape(encodeURIComponent(str)));
   return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 function b64uDecode(tok){
   try{
-    tok = tok.replace(/[^A-Za-z0-9\-_]/g,''); // تنظيف
+    tok = tok.replace(/[^A-Za-z0-9\-_]/g,'');
     const pad = tok.length % 4 ? '='.repeat(4 - (tok.length % 4)) : '';
     const s = tok.replace(/-/g,'+').replace(/_/g,'/') + pad;
     return decodeURIComponent(escape(atob(s)));
   }catch{ return ''; }
 }
 
-/* ===== مشاركة: #x=<token> (قصير) =====
-   مخطط الحالة المُصغّر:
-   {p:[cx,cy], z:n, m:'r'|'h', t:0|1, c:[[id,r,sc,fo,sw,recStr]]}
-   - c: فقط الدوائر المعدّلة أو التي لها أسماء
-   - recStr: أسماء المستلمين مفصولة بـ "|"  */
+/* ---------- Share token (#x=...) ---------- */
 function readShare(){
   const h = (location.hash||'').trim();
   if(!/^#x=/.test(h)) return null;
@@ -76,13 +73,12 @@ function writeShare(state){
   if(location.hash !== h) history.replaceState(null,'',h);
 }
 
-/* ===== بناء/تطبيق الحالة ===== */
+/* ---------- Build/Apply state (delta only) ---------- */
 function buildState(){
   const ctr=map.getCenter(), z=map.getZoom();
   const m=map.getMapTypeId()==='roadmap'?'r':'h';
-  const t=btnTraffic.getAttribute('aria-pressed')==='true'?1:0;
+  const t=document.getElementById('btnTraffic').getAttribute('aria-pressed')==='true'?1:0;
 
-  // فقط الدوائر المعدّلة (دلتا)
   const c=[];
   circles.forEach(({id, circle, meta})=>{
     const r = Math.round(circle.getRadius());
@@ -90,27 +86,26 @@ function buildState(){
     const fo = Number((circle.get('fillOpacity')??DEFAULT_FILL_OPACITY).toFixed(2));
     const sw = (circle.get('strokeWeight')??DEFAULT_STROKE_WEIGHT)|0;
     const rec = (meta.recipients||[]).join('|');
-
     const changed = (r!==DEFAULT_RADIUS) ||
                     (toHex('#'+sc)!==toHex(DEFAULT_COLOR)) ||
                     (fo!==DEFAULT_FILL_OPACITY) ||
                     (sw!==DEFAULT_STROKE_WEIGHT) ||
                     rec.length>0;
-
     if(changed){ c.push([id,r,sc,fo,sw,rec]); }
   });
 
-  // دِقة أقل للمركز لتقصير التوكِن (4 منازل تكفي)
   return { p:[+ctr.lng().toFixed(4), +ctr.lat().toFixed(4)], z, m, t, c };
 }
-
 function applyState(s){
   if(!s) return;
-  if(Array.isArray(s.p) && s.p.length===2){
-    map.setCenter({lat:s.p[1], lng:s.p[0]});
-  }
+  if(Array.isArray(s.p) && s.p.length===2) map.setCenter({lat:s.p[1], lng:s.p[0]});
   if(Number.isFinite(s.z)) map.setZoom(s.z);
   map.setMapTypeId(s.m==='r'?'roadmap':'hybrid');
+
+  const btnRoadmap  = document.getElementById('btnRoadmap');
+  const btnSatellite= document.getElementById('btnSatellite');
+  const btnTraffic  = document.getElementById('btnTraffic');
+
   btnRoadmap.setAttribute('aria-pressed', String(s.m==='r'));
   btnSatellite.setAttribute('aria-pressed', String(s.m!=='r'));
   if(s.t){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
@@ -130,13 +125,11 @@ function applyState(s){
     });
   }
 }
-
 let persistTimer=null;
 const persist=()=>{ if(shareMode) return; clearTimeout(persistTimer); persistTimer=setTimeout(()=>writeShare(buildState()),180); };
 
-/* ===== تشغيل التطبيق ===== */
+/* ---------- Boot ---------- */
 function boot(){
-  // مراجع
   btnRoadmap  = document.getElementById('btnRoadmap');
   btnSatellite= document.getElementById('btnSatellite');
   btnTraffic  = document.getElementById('btnTraffic');
@@ -144,47 +137,47 @@ function boot(){
   btnShare    = document.getElementById('btnShare');
   modeBadge   = document.getElementById('modeBadge');
   toast       = document.getElementById('toast');
+  fabShare    = document.getElementById('fabShare');
 
-  // خريطة
   map = new google.maps.Map(document.getElementById('map'), {
     center: DEFAULT_CENTER, zoom: 15, mapTypeId:'roadmap',
     disableDefaultUI:true, clickableIcons:false, gestureHandling:'greedy'
   });
   trafficLayer = new google.maps.TrafficLayer();
 
-  // أزرار العرض
   btnRoadmap.onclick   = ()=>{ map.setMapTypeId('roadmap');  btnRoadmap.setAttribute('aria-pressed','true');  btnSatellite.setAttribute('aria-pressed','false'); persist(); };
   btnSatellite.onclick = ()=>{ map.setMapTypeId('hybrid');   btnSatellite.setAttribute('aria-pressed','true'); btnRoadmap.setAttribute('aria-pressed','false');  persist(); };
   btnTraffic.onclick   = ()=>{ const on=btnTraffic.getAttribute('aria-pressed')==='true'; if(on){trafficLayer.setMap(null);} else {trafficLayer.setMap(map);} btnTraffic.setAttribute('aria-pressed', String(!on)); persist(); };
 
-  // مشاركة
-  btnShare.onclick     = copyShareLink;
+  btnShare.onclick = copyShareLink;
+  fabShare.onclick = copyShareLink;
 
-  // دوائر
   LOCATIONS.forEach(addCircle);
 
-  // وضع مشاركة؟
   const S = readShare();
   shareMode = !!S;
-  if(S){ applyState(S); setViewOnly(); }
-  else { writeShare(buildState()); }
+  if(S){ applyState(S); setViewOnly(); } else { writeShare(buildState()); }
 
-  // تحرير (يعطَّل بالكامل في وضع المشاركة)
-  btnEditMode.onclick  = ()=>{ if(shareMode) return; editMode=!editMode; modeBadge.textContent=editMode?'Edit':'Share'; modeBadge.className='badge '+(editMode?'badge-edit':'badge-share'); cardPinned=false; if(infoWin) infoWin.close(); };
+  btnEditMode.onclick  = ()=>{ if(shareMode) return; editMode=!editMode; modeBadge.textContent=editMode?'Edit':'Share'; modeBadge.className='badge '+(editMode?'badge-edit':'badge-share'); cardPinned=false; if(infoWin) infoWin.close(); updateFab(); };
 
-  // أحداث عامة
   map.addListener('idle', persist);
   map.addListener('click', ()=>{ cardPinned=false; if(infoWin) infoWin.close(); });
+  updateFab();
 }
 
-/* ===== وضع العرض فقط ===== */
+/* ---------- View-only ---------- */
 function setViewOnly(){
   editMode=false; document.body.setAttribute('data-viewonly','1');
   modeBadge.textContent='Share'; modeBadge.className='badge badge-share';
   if(btnEditMode){ btnEditMode.style.display='none'; btnEditMode.disabled=true; }
+  updateFab();
+}
+function updateFab(){
+  if(shareMode || !editMode){ fabShare.classList.add('hidden'); }
+  else { fabShare.classList.remove('hidden'); }
 }
 
-/* ===== الدوائر + الكرت الزجاجي ===== */
+/* ---------- Circles & Card ---------- */
 function addCircle(loc){
   const circle = new google.maps.Circle({
     map, center:{lat:loc.lat,lng:loc.lng}, radius:DEFAULT_RADIUS,
@@ -237,6 +230,11 @@ function renderCard(item){
   const stroke = c.get('strokeWeight') || DEFAULT_STROKE_WEIGHT;
   const fillO  = Number(c.get('fillOpacity') ?? DEFAULT_FILL_OPACITY);
 
+  // زر مشاركة صغير داخل الكرت في وضع التحرير
+  const inlineShareBtn = (!shareMode && editMode)
+    ? `<button id="btn-card-share" style="margin-inline-start:auto; border:1px solid #ddd; background:#fff; border-radius:10px; padding:4px 8px; cursor:pointer;">نسخ الرابط</button>`
+    : ``;
+
   return `
   <div id="iw-root" dir="rtl" style="min-width:360px; max-width:520px;">
     <div style="
@@ -249,8 +247,8 @@ function renderCard(item){
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
         <img src="img/diriyah-logo.png" alt="Diriyah" style="width:50px; height:50px; object-fit:contain;">
         <div style="font-weight:800; font-size:18px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(meta.name)}</div>
-        <div style="margin-inline-start:auto;"></div>
-        ${(!shareMode && editMode) ? `<span class="badge-edit" style="padding:2px 8px;border-radius:8px;background:#1f5a1f;color:#eaffea;border:1px solid #2d7a2d;">وضع التحرير</span>` : ``}
+        ${inlineShareBtn}
+        ${(!shareMode && editMode) ? `<span class="badge-edit" style="margin-inline-start:8px;padding:2px 8px;border-radius:8px;background:#1f5a1f;color:#eaffea;border:1px solid #2d7a2d;">وضع التحرير</span>` : ``}
       </div>
 
       <div style="border-top:1px dashed #e7e7e7; padding-top:8px;">
@@ -284,6 +282,10 @@ function attachCardEvents(item){
   if(shareMode || !editMode) return;
   const c=item.circle;
 
+  // زر مشاركة داخل الكرت
+  const insideShare = document.getElementById('btn-card-share');
+  if(insideShare){ insideShare.addEventListener('click', copyShareLink); }
+
   const r  = document.getElementById('ctl-radius');
   const lr = document.getElementById('lbl-radius');
   const col= document.getElementById('ctl-color');
@@ -299,11 +301,11 @@ function attachCardEvents(item){
   sw.addEventListener('input', ()=>{ const v=clamp(+sw.value,1,8); sw.value=v; c.setOptions({strokeWeight:v}); persist(); });
   fo.addEventListener('input', ()=>{ const v=clamp(+fo.value,0,0.8); lf.textContent=v.toFixed(2); c.setOptions({fillOpacity:v}); persist(); });
 
-  save.addEventListener('click', ()=>{ item.meta.recipients = parseRecipients(names.value); openCard(item); persist(); });
-  clr.addEventListener('click',  ()=>{ item.meta.recipients = []; openCard(item); persist(); });
+  save.addEventListener('click', ()=>{ item.meta.recipients = parseRecipients(names.value); openCard(item); persist(); showToast('تم الحفظ. اضغط “🔗” لنسخ الرابط'); });
+  clr.addEventListener('click',  ()=>{ item.meta.recipients = []; openCard(item); persist(); showToast('تم حذف الأسماء'); });
 }
 
-/* ===== مشاركة ===== */
+/* ---------- Share ---------- */
 async function copyShareLink(){
   writeShare(buildState());
   try{ await navigator.clipboard.writeText(location.href); showToast('تم نسخ رابط المشاركة ✅'); }
@@ -313,7 +315,7 @@ async function copyShareLink(){
   }
 }
 
-/* ===== Helpers ===== */
+/* ---------- Helpers ---------- */
 function clamp(x,min,max){ return Math.min(max, Math.max(min, x)); }
 function toHex(col){ if(/^#/.test(col)) return col; const m=col.match(/rgba?\s*\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i); if(!m) return DEFAULT_COLOR; const [r,g,b]=[+m[1],+m[2],+m[3]]; return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join(''); }
 function parseRecipients(text){ return String(text).split(/\r?\n/).map(s=>s.replace(/[،;,]+/g,' ').trim()).filter(Boolean); }
