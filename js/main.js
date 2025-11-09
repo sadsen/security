@@ -74,7 +74,7 @@ const LS_KEY = 'security:state.v3';
 function loadLocal(){ try{ const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null; }catch{ return null; } }
 function saveLocal(state){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch{} }
 
-// ===== الحالة الافتراضية (مواقعك) =====
+// ===== الحالة الافتراضية =====
 function defaultState(){
   const S = (name,lat,lng,type) => ({
     id: 's-' + Math.random().toString(36).slice(2,8),
@@ -113,21 +113,17 @@ window.initMap = function () {
   const params = getParams();
   const isShare = ((params.get('view')||'').toLowerCase() === 'share');
 
-  // وسم body وتصفية الواجهة في وضع العرض (إزالة فعلية لعناصر التحرير)
   if (isShare) {
     document.body.classList.add('share');
-    // إزالة اللوحة والمحرر وأزرار التحرير نهائيًا حتى لو تعطّل CSS
     document.getElementById('panel')?.remove();
     document.getElementById('editor')?.remove();
     document.getElementById('edit-actions')?.remove();
   }
 
-  // الحالة: في العرض من s= فقط، وفي العادي من LocalStorage أو الافتراضي
   let state = isShare
     ? (params.get('s') ? (decodeShareState(params.get('s')) || defaultState()) : defaultState())
     : (loadLocal() || defaultState());
 
-  // الخريطة
   const map = new google.maps.Map(document.getElementById('map'), {
     center: { lat: 24.7418, lng: 46.5758 }, zoom: 14, mapTypeId: 'roadmap',
     gestureHandling: 'greedy',
@@ -151,10 +147,6 @@ window.initMap = function () {
   const radiusEl = document.getElementById('site-radius');
   const recEl = document.getElementById('site-recipients');
   const editActions = document.getElementById('edit-actions');
-  const editor = document.getElementById('editor');
-  const editorInput = document.getElementById('editor-input');
-  const editorSave = document.getElementById('editor-save');
-  const editorCancel = document.getElementById('editor-cancel');
   card.querySelector('.close').addEventListener('click', () => { pinnedId=null; closeCard(); });
 
   const markers = [];
@@ -183,6 +175,25 @@ window.initMap = function () {
   }
   function closeCard(){ card.classList.add('hidden'); selectedId=null; hoverId=null; }
 
+  function snapshotState(){
+    const sites = Object.values(byId).map(s => ({
+      id: s.id,
+      name: s.name,
+      type: s.type || '',
+      lat: Number(s.lat),
+      lng: Number(s.lng),
+      recipients: Array.isArray(s.recipients) ? s.recipients.slice() : [],
+      style: {
+        radius: Number(s.style?.radius ?? 15),
+        fill: (s.style?.fill || '#60a5fa').toLowerCase(),
+        fillOpacity: Number(s.style?.fillOpacity ?? 0.16),
+        stroke: (s.style?.stroke || '#60a5fa').toLowerCase(),
+        strokeWeight: Number(s.style?.strokeWeight ?? 2)
+      }
+    }));
+    return { traffic: trafficOn, sites };
+  }
+
   function syncFeature(site){
     const m = markers.find(x => x.__id === site.id);
     const c = circles.find(x => x.__id === site.id);
@@ -196,7 +207,6 @@ window.initMap = function () {
     if (selectedId === site.id){
       coordEl.textContent = `${toFixed6(site.lat)}, ${toFixed6(site.lng)}`;
       radiusEl.textContent = `${site.style.radius} م`;
-      recEl.textContent = renderRecipients(site.recipients);
     }
     if (!isShare) saveLocal(snapshotState());
   }
@@ -236,7 +246,6 @@ window.initMap = function () {
     });
   }
 
-  // أنشئ المواقع + حدّد حدود العرض
   const bounds = new google.maps.LatLngBounds();
   state.sites.forEach(s => { createFeature(s); bounds.extend({lat:s.lat, lng:s.lng}); });
   if (isShare && !bounds.isEmpty()) map.fitBounds(bounds, 60);
@@ -245,9 +254,12 @@ window.initMap = function () {
   if (!isShare) {
     const toggleMarkers = document.getElementById('toggle-markers');
     const toggleCircles = document.getElementById('toggle-circles');
-    const baseMapSel = document.getElementById('basemap');
-    const shareBtn = document.getElementById('share-btn');
-    const toast = document.getElementById('toast');
+    const baseMapSel    = document.getElementById('basemap');
+    const shareBtnEl    = document.getElementById('share-btn');
+    const toastEl       = document.getElementById('toast');   // ← اسم واحد فقط
+    const previewBox    = document.getElementById('share-preview');
+    const shareInput    = document.getElementById('share-url');
+    const openBtn       = document.getElementById('open-url');
 
     const edRadius  = document.getElementById('ed-radius');
     const edFill    = document.getElementById('ed-fill');
@@ -293,44 +305,22 @@ window.initMap = function () {
     // محرر المستلمين
     document.getElementById('edit-recipients')?.addEventListener('click', () => {
       if (!selectedId) return; const s = byId[selectedId];
-      editorInput.value = (s.recipients || []).join('\n'); editor.classList.remove('hidden'); editorInput.focus();
+      document.getElementById('editor').classList.remove('hidden');
+      document.getElementById('editor-input').value = (s.recipients || []).join('\n');
+      document.getElementById('editor-input').focus();
     });
-    editorCancel.addEventListener('click', () => editor.classList.add('hidden'));
-    editorSave.addEventListener('click', () => {
+    document.getElementById('editor-cancel')?.addEventListener('click', () => {
+      document.getElementById('editor').classList.add('hidden');
+    });
+    document.getElementById('editor-save')?.addEventListener('click', () => {
       if (!selectedId) return; const s = byId[selectedId];
-      s.recipients = editorInput.value.split('\n').map(x=>x.trim()).filter(Boolean);
-      syncFeature(s); editor.classList.add('hidden'); saveLocal(snapshotState());
+      const val = document.getElementById('editor-input').value || '';
+      s.recipients = val.split('\n').map(x=>x.trim()).filter(Boolean);
+      document.getElementById('editor').classList.add('hidden');
+      syncFeature(s); saveLocal(snapshotState());
     });
 
-    // ===== لقطة لحظية + رابط مشاركة قصير =====
-    function normalizeStyle(st){
-      return {
-        radius: Number(st.radius ?? 15),
-        fill: (st.fill || '#60a5fa').toLowerCase(),
-        fillOpacity: Number(st.fillOpacity ?? 0.16),
-        stroke: (st.stroke || '#60a5fa').toLowerCase(),
-        strokeWeight: Number(st.strokeWeight ?? 2)
-      };
-    }
-    function snapshotState(){
-      const sites = Object.values(byId).map(s => ({
-        id: s.id,
-        name: s.name,
-        type: s.type || '',
-        lat: Number(s.lat),
-        lng: Number(s.lng),
-        recipients: Array.isArray(s.recipients) ? s.recipients.slice() : [],
-        style: normalizeStyle(s.style || {})
-      }));
-      return { traffic: trafficOn, sites };
-    }
-
-    const shareBtnEl = document.getElementById('share-btn');
-    const toast = document.getElementById('toast');
-    const previewBox = document.getElementById('share-preview');
-    const shareInput = document.getElementById('share-url');
-    const openBtn = document.getElementById('open-url');
-
+    // ===== مشاركة: لقطة فورية + معاينة + نسخ =====
     shareBtnEl.addEventListener('click', async () => {
       const s = encodeShareState(snapshotState());
       const url = `${location.origin}${location.pathname}?view=share&s=${s}`;
@@ -342,9 +332,11 @@ window.initMap = function () {
       try { await navigator.clipboard.writeText(url); copied = true; } catch {}
       if (!copied && shareInput){ shareInput.focus(); shareInput.select(); }
 
-      toast.textContent = copied ? 'تم النسخ ✅' : 'انسخ الرابط من الحقل ↑';
-      toast.classList.remove('hidden');
-      setTimeout(()=>toast.classList.add('hidden'), 2000);
+      if (toastEl){
+        toastEl.textContent = copied ? 'تم النسخ ✅' : 'انسخ الرابط من الحقل ↑';
+        toastEl.classList.remove('hidden');
+        setTimeout(()=>toastEl.classList.add('hidden'), 2000);
+      }
     });
     openBtn?.addEventListener('click', () => {
       if (!shareInput?.value) return;
@@ -352,8 +344,12 @@ window.initMap = function () {
     });
   }
 
-  // الضغط على الخريطة = فك التثبيت وإخفاء الكرت
   map.addListener('click', () => { pinnedId=null; closeCard(); });
+
+  // اضبط الإطار في وضع العرض
+  const bounds = new google.maps.LatLngBounds();
+  Object.values(state.sites || []).forEach(s => bounds.extend({lat:s.lat,lng:s.lng}));
+  if (isShare && !bounds.isEmpty()) map.fitBounds(bounds, 60);
 
   console.log(isShare ? 'Share View (locked)' : 'Editor View');
 };
