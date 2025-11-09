@@ -3,123 +3,91 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Security Map – Share/Edit</title>
-
+    <title>Security Map</title>
     <link rel="icon" href="/favicon.ico" />
-    <link rel="stylesheet" href="css/style.css" />
 
-    <!-- طبقات أساسية لضمان الترتيب والتفاعل -->
     <style>
-      /* الخريطة تمتد تحت التوب بار */
-      #map{position:absolute; inset:60px 0 0 0; z-index:1;}
-      @media (max-width:640px){ #map{ inset:56px 0 0 0; } }
+      /* صفحة كاملة وخريطة ممتدة */
+      html, body { height: 100%; margin: 0; }
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", Arial, sans-serif; background:#0b0f14; }
+      #map {
+        position: fixed; inset: 0; z-index: 1;
+        min-height: 100vh; min-width: 100vw;
+      }
 
-      /* التوب بار أعلى من الخريطة */
-      .topbar{position:fixed; inset:0 0 auto 0; height:60px; z-index:10;}
+      /* لوحة تحكم زجاجية أعلى يمين */
+      .toolbar {
+        position: fixed; top: 14px; right: 14px; z-index: 10;
+        background: rgba(22,22,24,0.55); color:#fff;
+        border: 1px solid rgba(255,255,255,0.12);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border-radius: 14px; padding: 8px; display: flex; gap: 6px; align-items: center;
+      }
+      .btn {
+        height: 34px; padding: 0 10px; border-radius: 10px; cursor: pointer;
+        border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color:#fff;
+      }
+      .btn[aria-pressed="true"] { background: rgba(255,255,255,0.22); }
+      .btn.secondary { background: rgba(255,255,255,0.06); }
+      .badge { font-size:12px; padding:2px 8px; border-radius:8px; border:1px solid rgba(255,255,255,.18) }
+      .badge-share { background: rgba(255,255,255,0.08); color:#fff; }
+      .badge-edit  { background: #1f5a1f; border-color:#2d7a2d; color:#d8ffd8; }
 
-      /* كرت المعلومات فوق الكل */
-      .info-card{position:fixed; right:12px; bottom:12px; z-index:5000;}
-      .info-card.hidden{display:none;}
+      /* مودال المستلمين العامّين */
+      .modal.hidden { display: none; }
+      .modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(0,0,0,0.35); }
+      .modal .modal-content {
+        width: min(560px, 92vw); background: rgba(22,22,24,0.8); color:#fff;
+        border:1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px;
+        backdrop-filter: blur(12px);
+      }
+      .modal .txt { width:100%; border-radius:10px; border:1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color:#fff; padding:8px; }
 
-      /* قائمة التحرير أعلى الكرت */
-      .gear-btn{background:#222;border:1px solid #333;color:#eee;padding:6px 8px;border-radius:10px;cursor:pointer}
-      .edit-dropdown{position:absolute;top:10px;left:10px;background:#161616;border:1px solid #2a2a2a;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:10px;width:min(320px,92vw);display:none;z-index:6000}
-      .edit-dropdown.open{display:block}
-      .row{display:flex;align-items:center;gap:10px;margin:8px 0}
-      .row label{min-width:90px;color:#ddd}
-      .row input[type="color"]{width:40px;height:28px;border:none;background:none;padding:0}
-      .row input[type="range"]{flex:1}
-      .row textarea{width:100%;background:#111;color:#eee;border:1px solid #2a2a2a;border-radius:10px;padding:8px}
-      .actions{display:flex;gap:8px;justify-content:flex-start;margin-top:6px}
-      .badge-edit{font-size:12px;color:#0f0;background:#123a12;border:1px solid #1f5a1f;border-radius:8px;padding:2px 8px;margin-top:4px}
-      .badge-share{font-size:12px;color:#ddd;background:#2a2a2a;border:1px solid #333;border-radius:8px;padding:2px 8px;margin-top:4px}
+      /* Toast */
+      .toast { position: fixed; right: 14px; bottom: 14px; z-index: 15; background: rgba(22,22,24,0.85);
+        color:#fff; border:1px solid rgba(255,255,255,.12); padding:8px 12px; border-radius:10px; backdrop-filter: blur(10px); }
+      .toast.hidden { display:none; }
+
+      /* اسمح للـ InfoWindow بوضع محتوى مخصص */
+      .gm-style-iw-d { overflow: visible !important; }
     </style>
   </head>
   <body>
-    <div id="app">
-      <header class="topbar">
-        <div class="brand">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Diriyah_Company_Logo.svg/512px-Diriyah_Company_Logo.svg.png" alt="Diriyah" class="brand-logo" />
-          <div class="brand-text">
-            <strong>Security & Traffic Map</strong>
-            <span id="modeBadge" class="mode-badge badge-share">Share</span>
-          </div>
-        </div>
+    <!-- الخريطة -->
+    <div id="map" role="application" aria-label="خريطة تفاعلية"></div>
 
-        <div class="controls">
-          <button id="btnRoadmap" class="btn" aria-pressed="true">طرق</button>
-          <button id="btnSatellite" class="btn" aria-pressed="false">قمر صناعي</button>
-          <button id="btnTraffic" class="btn" aria-pressed="false">حركة المرور</button>
-          <button id="btnRecipients" class="btn secondary" title="تعديل المستلمين">المستلمون</button>
-          <button id="btnEditMode" class="btn secondary" title="تفعيل/إلغاء وضع التحرير">تحرير</button>
-        </div>
-      </header>
-
-      <div id="map" role="application" aria-label="خريطة تفاعلية"></div>
-
-      <!-- كرت المعلومات -->
-      <aside id="infoCard" class="info-card hidden" role="dialog" aria-live="polite">
-        <div class="info-header">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Diriyah_Company_Logo.svg/512px-Diriyah_Company_Logo.svg.png" alt="Diriyah" class="info-logo" />
-          <div class="info-titles">
-            <h3 id="infoTitle">—</h3>
-            <p id="infoSubtitle" class="muted">—</p>
-          </div>
-          <button id="gearBtn" class="gear-btn" title="أدوات الدائرة">⚙️</button>
-          <button id="pinCard" class="icon-btn" title="تثبيت الكرت">📌</button>
-          <button id="closeCard" class="icon-btn" title="إغلاق">✕</button>
-        </div>
-        <div class="info-body">
-          <ul class="info-list">
-            <li><strong>الإحداثيات:</strong> <span id="infoLatLng">—</span></li>
-            <li><strong>نصف القطر:</strong> <span id="infoRadius">15 م</span></li>
-            <li id="infoNotesRow" class="hidden"><strong>ملاحظات:</strong> <span id="infoNotes">—</span></li>
-          </ul>
-
-          <!-- قائمة التحرير -->
-          <div id="editDropdown" class="edit-dropdown" aria-hidden="true">
-            <div class="row">
-              <label>اللون:</label>
-              <input id="editColor" type="color" value="#c1a476" />
-            </div>
-            <div class="row">
-              <label>نصف القطر:</label>
-              <input id="editRadius" type="range" min="5" max="300" step="1" />
-              <span id="editRadiusVal">15</span><span>م</span>
-            </div>
-            <div class="row" style="align-items:flex-start">
-              <label>ملاحظات:</label>
-              <textarea id="editNotes" rows="3" placeholder="—"></textarea>
-            </div>
-            <div class="actions">
-              <button id="btnSaveCircle" class="btn">حفظ</button>
-              <button id="btnDeleteCircle" class="btn secondary">حذف</button>
-              <button id="btnCloseDropdown" class="btn secondary">إغلاق</button>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <!-- محرّر المستلمين -->
-      <div id="recipientsModal" class="modal hidden" aria-hidden="true" role="dialog">
-        <div class="modal-content">
-          <div class="modal-header"><h3>تعديل المستلمين</h3></div>
-          <div class="modal-body">
-            <label for="recipientsInput" class="lbl">أدخل البريد/الأرقام (مفصولة بفواصل):</label>
-            <textarea id="recipientsInput" rows="5" class="txt"></textarea>
-            <p class="hint">يتم الحفظ محليًا ويُضمَّن أيضًا داخل رابط المشاركة المختصر.</p>
-          </div>
-          <div class="modal-actions">
-            <button id="saveRecipients" class="btn">حفظ</button>
-            <button id="cancelRecipients" class="btn secondary">إلغاء</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="toast" class="toast hidden"></div>
+    <!-- لوحة التحكم -->
+    <div class="toolbar" id="toolbar">
+      <span id="modeBadge" class="badge badge-share">Share</span>
+      <button id="btnRoadmap" class="btn" aria-pressed="true">طرق</button>
+      <button id="btnSatellite" class="btn" aria-pressed="false">قمر صناعي</button>
+      <button id="btnTraffic" class="btn" aria-pressed="false">حركة المرور</button>
+      <button id="btnRecipients" class="btn secondary">المستلمون</button>
+      <button id="btnEditMode" class="btn secondary">تحرير</button>
     </div>
 
+    <!-- محرّر المستلمين العامّين (اختياري) -->
+    <div id="recipientsModal" class="modal hidden" aria-hidden="true" role="dialog">
+      <div class="modal-content">
+        <h3 style="margin-top:0">تعديل المستلمين العامّين</h3>
+        <p style="margin:4px 0 8px; opacity:.85">أدخل البريد/الأرقام (مفصولة بفواصل):</p>
+        <textarea id="recipientsInput" rows="5" class="txt"></textarea>
+        <div style="display:flex; gap:8px; justify-content:flex-start; margin-top:10px">
+          <button id="saveRecipients" class="btn">حفظ</button>
+          <button id="cancelRecipients" class="btn secondary">إلغاء</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- سكربتات -->
     <script src="js/main.js" defer></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&libraries=geometry&callback=initMap" defer></script>
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&v=weekly&libraries=geometry&callback=initMap"
+      async
+      defer
+    ></script>
   </body>
 </html>
