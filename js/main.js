@@ -4,10 +4,10 @@ function toFixed6(x){ return Number(x).toFixed ? Number(x).toFixed(6) : x; }
 function b64Encode(obj){ const s = JSON.stringify(obj); return btoa(unescape(encodeURIComponent(s))); }
 function b64Decode(str){ try { return JSON.parse(decodeURIComponent(escape(atob(str)))); } catch { return null; } }
 
-// ===== التخزين المحلي (مفتاح جديد لإجبار التحديث) =====
+// ===== التخزين المحلي (مفتاح لإجبار التحديث عند تغيير الافتراضات) =====
 const LS_KEY = 'security:state.v3';
 
-// ===== الحالة الافتراضية: المواقع التي زوّدتني بها =====
+// ===== الحالة الافتراضية (مواقعك) =====
 function defaultState(){
   const S = (id,name,lat,lng,type) => ({
     id, name, type, lat, lng,
@@ -106,7 +106,11 @@ window.initMap = function () {
   const markers = [];
   const circles = [];
   const byId = Object.create(null);
-  let selectedId = null;
+
+  // حالة كرت المعلومات
+  let selectedId = null; // آخر موقع فُتح الكرت له
+  let pinnedId   = null; // مُثبت بالنقر
+  let hoverId    = null; // يظهر بالمرور فقط (غير مثبت)
 
   function renderRecipients(list){ return (list && list.length) ? list.join('، ') : '—'; }
 
@@ -128,9 +132,13 @@ window.initMap = function () {
       document.getElementById('ed-stroke-w').value = site.style.strokeWeight;
     }
   }
-  function closeCard(){ card.classList.add('hidden'); selectedId = null; }
-  closeBtn.addEventListener('click', closeCard);
-  map.addListener('click', closeCard);
+
+  function closeCard(){
+    card.classList.add('hidden');
+    selectedId = null;
+    hoverId = null;
+    // لا نغيّر pinnedId هنا؛ يُزال فقط عند الضغط على الخريطة أو اختيار موقع آخر
+  }
 
   function syncFeature(site){
     const m = markers.find(x => x.__id === site.id);
@@ -158,7 +166,7 @@ window.initMap = function () {
     byId[site.id] = site;
     const pos = { lat: site.lat, lng: site.lng };
 
-    // ماركر (للاستخدام المعتاد)
+    // ماركر
     const marker = new google.maps.Marker({
       position: pos, map, title: site.name,
       icon: { path: google.maps.SymbolPath.CIRCLE, scale: 6, fillColor:'#e11d48', fillOpacity:1, strokeColor:'#ffffff', strokeWeight:2 },
@@ -167,35 +175,52 @@ window.initMap = function () {
     marker.__id = site.id;
     markers.push(marker);
 
-    // دائرة قابلة للنقر والتمرير لفتح الكرت
+    // دائرة قابلة للنقر والتمرير
     const circle = new google.maps.Circle({
       map, center: pos, radius: site.style.radius,
       strokeColor: site.style.stroke, strokeOpacity: 0.95, strokeWeight: site.style.strokeWeight,
       fillColor: site.style.fill, fillOpacity: site.style.fillOpacity,
-      clickable: true,          // ← مهم: يسمح بالنقر على أي مكان في الدائرة
-      cursor: 'pointer',        // مؤشر يد عند المرور
-      zIndex: 1
+      clickable: true, cursor: 'pointer', zIndex: 1
     });
     circle.__id = site.id;
     circles.push(circle);
 
-    // نفس سلوك فتح الكرت على الماركر
     function flashCircle(){
       circle.setOptions({ strokeOpacity: 1, fillOpacity: Math.min(site.style.fillOpacity+0.06, 1) });
       setTimeout(() => circle.setOptions({ strokeOpacity: 0.95, fillOpacity: site.style.fillOpacity }), 240);
     }
 
-    // فتح الكرت: بالنقر على الماركر
-    marker.addListener('click', () => { openCard(site); map.panTo(pos); flashCircle(); });
+    // نقر الماركر = فتح وتثبيت
+    marker.addListener('click', () => {
+      pinnedId = site.id;
+      openCard(site);
+      map.panTo(pos);
+      flashCircle();
+    });
 
-    // فتح الكرت: بالنقر على أي مكان داخل الدائرة
-    circle.addListener('click', () => { openCard(site); map.panTo(pos); flashCircle(); });
+    // نقر الدائرة = فتح وتثبيت
+    circle.addListener('click', () => {
+      pinnedId = site.id;
+      openCard(site);
+      map.panTo(pos);
+      flashCircle();
+    });
 
-    // فتح الكرت بمجرد المرور (اختياري لطيف)
-    circle.addListener('mouseover', () => { openCard(site); flashCircle(); });
-    circle.addListener('mouseout',  () => { circle.setOptions({ strokeOpacity: 0.95, fillOpacity: site.style.fillOpacity }); });
+    // مرور على الدائرة = فتح مؤقت (إن لم يكن هناك تثبيت)
+    circle.addListener('mouseover', () => {
+      if (pinnedId) return;      // تجاهل الهوفر إذا في تثبيت
+      hoverId = site.id;
+      openCard(site);
+      flashCircle();
+    });
 
-    // سحب الماركر (تحريك الدائرة) – في الوضع العادي فقط
+    // خروج المؤشر = إخفاء إذا لم تكن مثبّتة
+    circle.addListener('mouseout', () => {
+      if (pinnedId) return;              // لو مثبّتة لا نخفي
+      if (hoverId === site.id) closeCard();
+    });
+
+    // سحب الماركر (عادي)
     marker.addListener('dragend', (e) => {
       if (isShare) return;
       site.lat = e.latLng.lat(); site.lng = e.latLng.lng();
@@ -203,6 +228,7 @@ window.initMap = function () {
     });
   }
 
+  // أنشئ المواقع
   state.sites.forEach(createFeature);
 
   // ===== أدوات التحرير (للوضع العادي فقط) =====
@@ -241,7 +267,7 @@ window.initMap = function () {
       const id = 'site-' + Math.random().toString(36).slice(2,8);
       const site = { id, name:'موقع جديد', type:'نقطة', lat:c.lat(), lng:c.lng(),
         recipients:[], style:{ radius:15, fill:'#60a5fa', fillOpacity:0.16, stroke:'#60a5fa', strokeWeight:2 } };
-      state.sites.push(site); createFeature(site); openCard(site); saveLocal(state);
+      state.sites.push(site); createFeature(site); pinnedId = site.id; openCard(site); saveLocal(state);
     });
     btnDel.addEventListener('click', () => {
       if (!selectedId) return;
@@ -253,6 +279,7 @@ window.initMap = function () {
         if (cIdx >= 0) { circles[cIdx].setMap(null); circles.splice(cIdx,1); }
         delete byId[selectedId];
         state.sites.splice(idx,1);
+        pinnedId = null;
         closeCard();
         saveLocal(state);
       }
@@ -282,6 +309,12 @@ window.initMap = function () {
       setTimeout(()=>toast.classList.add('hidden'), 2000);
     });
   }
+
+  // الضغط على الخريطة = فك التثبيت وإخفاء الكرت
+  map.addListener('click', () => {
+    pinnedId = null;
+    closeCard();
+  });
 
   console.log(isShare ? 'Readonly Share View 🔒' : 'Editor View ✅');
 };
