@@ -10,6 +10,12 @@
 
     <!-- Styles -->
     <link rel="stylesheet" href="css/style.css" />
+
+    <!-- Fـallback بسيط لضمان ارتفاع الخريطة حتى لو تعطل الـ CSS الخارجي -->
+    <style>
+      #map{min-height:calc(100vh - 60px);}
+      @media (max-width:640px){#map{min-height:calc(100vh - 56px);}}
+    </style>
   </head>
   <body>
     <div id="app">
@@ -67,7 +73,7 @@
           <div class="modal-body">
             <label for="recipientsInput" class="lbl">أدخل البريد/الأرقام (مفصولة بفواصل):</label>
             <textarea id="recipientsInput" rows="5" class="txt"></textarea>
-            <p class="hint">يتم حفظ المحتوى محليًا ويُضمَّن أيضًا داخل رابط المشاركة المختصر.</p>
+            <p class="hint">يتم الحفظ محليًا ويُضمَّن أيضًا داخل رابط المشاركة المختصر.</p>
           </div>
           <div class="modal-actions">
             <button id="saveRecipients" class="btn">حفظ</button>
@@ -76,7 +82,7 @@
         </div>
       </div>
 
-      <!-- إشعار بسيط -->
+      <!-- إشعار -->
       <div id="toast" class="toast hidden"></div>
     </div>
 
