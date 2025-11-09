@@ -1,16 +1,14 @@
-/* Diriyah Security Map – v6.2 (Mobile-safe share + init guard + view-only on share) */
+/* Diriyah Security Map – v7 (Base64URL token + delta state + strict view-only on share) */
 'use strict';
 
-/* ---------- Safe init guard: يضمن تشغيل الخريطة حتى لو تأخر سكربت Google ---------- */
+/* ===== حارس تهيئة لتفادي شاشة سوداء لو تأخر سكربت Google ===== */
 window.__MAP_INITED__ = false;
-window.initMap = function initMapWrapper(){ if(window.__MAP_INITED__) return; window.__MAP_INITED__ = true; try{ realInit(); }catch(e){ console.error(e); } };
-(function waitForGoogle(){ if(window.google && google.maps){ if(!window.__MAP_INITED__) window.initMap(); } else { setTimeout(waitForGoogle, 200); } })();
+window.initMap = function(){ if(window.__MAP_INITED__) return; window.__MAP_INITED__ = true; try{ boot(); }catch(e){ console.error(e); } };
+(function wait(){ if(window.google && google.maps){ if(!window.__MAP_INITED__) window.initMap(); } else { setTimeout(wait, 150); } })();
 
-/* ---------- حالة عامة ---------- */
+/* ===== عناصر عامة ===== */
 let map, trafficLayer, infoWin=null;
 let cardPinned=false, editMode=false, shareMode=false, hideTimer=null;
-
-// toolbar refs
 let btnRoadmap, btnSatellite, btnTraffic, btnEditMode, btnShare, modeBadge, toast;
 
 const DEFAULT_CENTER = { lat:24.7399, lng:46.5731 };
@@ -44,118 +42,80 @@ const LOCATIONS = [
 
 const circles = []; // [{id, circle, meta:{name, recipients:[]}}]
 
-/* ---------- LZ-String الصغير (رابط قصير وآمن) ---------- */
-const LZ = (function(){
-  function _u(s){return unescape(encodeURIComponent(s))}
-  function _d(s){return decodeURIComponent(escape(s))}
-  const ABC="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";
-  function idx(c){return ABC.indexOf(c)}
-  function compressToEncodedURIComponent(input){
-    if(input==null) return "";
-    return _compress(input,6,(a)=>ABC.charAt(a))+"~";
-  }
-  function decompressFromEncodedURIComponent(input){
-    if(!input || input.charAt(input.length-1)!=="~") return "";
-    input=input.substring(0,input.length-1);
-    return _decompress(input.length,32,(i)=>idx(input.charAt(i)));
-  }
-  function _compress(uncompressed,bitsPerChar,getCharFromInt){
-    if(uncompressed==null) return "";
-    let i,value,dict={},dictToCreate={},c,w="",wc="",enlargeIn=2,dictSize=3,numBits=2,data=[],data_val=0,data_pos=0;
-    for(i=0;i<uncompressed.length;i++){
-      c=uncompressed.charAt(i);
-      if(dict[c]==null){dict[c]=dictSize++;dictToCreate[c]=true;}
-      wc=w+c;
-      if(dict[wc]!=null){w=wc;}else{
-        if(dictToCreate[w]){
-          if(w.charCodeAt(0)<256){for(i=0;i<numBits;i++) data_val<<=1;if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++; value=w.charCodeAt(0); for(i=0;i<8;i++){data_val=(data_val<<1)|(value&1); if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++; value>>=1;}}
-          else{value=1;for(i=0;i<numBits;i++){data_val=(data_val<<1)|1; if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++;} value=w.charCodeAt(0); for(i=0;i<16;i++){data_val=(data_val<<1)|(value&1); if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++; value>>=1;}}
-          enlargeIn--; if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++;}
-          delete dictToCreate[w];
-        }else{
-          value=dict[w]; for(i=0;i<numBits;i++){data_val=(data_val<<1)|(value&1); if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++; value>>=1;}
-        }
-        enlargeIn--; if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++;}
-        dict[wc]=dictSize++; w=String(c);
-      }
-    }
-    if(w!==""){
-      if(dictToCreate[w]){
-        if(w.charCodeAt(0)<256){for(i=0;i<numBits;i++) data_val<<=1;if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++; value=w.charCodeAt(0); for(i=0;i<8;i++){data_val=(data_val<<1)|(value&1); if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++; value>>=1;}}
-        else{value=1;for(i=0;i<numBits;i++){data_val=(data_val<<1)|1; if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++;} value=w.charCodeAt(0); for(i=0;i<16;i++){data_val=(data_val<<1)|(value&1); if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++; value>>=1;}}
-        enlargeIn--; if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++;}
-        delete dictToCreate[w];
-      }else{
-        value=dict[w]; for(i=0;i<numBits;i++){data_val=(data_val<<1)|(value&1); if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++; value>>=1;}
-      }
-      enlargeIn--; if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++;}
-    }
-    value=2; for(i=0;i<numBits;i++){data_val=(data_val<<1)|(value&1); if(data_pos==bitsPerChar-1){data_pos=0;data.push(getCharFromInt(data_val));data_val=0;}else data_pos++;}
-    while(true){ data_val<<=1; if(data_pos==bitsPerChar-1){ data.push(getCharFromInt(data_val)); break; } else data_pos++; }
-    return data.join('');
-  }
-  function _decompress(length,resetValue,getNextValue){
-    let dictionary=[],next,enlargeIn=4,dictSize=4,numBits=3,entry="",result=[],i,w,bits,resb,maxpower,power,c,data={val:getNextValue(0),position:resetValue,index:1};
-    for(i=0;i<3;i++) dictionary[i]=i;
-    bits=0; maxpower=Math.pow(2,2); power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++);} bits|=(resb>0?1:0)*power; power<<=1; }
-    switch(next=bits){ case 0: bits=0; maxpower=Math.pow(2,8); power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++);} bits|=(resb>0?1:0)*power; power<<=1; } c=String.fromCharCode(bits); break;
-      case 1: bits=0; maxpower=Math.pow(2,16); power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++);} bits|=(resb>0?1:0)*power; power<<=1; } c=String.fromCharCode(bits); break;
-      case 2: return ""; }
-    dictionary[3]=c; w=c; result.push(c);
-    while(true){
-      if(data.index>length) return "";
-      bits=0; maxpower=Math.pow(2,numBits); power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++);} bits|=(resb>0?1:0)*power; power<<=1; }
-      switch(c=next=bits){
-        case 0: bits=0; maxpower=Math.pow(2,8); power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++);} bits|=(resb>0?1:0)*power; power<<=1; } dictionary[dictSize++]=String.fromCharCode(bits); c=dictSize-1; enlargeIn--; break;
-        case 1: bits=0; maxpower=Math.pow(2,16); power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++);} bits|=(resb>0?1:0)*power; power<<=1; } dictionary[dictSize++]=String.fromCharCode(bits); c=dictSize-1; enlargeIn--; break;
-        case 2: return result.join(""); }
-      if(enlargeIn==0){enlargeIn=Math.pow(2,numBits); numBits++;}
-      if(dictionary[c]){ entry=dictionary[c]; }
-      else{ if(c===dictSize){ entry=w+w.charAt(0); } else { return ""; } }
-      result.push(entry); dictionary[dictSize++]=w+entry.charAt(0); enlargeIn--; w=entry;
-      if(enlargeIn==0){enlargeIn=Math.pow(2,numBits); numBits++;}
-    }
-  }
-  return {c:compressToEncodedURIComponent, d:decompressFromEncodedURIComponent};
-})();
+/* ===== Base64URL utils (بدون + / =) ===== */
+function b64uEncode(str){
+  const b = btoa(unescape(encodeURIComponent(str)));
+  return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function b64uDecode(tok){
+  try{
+    tok = tok.replace(/[^A-Za-z0-9\-_]/g,''); // تنظيف
+    const pad = tok.length % 4 ? '='.repeat(4 - (tok.length % 4)) : '';
+    const s = tok.replace(/-/g,'+').replace(/_/g,'/') + pad;
+    return decodeURIComponent(escape(atob(s)));
+  }catch{ return ''; }
+}
 
-/* ---------- مشاركة مختصرة: #x=token(.ts) ---------- */
-function readShareToken(){
-  const h=location.hash||"";
-  if(!h.startsWith("#x=")) return null;
-  const raw=h.slice(3); const token=raw.split(".")[0];
-  const json=LZ.d(token); if(!json) return null;
+/* ===== مشاركة: #x=<token> (قصير) =====
+   مخطط الحالة المُصغّر:
+   {p:[cx,cy], z:n, m:'r'|'h', t:0|1, c:[[id,r,sc,fo,sw,recStr]]}
+   - c: فقط الدوائر المعدّلة أو التي لها أسماء
+   - recStr: أسماء المستلمين مفصولة بـ "|"  */
+function readShare(){
+  const h = (location.hash||'').trim();
+  if(!/^#x=/.test(h)) return null;
+  const token = h.slice(3);
+  const json = b64uDecode(token);
+  if(!json) return null;
   try{ return JSON.parse(json); }catch{ return null; }
 }
-function writeShareToken(state){
+function writeShare(state){
   if(shareMode) return;
-  const token=LZ.c(JSON.stringify(state));
-  const h=`#x=${token}.${Date.now().toString(36).slice(-6)}`;
-  if(location.hash!==h) history.replaceState(null,"",h);
+  const token = b64uEncode(JSON.stringify(state));
+  const h = `#x=${token}`;
+  if(location.hash !== h) history.replaceState(null,'',h);
 }
 
+/* ===== بناء/تطبيق الحالة ===== */
 function buildState(){
   const ctr=map.getCenter(), z=map.getZoom();
   const m=map.getMapTypeId()==='roadmap'?'r':'h';
-  const tr=btnTraffic.getAttribute('aria-pressed')==='true'?1:0;
-  const c=circles.map(({id,circle,meta})=>{
-    const r=Math.round(circle.getRadius());
-    const sc=(circle.get('strokeColor')||DEFAULT_COLOR).replace('#','');
-    const fo=Number((circle.get('fillOpacity')??DEFAULT_FILL_OPACITY).toFixed(2));
-    const sw=(circle.get('strokeWeight')??DEFAULT_STROKE_WEIGHT)|0;
-    return [id,r,sc,fo,sw,(meta.recipients||[]).join("\n")];
+  const t=btnTraffic.getAttribute('aria-pressed')==='true'?1:0;
+
+  // فقط الدوائر المعدّلة (دلتا)
+  const c=[];
+  circles.forEach(({id, circle, meta})=>{
+    const r = Math.round(circle.getRadius());
+    const sc = (circle.get('strokeColor')||DEFAULT_COLOR).replace('#','');
+    const fo = Number((circle.get('fillOpacity')??DEFAULT_FILL_OPACITY).toFixed(2));
+    const sw = (circle.get('strokeWeight')??DEFAULT_STROKE_WEIGHT)|0;
+    const rec = (meta.recipients||[]).join('|');
+
+    const changed = (r!==DEFAULT_RADIUS) ||
+                    (toHex('#'+sc)!==toHex(DEFAULT_COLOR)) ||
+                    (fo!==DEFAULT_FILL_OPACITY) ||
+                    (sw!==DEFAULT_STROKE_WEIGHT) ||
+                    rec.length>0;
+
+    if(changed){ c.push([id,r,sc,fo,sw,rec]); }
   });
-  return {cx:+ctr.lng().toFixed(6), cy:+ctr.lat().toFixed(6), z, m, tr, c};
+
+  // دِقة أقل للمركز لتقصير التوكِن (4 منازل تكفي)
+  return { p:[+ctr.lng().toFixed(4), +ctr.lat().toFixed(4)], z, m, t, c };
 }
+
 function applyState(s){
   if(!s) return;
-  if(Number.isFinite(s.cy)&&Number.isFinite(s.cx)) map.setCenter({lat:s.cy,lng:s.cx});
+  if(Array.isArray(s.p) && s.p.length===2){
+    map.setCenter({lat:s.p[1], lng:s.p[0]});
+  }
   if(Number.isFinite(s.z)) map.setZoom(s.z);
   map.setMapTypeId(s.m==='r'?'roadmap':'hybrid');
   btnRoadmap.setAttribute('aria-pressed', String(s.m==='r'));
   btnSatellite.setAttribute('aria-pressed', String(s.m!=='r'));
-  if(s.tr){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
-  else    { trafficLayer.setMap(null); btnTraffic.setAttribute('aria-pressed','false'); }
+  if(s.t){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
+  else   { trafficLayer.setMap(null); btnTraffic.setAttribute('aria-pressed','false'); }
+
   if(Array.isArray(s.c)){
     s.c.forEach(([id,r,sc,fo,sw,rec])=>{
       const it=circles.find(x=>x.id===id); if(!it) return;
@@ -166,15 +126,17 @@ function applyState(s){
         fillOpacity: Number.isFinite(fo)?fo:DEFAULT_FILL_OPACITY,
         strokeWeight: Number.isFinite(sw)?sw:DEFAULT_STROKE_WEIGHT,
       });
-      it.meta.recipients = typeof rec==='string' ? parseRecipients(rec) : [];
+      it.meta.recipients = typeof rec==='string' && rec.length ? rec.split('|').map(s=>s.trim()).filter(Boolean) : [];
     });
   }
 }
-let persistTimer=null; const persist=()=>{ if(shareMode) return; clearTimeout(persistTimer); persistTimer=setTimeout(()=>writeShareToken(buildState()),220); };
 
-/* ---------- التهيئة الحقيقية ---------- */
-function realInit(){
-  // refs
+let persistTimer=null;
+const persist=()=>{ if(shareMode) return; clearTimeout(persistTimer); persistTimer=setTimeout(()=>writeShare(buildState()),180); };
+
+/* ===== تشغيل التطبيق ===== */
+function boot(){
+  // مراجع
   btnRoadmap  = document.getElementById('btnRoadmap');
   btnSatellite= document.getElementById('btnSatellite');
   btnTraffic  = document.getElementById('btnTraffic');
@@ -183,6 +145,7 @@ function realInit(){
   modeBadge   = document.getElementById('modeBadge');
   toast       = document.getElementById('toast');
 
+  // خريطة
   map = new google.maps.Map(document.getElementById('map'), {
     center: DEFAULT_CENTER, zoom: 15, mapTypeId:'roadmap',
     disableDefaultUI:true, clickableIcons:false, gestureHandling:'greedy'
@@ -197,16 +160,16 @@ function realInit(){
   // مشاركة
   btnShare.onclick     = copyShareLink;
 
-  // إنشاء الدوائر أولًا
+  // دوائر
   LOCATIONS.forEach(addCircle);
 
-  // إذا الرابط مشاركة: طبّق الحالة ثم عيّن وضع العرض فقط
-  const S = readShareToken();
+  // وضع مشاركة؟
+  const S = readShare();
   shareMode = !!S;
   if(S){ applyState(S); setViewOnly(); }
-  else { writeShareToken(buildState()); }
+  else { writeShare(buildState()); }
 
-  // تحرير (مُعطَّل تمامًا في وضع المشاركة)
+  // تحرير (يعطَّل بالكامل في وضع المشاركة)
   btnEditMode.onclick  = ()=>{ if(shareMode) return; editMode=!editMode; modeBadge.textContent=editMode?'Edit':'Share'; modeBadge.className='badge '+(editMode?'badge-edit':'badge-share'); cardPinned=false; if(infoWin) infoWin.close(); };
 
   // أحداث عامة
@@ -214,14 +177,14 @@ function realInit(){
   map.addListener('click', ()=>{ cardPinned=false; if(infoWin) infoWin.close(); });
 }
 
+/* ===== وضع العرض فقط ===== */
 function setViewOnly(){
-  editMode=false;
-  modeBadge.textContent='Share';
-  modeBadge.className='badge badge-share';
+  editMode=false; document.body.setAttribute('data-viewonly','1');
+  modeBadge.textContent='Share'; modeBadge.className='badge badge-share';
   if(btnEditMode){ btnEditMode.style.display='none'; btnEditMode.disabled=true; }
 }
 
-/* ---------- الدوائر والكرت ---------- */
+/* ===== الدوائر + الكرت الزجاجي ===== */
 function addCircle(loc){
   const circle = new google.maps.Circle({
     map, center:{lat:loc.lat,lng:loc.lng}, radius:DEFAULT_RADIUS,
@@ -246,7 +209,7 @@ function openCard(item){
   infoWin.setPosition(item.circle.getCenter());
   infoWin.open({ map });
 
-  setTimeout(()=>{ // إزالة X والذيل
+  setTimeout(()=>{
     const root = document.getElementById('iw-root');
     if(!root) return;
     const closeBtn = root.parentElement?.querySelector('.gm-ui-hover-effect');
@@ -263,11 +226,16 @@ function openCard(item){
 }
 
 function renderCard(item){
-  const meta=item.meta;
+  const c = item.circle, meta=item.meta;
   const names = Array.isArray(meta.recipients) ? meta.recipients : [];
   const namesHtml = names.length
     ? `<ol style="margin:6px 0 0 0;padding-inline-start:20px;">${names.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ol>`
     : `<div class="note">لا توجد أسماء مضافة</div>`;
+
+  const radius = Math.round(c.getRadius());
+  const color  = c.get('strokeColor') || DEFAULT_COLOR;
+  const stroke = c.get('strokeWeight') || DEFAULT_STROKE_WEIGHT;
+  const fillO  = Number(c.get('fillOpacity') ?? DEFAULT_FILL_OPACITY);
 
   return `
   <div id="iw-root" dir="rtl" style="min-width:360px; max-width:520px;">
@@ -294,14 +262,14 @@ function renderCard(item){
       <div style="margin-top:12px; border-top:1px dashed #e7e7e7; padding-top:10px;">
         <div style="font-weight:700; margin-bottom:6px;">أدوات الدائرة:</div>
         <div class="form-grid">
-          <div class="field"><label>نصف القطر (م):</label><input id="ctl-radius" type="range" min="5" max="120" step="1" style="width:100%;"><span id="lbl-radius" class="note"></span></div>
-          <div class="field"><label>اللون:</label><input id="ctl-color" type="color"></div>
-          <div class="field"><label>حدّ الدائرة:</label><input id="ctl-stroke" type="number" min="1" max="8" step="1" style="width:70px;"></div>
-          <div class="field"><label>شفافية التعبئة:</label><input id="ctl-fill" type="range" min="0" max="0.8" step="0.02" style="width:100%;"><span id="lbl-fill" class="note"></span></div>
+          <div class="field"><label>نصف القطر (م):</label><input id="ctl-radius" type="range" min="5" max="120" step="1" value="${radius}" style="width:100%;"><span id="lbl-radius" class="note">${radius}</span></div>
+          <div class="field"><label>اللون:</label><input id="ctl-color" type="color" value="${toHex(color)}"></div>
+          <div class="field"><label>حدّ الدائرة:</label><input id="ctl-stroke" type="number" min="1" max="8" step="1" value="${stroke}" style="width:70px;"></div>
+          <div class="field"><label>شفافية التعبئة:</label><input id="ctl-fill" type="range" min="0" max="0.8" step="0.02" value="${fillO}" style="width:100%;"><span id="lbl-fill" class="note">${fillO.toFixed(2)}</span></div>
         </div>
         <div style="margin-top:8px;">
           <label class="note">أسماء المستلمين (سطر لكل اسم):</label>
-          <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;"></textarea>
+          <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;">${escapeHtml(names.join("\n"))}</textarea>
           <div style="display:flex; gap:8px; margin-top:8px;">
             <button id="btn-save"  style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حفظ</button>
             <button id="btn-clear" style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الأسماء</button>
@@ -326,14 +294,6 @@ function attachCardEvents(item){
   const save =document.getElementById('btn-save');
   const clr  =document.getElementById('btn-clear');
 
-  // تعبئة القيم الحالية
-  r.value = Math.round(c.getRadius()); lr.textContent = r.value;
-  col.value = toHex(c.get('strokeColor') || DEFAULT_COLOR);
-  sw.value = c.get('strokeWeight') || DEFAULT_STROKE_WEIGHT;
-  fo.value = Number(c.get('fillOpacity') ?? DEFAULT_FILL_OPACITY); lf.textContent = (+fo.value).toFixed(2);
-  names.value = (item.meta.recipients||[]).join("\n");
-
-  // ربط الأحداث
   r.addEventListener('input', ()=>{ const v=+r.value||DEFAULT_RADIUS; lr.textContent=v; c.setRadius(v); persist(); });
   col.addEventListener('input', ()=>{ const v=col.value||DEFAULT_COLOR; c.setOptions({strokeColor:v, fillColor:v}); persist(); });
   sw.addEventListener('input', ()=>{ const v=clamp(+sw.value,1,8); sw.value=v; c.setOptions({strokeWeight:v}); persist(); });
@@ -343,9 +303,9 @@ function attachCardEvents(item){
   clr.addEventListener('click',  ()=>{ item.meta.recipients = []; openCard(item); persist(); });
 }
 
-/* ---------- مشاركة ---------- */
+/* ===== مشاركة ===== */
 async function copyShareLink(){
-  writeShareToken(buildState());
+  writeShare(buildState());
   try{ await navigator.clipboard.writeText(location.href); showToast('تم نسخ رابط المشاركة ✅'); }
   catch{
     const tmp=document.createElement('input'); tmp.value=location.href; document.body.appendChild(tmp);
@@ -353,7 +313,7 @@ async function copyShareLink(){
   }
 }
 
-/* ---------- Helpers ---------- */
+/* ===== Helpers ===== */
 function clamp(x,min,max){ return Math.min(max, Math.max(min, x)); }
 function toHex(col){ if(/^#/.test(col)) return col; const m=col.match(/rgba?\s*\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i); if(!m) return DEFAULT_COLOR; const [r,g,b]=[+m[1],+m[2],+m[3]]; return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join(''); }
 function parseRecipients(text){ return String(text).split(/\r?\n/).map(s=>s.replace(/[،;,]+/g,' ').trim()).filter(Boolean); }
