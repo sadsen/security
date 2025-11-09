@@ -4,28 +4,43 @@ function toFixed6(x){ return Number(x).toFixed ? Number(x).toFixed(6) : x; }
 function b64Encode(obj){ const s = JSON.stringify(obj); return btoa(unescape(encodeURIComponent(s))); }
 function b64Decode(str){ try { return JSON.parse(decodeURIComponent(escape(atob(str)))); } catch { return null; } }
 
-// ===== مفاتيح التخزين المحلي (للوضع العادي فقط) =====
-const LS_KEY = 'security:state.v1';
+// ===== التخزين المحلي (مفتاح جديد لإجبار التحديث) =====
+const LS_KEY = 'security:state.v3';
 
-// ===== الحالة الافتراضية =====
+// ===== الحالة الافتراضية: المواقع التي زوّدتني بها =====
 function defaultState(){
+  const S = (id,name,lat,lng,type) => ({
+    id, name, type, lat, lng,
+    recipients: [],
+    style: { radius: 15, fill: '#60a5fa', fillOpacity: 0.16, stroke: '#60a5fa', strokeWeight: 2 }
+  });
   return {
     traffic: false,
     sites: [
-      { id:'samhan-gate', name:'بوابة سمحان', type:'بوابة', lat:24.742132355539432, lng:46.56966664740594,
-        recipients:['قائد المنطقة – سمحان','غرفة التحكم','دورية المتابعة'],
-        style:{ radius:15, fill:'#60a5fa', fillOpacity:0.16, stroke:'#60a5fa', strokeWeight:2 } },
-      { id:'bujairi-rbt', name:'دوار البجيري', type:'دوار', lat:24.73754835059363, lng:46.57401116325427,
-        recipients:['مجموعة البجيري','المناوب الميداني'],
-        style:{ radius:15, fill:'#60a5fa', fillOpacity:0.16, stroke:'#60a5fa', strokeWeight:2 } },
-      { id:'king-salman-sq', name:'ميدان الملك سلمان', type:'ميدان', lat:24.7406, lng:46.5802,
-        recipients:['قائد الميدان','غرفة التحكم'],
-        style:{ radius:15, fill:'#60a5fa', fillOpacity:0.16, stroke:'#60a5fa', strokeWeight:2 } }
+      S('samhan-gate','بوابة سمحان',24.742132284177778,46.569503913805825,'بوابة'),
+      S('samhan-area','منطقة سمحان',24.74091335108621,46.571891407130025,'منطقة'),
+      S('bujairi-rbt','دوار البجيري',24.737521801476476,46.57406918772067,'دوار'),
+      S('bujairi-signal','إشارة البجيري',24.73766260194535,46.575429040147306,'إشارة'),
+      S('king-faisal-rd','طريق الملك فيصل',24.736133848943062,46.57696607050239,'طريق'),
+      S('alshalhoub-triage','نقطة فرز الشلهوب',24.73523670533632,46.57785639752234,'نقطة فرز'),
+      S('long-sports-track','المسار الرياضي المديد',24.735301077804944,46.58178092599035,'مسار رياضي'),
+      S('king-salman-sq','ميدان الملك سلمان',24.73611373368281,46.58407097038162,'ميدان'),
+      S('dim-light-rbt','دوار الضوء الخافت',24.739718342668006,46.58352614787052,'دوار'),
+      S('kk-service-track','المسار الرياضي طريق الملك خالد الفرعي',24.740797019998627,46.5866145907347,'مسار رياضي'),
+      S('baladiya-rbt','دوار البلدية',24.739266101368777,46.58172727078356,'دوار'),
+      S('baladiya-entr','مدخل ساحة البلدية الفرعي',24.738638518378387,46.579858026042785,'مدخل'),
+      S('bujairi-carpark-entr','مدخل مواقف البجيري (كار بارك)',24.73826438056506,46.57789576275729,'مدخل'),
+      S('security-parking','مواقف الامن',24.73808736962705,46.57771858346317,'مواقف'),
+      S('alruqayyah-rbt','دوار الروقية',24.741985907266145,46.56269186990043,'دوار'),
+      S('bayt-mubarak','بيت مبارك',24.732609768937607,46.57827089439368,'موقع'),
+      S('wadi-safar-rbt','دوار وادي صفار',24.72491458984474,46.57345489743978,'دوار'),
+      S('ras-alnaama-rbt','دوار راس النعامة',24.710329841152387,46.572921959358204,'دوار'),
+      S('alhabib-farm','مزرعة الحبيب',24.709445443672344,46.593971867951346,'مزرعة')
     ]
   };
 }
 
-// ===== تحميل/حفظ الحالة محلياً (فقط في الوضع العادي) =====
+// ===== LocalStorage (للوضع العادي فقط) =====
 function loadLocal(){ try{ const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null; }catch{return null;} }
 function saveLocal(state){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch{} }
 
@@ -35,9 +50,7 @@ window.initMap = function () {
   const isShare = params.get('view') === 'share';
   if (isShare) document.body.classList.add('share');
 
-  // الحالة:
-  // - في وضع العرض: من s= فقط (عرض-فقط)
-  // - في الوضع العادي: من LocalStorage إن وُجد وإلا افتراضي
+  // الحالة: في العرض من s= فقط، وفي العادي من LocalStorage أو الافتراضي
   let state;
   if (isShare) {
     state = params.get('s') ? (b64Decode(params.get('s')) || defaultState()) : defaultState();
@@ -45,23 +58,18 @@ window.initMap = function () {
     state = loadLocal() || defaultState();
   }
 
-  // إعداد الخريطة
+  // الخريطة
   const defaultCenter = { lat: 24.7418, lng: 46.5758 };
   const center = { lat: parseFloat(params.get('lat')) || defaultCenter.lat, lng: parseFloat(params.get('lng')) || defaultCenter.lng };
   const zoom = parseInt(params.get('z') || '14', 10);
   const mapTypeId = (params.get('t') || 'roadmap');
 
   const mapEl = document.getElementById('map');
-  const panel = document.getElementById('panel');
+  const panel  = document.getElementById('panel');
   const sharebar = document.getElementById('sharebar');
   const trafficBtn = document.getElementById('traffic-toggle');
 
-  if (isShare) {
-    sharebar.classList.remove('hidden');  // تلميح فقط
-    panel?.remove();                      // إزالة لوحة التحرير نهائياً
-  } else {
-    sharebar.classList.add('hidden');
-  }
+  if (isShare) { sharebar.classList.remove('hidden'); panel?.remove(); } else { sharebar.classList.add('hidden'); }
 
   const map = new google.maps.Map(mapEl, {
     center, zoom, mapTypeId,
@@ -139,6 +147,11 @@ window.initMap = function () {
       strokeWeight: site.style.strokeWeight
     });
     if (!isShare) saveLocal(state);
+    if (selectedId === site.id) {
+      coordEl.textContent = `${toFixed6(site.lat)}, ${toFixed6(site.lng)}`;
+      radiusEl.textContent = `${site.style.radius} م`;
+      recEl.textContent = renderRecipients(site.recipients);
+    }
   }
 
   function createFeature(site){
@@ -166,8 +179,6 @@ window.initMap = function () {
       circle.setOptions({ strokeOpacity: 1, fillOpacity: Math.min(site.style.fillOpacity+0.06,1) });
       setTimeout(() => circle.setOptions({ strokeOpacity: 0.95, fillOpacity: site.style.fillOpacity }), 240);
     });
-
-    marker.addEventListener?.('dragend', ()=>{}); // للأنظمة القديمة
 
     marker.addListener('dragend', (e) => {
       if (isShare) return;
@@ -200,7 +211,7 @@ window.initMap = function () {
     toggleCircles.addEventListener('change', () => { const show = toggleCircles.checked; circles.forEach(c => c.setMap(show ? map : null)); });
     baseMapSel.addEventListener('change', () => { map.setMapTypeId(baseMapSel.value); });
 
-    // تغيير الخصائص
+    // تغيير خصائص الدائرة المحددة
     function withSel(fn){ if (!selectedId) return; const s = byId[selectedId]; fn(s); syncFeature(s); }
     edRadius.addEventListener('input', () => withSel(s => s.style.radius = parseInt(edRadius.value,10)));
     edFill.addEventListener('input',   () => withSel(s => s.style.fill = edFill.value));
@@ -232,8 +243,6 @@ window.initMap = function () {
     });
 
     // محرر المستلمين
-    const editActions = document.getElementById('edit-actions');
-    const editBtn = document.getElementById('edit-recipients');
     editBtn?.addEventListener('click', () => {
       if (!selectedId) return; const site = byId[selectedId];
       editorInput.value = (site.recipients || []).join('\n');
@@ -246,26 +255,17 @@ window.initMap = function () {
       syncFeature(site); editor.classList.add('hidden'); saveLocal(state);
     });
 
-    // توليد رابط العرض: تضمين الحالة في s=
+    // توليد رابط العرض: تضمين الحالة كاملة في s=
     shareBtn.addEventListener('click', async () => {
       const c = map.getCenter(); const z = map.getZoom(); const t = map.getMapTypeId();
       const payload = { traffic: trafficOn, sites: state.sites };
       const s = encodeURIComponent(b64Encode(payload));
       const url = `${location.origin}${location.pathname}?view=share&lat=${toFixed6(c.lat())}&lng=${toFixed6(c.lng())}&z=${z}&t=${encodeURIComponent(t)}&s=${s}`;
-      try { await navigator.clipboard.writeText(url); }
-      catch {}
-      const toast = document.getElementById('toast');
+      try { await navigator.clipboard.writeText(url); } catch {}
       toast.textContent = 'تم النسخ ✅'; toast.classList.remove('hidden');
       setTimeout(()=>toast.classList.add('hidden'), 2000);
     });
   }
-
-  // دبوس مرجعي
-  new google.maps.Marker({
-    position: center, map, title: 'Test OK',
-    icon: { path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW, scale: 4, fillColor: '#22c55e', fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 1.5 },
-    zIndex: 0
-  });
 
   console.log(isShare ? 'Readonly Share View 🔒' : 'Editor View ✅');
 };
