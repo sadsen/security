@@ -1,14 +1,15 @@
-// أدوات URL بسيطة
-function getParams() { return new URLSearchParams(location.search); }
-function toFixed6(x) { return Number(x).toFixed ? Number(x).toFixed(6) : x; }
+// أدوات URL
+function getParams(){ return new URLSearchParams(location.search); }
+function toFixed6(x){ return Number(x).toFixed ? Number(x).toFixed(6) : x; }
 
-// تُستدعى عبر callback=initMap من سكربت Google
+// تُستدعى عبر callback=initMap
 window.initMap = function () {
-  // قراءة الإعدادات من الرابط
   const params = getParams();
   const isShare = params.get('view') === 'share';
+  if (isShare) document.body.classList.add('share');
 
-  const defaultCenter = { lat: 24.7418, lng: 46.5758 }; // الدرعية
+  // مركز افتراضي: الدرعية
+  const defaultCenter = { lat: 24.7418, lng: 46.5758 };
   const center = {
     lat: parseFloat(params.get('lat')) || defaultCenter.lat,
     lng: parseFloat(params.get('lng')) || defaultCenter.lng,
@@ -21,157 +22,185 @@ window.initMap = function () {
   const panel = document.getElementById('panel');
   const sharebar = document.getElementById('sharebar');
   const exitShare = document.getElementById('exit-share');
+  const trafficBtn = document.getElementById('traffic-toggle');
 
-  // إظهار/إخفاء حسب وضع العرض
+  // وضع العرض: إظهار الشريط وإزالة اللوحة من DOM
   if (isShare) {
-    panel.classList.add('hidden');
     sharebar.classList.remove('hidden');
-    exitShare.href = location.pathname; // رجوع للوضع الكامل
+    exitShare.href = location.pathname;
+    panel?.remove();
   } else {
-    panel.classList.remove('hidden');
     sharebar.classList.add('hidden');
   }
 
-  // إنشاء الخريطة
+  // الخريطة (نُبقي واجهة Google متاحة في الوضعين)
   const map = new google.maps.Map(mapEl, {
     center, zoom, mapTypeId,
     gestureHandling: 'greedy',
-    disableDefaultUI: isShare // في وضع العرض نخليها أنظف
+    disableDefaultUI: false,
+    mapTypeControl: true, zoomControl: true,
+    streetViewControl: false, fullscreenControl: true,
+    keyboardShortcuts: true
   });
 
-  // بيانات الاختبار (نفسها من المرحلة السابقة)
-  const SITES = [
-    { name: 'بوابة سمحان', type: 'بوابة',   lat: 24.742132355539432, lng: 46.56966664740594 },
-    { name: 'دوار البجيري', type: 'دوار',   lat: 24.73754835059363,  lng: 46.57401116325427 },
-    { name: 'ميدان الملك سلمان', type: 'ميدان', lat: 24.7406,            lng: 46.5802 },
-  ];
+  // طبقة حركة المرور
+  const trafficLayer = new google.maps.TrafficLayer();
+  let trafficOn = (params.get('tr') || '0') === '1';
+  function setTraffic(on){
+    trafficOn = !!on;
+    trafficBtn.setAttribute('aria-pressed', trafficOn ? 'true' : 'false');
+    trafficLayer.setMap(trafficOn ? map : null);
+  }
+  setTraffic(trafficOn);
+  trafficBtn.addEventListener('click', () => setTraffic(!trafficOn));
 
+  // بيانات المواقع مع المستلمين (أمثلة)
+  const SITES = [
+    {
+      id: 'samhan-gate',
+      name: 'بوابة سمحان', type: 'بوابة',
+      lat: 24.742132355539432, lng: 46.56966664740594,
+      recipients: ['قائد المنطقة – سمحان', 'غرفة التحكم', 'دورية المتابعة']
+    },
+    {
+      id: 'bujairi-rbt',
+      name: 'دوار البجيري', type: 'دوار',
+      lat: 24.73754835059363,  lng: 46.57401116325427,
+      recipients: ['مجموعة البجيري', 'المناوب الميداني']
+    },
+    {
+      id: 'king-salman-sq',
+      name: 'ميدان الملك سلمان', type: 'ميدان',
+      lat: 24.7406, lng: 46.5802,
+      recipients: ['قائد الميدان', 'غرفة التحكم']
+    }
+  ];
   const DEFAULT_RADIUS_M = 15;
 
-  // كرت المعلومات
+  // كرت المعلومات + المحرر
   const card = document.getElementById('info-card');
   const closeBtn = card.querySelector('.close');
   const nameEl = document.getElementById('site-name');
   const typeEl = document.getElementById('site-type');
   const coordEl = document.getElementById('site-coord');
   const radiusEl = document.getElementById('site-radius');
+  const recEl = document.getElementById('site-recipients');
+  const editActions = document.getElementById('edit-actions');
+  const editBtn = document.getElementById('edit-recipients');
 
-  const state = { openId: null };
+  const editor = document.getElementById('editor');
+  const editorInput = document.getElementById('editor-input');
+  const editorSave = document.getElementById('editor-save');
+  const editorCancel = document.getElementById('editor-cancel');
 
-  function openCard(site) {
+  let currentSiteId = null;
+
+  function renderRecipients(list){
+    if (!list || !list.length) return '—';
+    return list.join('، ');
+  }
+
+  function openCard(site){
+    currentSiteId = site.id;
     nameEl.textContent = site.name || '—';
     typeEl.textContent = site.type || '—';
     coordEl.textContent = `${toFixed6(site.lat)}, ${toFixed6(site.lng)}`;
     radiusEl.textContent = `${DEFAULT_RADIUS_M} م`;
+    recEl.textContent = renderRecipients(site.recipients);
+    // زر التحرير يظهر فقط خارج وضع العرض
+    if (!isShare) editActions.classList.remove('hidden');
+    else editActions.classList.add('hidden');
+
     card.classList.remove('hidden');
   }
-  function closeCard() {
-    card.classList.add('hidden');
-    state.openId = null;
-  }
+
+  function closeCard(){ card.classList.add('hidden'); currentSiteId = null; }
   closeBtn.addEventListener('click', closeCard);
   map.addListener('click', closeCard);
 
-  // الطبقات: markers & circles
-  const markers = [];
-  const circles = [];
+  // طبقاتنا
+  const markers = [], circles = [];
+  const byId = Object.create(null);
 
-  SITES.forEach((site, idx) => {
+  SITES.forEach((site) => {
+    byId[site.id] = site;
     const pos = { lat: site.lat, lng: site.lng };
+
     const marker = new google.maps.Marker({
       position: pos, map, title: site.name,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 6, fillColor: '#e11d48', fillOpacity: 1,
-        strokeColor: '#ffffff', strokeWeight: 2
-      },
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 6,
+              fillColor: '#e11d48', fillOpacity: 1,
+              strokeColor: '#ffffff', strokeWeight: 2 },
       zIndex: 2
     });
     markers.push(marker);
 
     const circle = new google.maps.Circle({
       map, center: pos, radius: DEFAULT_RADIUS_M,
-      strokeColor: '#60a5fa', strokeOpacity: 0.9, strokeWeight: 2,
-      fillColor: '#60a5fa', fillOpacity: 0.15, clickable: false, zIndex: 1
+      strokeColor: '#60a5fa', strokeOpacity: 0.95, strokeWeight: 2,
+      fillColor: '#60a5fa', fillOpacity: 0.16, clickable: false, zIndex: 1
     });
     circles.push(circle);
 
     marker.addListener('click', () => {
-      state.openId = idx;
       openCard(site);
       map.panTo(pos);
       circle.setOptions({ strokeOpacity: 1, fillOpacity: 0.22 });
-      setTimeout(() => circle.setOptions({ strokeOpacity: 0.9, fillOpacity: 0.15 }), 250);
+      setTimeout(() => circle.setOptions({ strokeOpacity: 0.95, fillOpacity: 0.16 }), 240);
     });
   });
 
-  // عناصر التحكم في اللوحة (إن لم نكن في وضع العرض)
-  const toggleMarkers = document.getElementById('toggle-markers');
-  const toggleCircles = document.getElementById('toggle-circles');
-  const baseMapSel = document.getElementById('basemap');
-  const shareBtn = document.getElementById('share-btn');
-  const toast = document.getElementById('toast');
-
+  // الوضع العادي فقط: عناصر اللوحة ومشاركة الرابط
   if (!isShare) {
-    // تهيئة قيمة نوع الخريطة من الرابط
+    const toggleMarkers = document.getElementById('toggle-markers');
+    const toggleCircles = document.getElementById('toggle-circles');
+    const baseMapSel = document.getElementById('basemap');
+    const shareBtn = document.getElementById('share-btn');
+    const toast = document.getElementById('toast');
+
     baseMapSel.value = map.getMapTypeId();
 
     toggleMarkers.addEventListener('change', () => {
-      const show = toggleMarkers.checked;
-      markers.forEach(m => m.setMap(show ? map : null));
+      const show = toggleMarkers.checked; markers.forEach(m => m.setMap(show ? map : null));
     });
     toggleCircles.addEventListener('change', () => {
-      const show = toggleCircles.checked;
-      circles.forEach(c => c.setMap(show ? map : null));
+      const show = toggleCircles.checked; circles.forEach(c => c.setMap(show ? map : null));
     });
-    baseMapSel.addEventListener('change', () => {
-      map.setMapTypeId(baseMapSel.value);
-    });
+    baseMapSel.addEventListener('change', () => { map.setMapTypeId(baseMapSel.value); });
 
-    // زر نسخ رابط العرض
+    // نسخ رابط عرض فقط (يشمل نوع الخريطة والمرور)
     shareBtn.addEventListener('click', async () => {
-      const c = map.getCenter();
-      const z = map.getZoom();
-      const t = map.getMapTypeId();
-      const vis = [
-        toggleMarkers.checked ? 'm1' : 'm0',
-        toggleCircles.checked ? 'c1' : 'c0'
-      ].join(',');
-      const url = `${location.origin}${location.pathname}?view=share&lat=${toFixed6(c.lat())}&lng=${toFixed6(c.lng())}&z=${z}&t=${encodeURIComponent(t)}&vis=${vis}`;
-      try {
-        await navigator.clipboard.writeText(url);
-        toast.textContent = 'تم النسخ ✅';
-      } catch {
-        toast.textContent = url; //fallback: اعرض الرابط للنسخ اليدوي
-      }
-      toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 2000);
+      const c = map.getCenter(); const z = map.getZoom(); const t = map.getMapTypeId();
+      const url = `${location.origin}${location.pathname}?view=share&lat=${toFixed6(c.lat())}&lng=${toFixed6(c.lng())}&z=${z}&t=${encodeURIComponent(t)}&tr=${trafficOn ? '1' : '0'}`;
+      try { await navigator.clipboard.writeText(url); toast.textContent = 'تم النسخ ✅'; }
+      catch { toast.textContent = url; }
+      toast.classList.remove('hidden'); setTimeout(() => toast.classList.add('hidden'), 2000);
     });
 
-    // إن كان في الرابط vis فطبّقه (للعودة من وضع العرض إلى الكامل مع نفس الإعدادات)
-    const visParam = params.get('vis');
-    if (visParam) {
-      const parts = visParam.split(',');
-      const mOn = parts.includes('m1');
-      const cOn = parts.includes('c1');
-      toggleMarkers.checked = mOn;
-      toggleCircles.checked = cOn;
-      markers.forEach(m => m.setMap(mOn ? map : null));
-      circles.forEach(c => c.setMap(cOn ? map : null));
-    }
+    // محرر المستلمين
+    editBtn?.addEventListener('click', () => {
+      if (!currentSiteId) return;
+      const site = byId[currentSiteId];
+      editorInput.value = (site.recipients || []).join('\n');
+      editor.classList.remove('hidden');
+      editorInput.focus();
+    });
+    editorCancel.addEventListener('click', () => editor.classList.add('hidden'));
+    editorSave.addEventListener('click', () => {
+      if (!currentSiteId) return;
+      const site = byId[currentSiteId];
+      const lines = editorInput.value.split('\n')
+        .map(s => s.trim()).filter(Boolean);
+      site.recipients = lines;
+      recEl.textContent = renderRecipients(site.recipients);
+      editor.classList.add('hidden');
+    });
   } else {
-    // في وضع العرض: احترم vis إن وُجد
-    const visParam = params.get('vis');
-    if (visParam) {
-      const parts = visParam.split(',');
-      const mOn = parts.includes('m1');
-      const cOn = parts.includes('c1');
-      markers.forEach(m => m.setMap(mOn ? map : null));
-      circles.forEach(c => c.setMap(cOn ? map : null));
-    }
+    // وضع العرض: احترم نوع الخريطة والمرور من الرابط فقط
+    if (params.get('t')) map.setMapTypeId(params.get('t'));
   }
 
-  // دبوس التشغيل (اختياري)
+  // دبوس تشغيل اختياري
   new google.maps.Marker({
     position: center, map, title: 'Test OK',
     icon: { path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW, scale: 4,
@@ -179,15 +208,9 @@ window.initMap = function () {
     zIndex: 0
   });
 
-  console.log('Map + Layers panel + Share view ready ✅');
+  console.log(isShare ? 'Share View (readonly) with logo ✅' : 'Full View with editor ✅');
 };
 
-// أخطاء عامة
-window.addEventListener('unhandledrejection', (e) => {
-  console.error('Unhandled promise rejection:', e.reason || e);
-});
-setTimeout(() => {
-  if (!window.google || !window.google.maps) {
-    console.error('لم يتم تحميل مكتبة Google Maps. تحقق من المفتاح/القيود/الشبكة/مانعات الإعلانات.');
-  }
-}, 4000);
+// حماية عامة
+window.addEventListener('unhandledrejection', (e)=>console.error('Unhandled promise rejection:', e.reason||e));
+setTimeout(()=>{ if(!window.google || !window.google.maps){ console.error('لم يتم تحميل مكتبة Google Maps. تحقق من المفتاح/القيود/الشبكة.'); } }, 4000);
