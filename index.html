@@ -1,81 +1,92 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>خريطة الأمن – Diriyah</title>
-  <link rel="stylesheet" href="css/style.css" />
-</head>
-<body>
-  <!-- تمت إزالة شريط وضع العرض نهائياً -->
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Security Map – Share</title>
 
-  <div id="map" aria-label="الخريطة" role="application"></div>
+    <!-- Favicon (اختياري) -->
+    <link rel="icon" href="/favicon.ico" />
 
-  <!-- لوحة التحرير (لا تظهر في وضع العرض) -->
-  <aside id="panel" class="panel">
-    <h3>الطبقات</h3>
-    <label class="row"><input id="toggle-markers" type="checkbox" checked /><span>المواقع</span></label>
-    <label class="row"><input id="toggle-circles" type="checkbox" checked /><span>دوائر الأمان</span></label>
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- الشريط العلوي -->
+      <header class="topbar">
+        <div class="brand">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Diriyah_Company_Logo.svg/512px-Diriyah_Company_Logo.svg.png"
+            alt="Diriyah" class="brand-logo" />
+          <div class="brand-text">
+            <strong>Security & Traffic Map</strong>
+            <span class="mode-badge">Share</span>
+          </div>
+        </div>
 
-    <div class="sep"></div>
+        <div class="controls">
+          <button id="btnRoadmap" class="btn" aria-pressed="true">طرق</button>
+          <button id="btnSatellite" class="btn" aria-pressed="false">قمر صناعي</button>
+          <button id="btnTraffic" class="btn" aria-pressed="false">حركة المرور</button>
+          <button id="btnRecipients" class="btn secondary" title="تعديل المستلمين">المستلمون</button>
+        </div>
+      </header>
 
-    <h3>نوع الخريطة</h3>
-    <select id="basemap">
-      <option value="roadmap">طرق</option>
-      <option value="satellite">أقمار</option>
-      <option value="hybrid">هجينة</option>
-      <option value="terrain">تضاريس</option>
-    </select>
+      <!-- الخريطة -->
+      <div id="map" role="application" aria-label="خريطة تفاعلية"></div>
 
-    <div class="sep"></div>
+      <!-- كرت المعلومات -->
+      <aside id="infoCard" class="info-card hidden" role="dialog" aria-live="polite">
+        <div class="info-header">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Diriyah_Company_Logo.svg/512px-Diriyah_Company_Logo.svg.png"
+            alt="Diriyah" class="info-logo" />
+          <div class="info-titles">
+            <h3 id="infoTitle">—</h3>
+            <p id="infoSubtitle" class="muted">—</p>
+          </div>
+          <button id="pinCard" class="icon-btn" title="تثبيت الكرت">📌</button>
+          <button id="closeCard" class="icon-btn" title="إغلاق">✕</button>
+        </div>
+        <div class="info-body">
+          <ul class="info-list">
+            <li><strong>الإحداثيات:</strong> <span id="infoLatLng">—</span></li>
+            <li><strong>نصف القطر:</strong> <span id="infoRadius">15 م</span></li>
+            <li id="infoNotesRow" class="hidden"><strong>ملاحظات:</strong> <span id="infoNotes">—</span></li>
+          </ul>
+        </div>
+      </aside>
 
-    <h3>تحرير الدائرة (المحددة)</h3>
-    <div class="row"><span>نصف القطر</span><input id="ed-radius" type="range" min="5" max="200" step="1" value="15" /></div>
-    <div class="row"><span>لون التعبئة</span><input id="ed-fill" type="color" value="#60a5fa" /></div>
-    <div class="row"><span>شفافية التعبئة</span><input id="ed-fillop" type="range" min="0" max="1" step="0.01" value="0.16" /></div>
-    <div class="row"><span>لون الحدود</span><input id="ed-stroke" type="color" value="#60a5fa" /></div>
-    <div class="row"><span>سماكة الحدود</span><input id="ed-stroke-w" type="range" min="0" max="6" step="1" value="2" /></div>
+      <!-- محرّر المستلمين -->
+      <div id="recipientsModal" class="modal hidden" aria-hidden="true" role="dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>تعديل المستلمين</h3>
+          </div>
+          <div class="modal-body">
+            <label for="recipientsInput" class="lbl">أدخل البريد/الأرقام (مفصولة بفواصل):</label>
+            <textarea id="recipientsInput" rows="5" class="txt"></textarea>
+            <p class="hint">يتم حفظ المحتوى محليًا ويُضمَّن أيضًا داخل رابط المشاركة المختصر.</p>
+          </div>
+          <div class="modal-actions">
+            <button id="saveRecipients" class="btn">حفظ</button>
+            <button id="cancelRecipients" class="btn secondary">إلغاء</button>
+          </div>
+        </div>
+      </div>
 
-    <div class="row" style="justify-content:flex-end; gap:8px; margin-top:8px;">
-      <button id="btn-add" class="btn small">إضافة دائرة جديدة</button>
-      <button id="btn-del" class="btn ghost small">حذف الدائرة</button>
+      <!-- إشعار بسيط -->
+      <div id="toast" class="toast hidden"></div>
     </div>
 
-    <div class="sep"></div>
+    <!-- 1) حمّل main.js أولاً -->
+    <script src="js/main.js" defer></script>
 
-    <button id="share-btn" class="btn">نسخ رابط العرض</button>
-    <small class="hint">يشمل المستلمين وخصائص الدوائر والمواقع.</small>
-    <div id="toast" class="toast hidden" role="status" aria-live="polite">تم النسخ ✅</div>
-  </aside>
-
-  <!-- زر حركة المرور (ظاهر في الوضعين) -->
-  <button id="traffic-toggle" class="floating-btn" aria-pressed="false" title="إظهار/إخفاء حركة المرور">حركة المرور</button>
-
-  <!-- كرت المعلومات -->
-  <aside id="info-card" class="card hidden" aria-live="polite">
-    <img class="brand" src="img/diriyah-logo.png" alt="Diriyah Company" />
-    <button class="close" aria-label="إغلاق">×</button>
-    <h3 id="site-name">—</h3>
-    <p class="meta"><span id="site-type">—</span></p>
-    <div class="row"><div>الإحداثيات</div><div id="site-coord">—</div></div>
-    <div class="row"><div>نصف القطر</div><div id="site-radius">—</div></div>
-    <div class="row"><div>المستلمون</div><div id="site-recipients">—</div></div>
-    <div id="edit-actions" class="actions hidden"><button id="edit-recipients" class="btn small">تعديل المستلمين</button></div>
-  </aside>
-
-  <!-- محرر المستلمين -->
-  <div id="editor" class="editor hidden" role="dialog" aria-modal="true" aria-labelledby="editor-title">
-    <div class="editor-box">
-      <h3 id="editor-title">تحرير المستلمين</h3>
-      <p class="hint">اكتب اسمًا في كل سطر.</p>
-      <textarea id="editor-input" rows="8" spellcheck="false" dir="auto"></textarea>
-      <div class="editor-actions"><button id="editor-cancel" class="btn ghost">إلغاء</button><button id="editor-save" class="btn">حفظ</button></div>
-    </div>
-  </div>
-
-  <noscript>هذه الصفحة تتطلب تفعيل JavaScript لعرض خريطة Google.</noscript>
-
-  <script defer src="js/main.js"></script>
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&v=weekly&callback=initMap"></script>
-</body>
+    <!-- 2) بعدها خرائط Google مع callback (منع سباق التحميل) -->
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&libraries=geometry&callback=initMap"
+      defer
+    ></script>
+  </body>
 </html>
