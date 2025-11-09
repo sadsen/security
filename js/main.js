@@ -1,9 +1,14 @@
-/* Diriyah Security Map – v5 (Glass Card + Circle Editor + Share) */
+/* Diriyah Security Map – v5.2
+   - Glass Info Card (no X), wider and clear
+   - Circle editor (radius/color/stroke/fill) in Edit mode only
+   - Share button copies short hash link; share URL loads view-only (no edit)
+*/
 
 let map, trafficLayer, infoWin=null;
 let cardPinned=false, editMode=false, shareMode=false, hideTimer=null;
 
-let btnRoadmap, btnSatellite, btnTraffic, btnEditMode, modeBadge;
+// toolbar refs
+let btnRoadmap, btnSatellite, btnTraffic, btnEditMode, btnShare, modeBadge, toast;
 
 const DEFAULT_CENTER = { lat:24.7399, lng:46.5731 };
 const DEFAULT_RADIUS = 15;
@@ -34,7 +39,7 @@ const LOCATIONS = [
   { id:18, name:"مزرعة الحبيب",                          lat:24.709445443672344, lng:46.593971867951346 },
 ];
 
-const circles = []; // [{id, circle, meta:{name, recipients:[], radius,color,fillOpacity,strokeWeight}}]
+const circles = []; // [{id, circle, meta:{name, recipients:[], ...}}]
 
 /* ===== Share (encode/decode) ===== */
 function enc(o){ try{return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}catch{return"";} }
@@ -79,16 +84,17 @@ function applyState(s){
 }
 let shareTimer=null; const persist=()=>{ if(shareMode) return; clearTimeout(shareTimer); shareTimer=setTimeout(()=>writeShare(buildState()),220); };
 
-/* ===== Map init ===== */
+/* ===== Init ===== */
 function initMap(){
-  // toolbar refs
+  // refs
   btnRoadmap  = document.getElementById('btnRoadmap');
   btnSatellite= document.getElementById('btnSatellite');
   btnTraffic  = document.getElementById('btnTraffic');
   btnEditMode = document.getElementById('btnEditMode');
+  btnShare    = document.getElementById('btnShare');
   modeBadge   = document.getElementById('modeBadge');
+  toast       = document.getElementById('toast');
 
-  // map
   map = new google.maps.Map(document.getElementById('map'), {
     center: DEFAULT_CENTER, zoom: 15, mapTypeId:'roadmap',
     disableDefaultUI:true, clickableIcons:false, gestureHandling:'greedy'
@@ -100,20 +106,23 @@ function initMap(){
   btnTraffic.onclick   = ()=>{ const on=btnTraffic.getAttribute('aria-pressed')==='true'; if(on){trafficLayer.setMap(null);} else {trafficLayer.setMap(map);} btnTraffic.setAttribute('aria-pressed', String(!on)); persist(); };
 
   btnEditMode.onclick  = ()=>{ editMode=!editMode; modeBadge.textContent=editMode?'Edit':'Share'; modeBadge.className='badge '+(editMode?'badge-edit':'badge-share'); cardPinned=false; if(infoWin) infoWin.close(); };
+  btnShare.onclick     = copyShareLink;
 
-  map.addListener('click', ()=>{ cardPinned=false; if(infoWin) infoWin.close(); });
-
-  // circles
+  // دوائر
   LOCATIONS.forEach(addCircle);
 
-  // share state
+  // Share mode?
   const S=readShare(); shareMode=!!S;
-  if(S) applyState(S); else writeShare(buildState());
+  if(S){ applyState(S); /* وضع عرض فقط */ editMode=false; btnEditMode.style.display='none'; modeBadge.textContent='Share'; modeBadge.className='badge badge-share'; }
+  else { writeShare(buildState()); }
+
+  // أحداث عامة
   map.addListener('idle', persist);
+  map.addListener('click', ()=>{ cardPinned=false; if(infoWin) infoWin.close(); });
 }
 window.initMap = initMap;
 
-/* ===== Circles ===== */
+/* ===== Circles & Card ===== */
 function addCircle(loc){
   const circle = new google.maps.Circle({
     map, center:{lat:loc.lat,lng:loc.lng}, radius:DEFAULT_RADIUS,
@@ -130,16 +139,15 @@ function addCircle(loc){
   circle.addListener('click',     ()=>{ openCard(item); cardPinned=true; });
 }
 
-/* ===== InfoWindow content ===== */
 function openCard(item){
   if(!infoWin){
-    infoWin = new google.maps.InfoWindow({ content:'', maxWidth: 460, pixelOffset: new google.maps.Size(0,-6) });
+    infoWin = new google.maps.InfoWindow({ content:'', maxWidth: 520, pixelOffset: new google.maps.Size(0,-6) });
   }
   infoWin.setContent(renderCard(item));
   infoWin.setPosition(item.circle.getCenter());
   infoWin.open({ map });
 
-  // إخفاء زر الإغلاق والذيل + إزالة خلفية الفقاعة الافتراضية
+  // أخفِ X والذيل + خلفية الفقاعة الافتراضية (احتياطيًا بجانب CSS)
   setTimeout(()=>{
     const root = document.getElementById('iw-root');
     if(!root) return;
@@ -157,47 +165,47 @@ function openCard(item){
 }
 
 function renderCard(item){
-  const c = item.circle;
-  const meta = item.meta;
+  const c = item.circle, meta=item.meta;
   const names = Array.isArray(meta.recipients) ? meta.recipients : [];
   const namesHtml = names.length
     ? `<ol style="margin:6px 0 0 0;padding-inline-start:20px;">${names.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ol>`
     : `<div class="note">لا توجد أسماء مضافة</div>`;
 
-  // قيَم التحرير الحالية
+  // قيم التحرير الحالية
   const radius = Math.round(c.getRadius());
   const color  = c.get('strokeColor') || DEFAULT_COLOR;
   const stroke = c.get('strokeWeight') || DEFAULT_STROKE_WEIGHT;
   const fillO  = Number(c.get('fillOpacity') ?? DEFAULT_FILL_OPACITY);
 
   return `
-  <div id="iw-root" dir="rtl" style="min-width:320px; max-width:460px;">
+  <div id="iw-root" dir="rtl" style="min-width:360px; max-width:520px;">
     <div style="
-      background: rgba(255,255,255,0.9);
-      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      background: rgba(255,255,255,0.93);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(0,0,0,0.06);
-      border-radius: 18px; padding: 12px; color:#111;
-      box-shadow: 0 12px 28px rgba(0,0,0,.18);">
+      border-radius: 18px; padding: 14px; color:#111;
+      box-shadow: 0 16px 36px rgba(0,0,0,.22);">
 
-      <div style="display:flex; align-items:center; gap:12px;">
-        <img src="img/diriyah-logo.png" alt="Diriyah" style="width:46px; height:46px; object-fit:contain;">
-        <div style="font-weight:800; font-size:17px;">${escapeHtml(meta.name)}</div>
+      <!-- رأس عريض يملأ مساحة الـX السابقة -->
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+        <img src="img/diriyah-logo.png" alt="Diriyah" style="width:50px; height:50px; object-fit:contain;">
+        <div style="font-weight:800; font-size:18px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(meta.name)}</div>
         <div style="margin-inline-start:auto;"></div>
         ${editMode ? `<span class="badge-edit" style="padding:2px 8px;border-radius:8px;background:#1f5a1f;color:#eaffea;border:1px solid #2d7a2d;">وضع التحرير</span>` : ``}
       </div>
 
-      <div style="margin-top:10px; border-top:1px dashed #e9e9e9; padding-top:8px;">
+      <div style="border-top:1px dashed #e7e7e7; padding-top:8px;">
         <div style="font-weight:700; margin-bottom:4px;">المستلمون:</div>
         ${namesHtml}
       </div>
 
       ${editMode ? `
-      <div style="margin-top:12px; border-top:1px dashed #e9e9e9; padding-top:10px;">
+      <div style="margin-top:12px; border-top:1px dashed #e7e7e7; padding-top:10px;">
         <div style="font-weight:700; margin-bottom:6px;">أدوات الدائرة:</div>
         <div class="form-grid">
           <div class="field">
             <label>نصف القطر (م):</label>
-            <input id="ctl-radius" type="range" min="5" max="80" step="1" value="${radius}" style="width:100%;">
+            <input id="ctl-radius" type="range" min="5" max="120" step="1" value="${radius}" style="width:100%;">
             <span id="lbl-radius" class="note">${radius}</span>
           </div>
           <div class="field">
@@ -206,11 +214,11 @@ function renderCard(item){
           </div>
           <div class="field">
             <label>حدّ الدائرة:</label>
-            <input id="ctl-stroke" type="number" min="1" max="6" step="1" value="${stroke}" style="width:70px;">
+            <input id="ctl-stroke" type="number" min="1" max="8" step="1" value="${stroke}" style="width:70px;">
           </div>
           <div class="field">
             <label>شفافية التعبئة:</label>
-            <input id="ctl-fill" type="range" min="0" max="0.6" step="0.02" value="${fillO}" style="width:100%;">
+            <input id="ctl-fill" type="range" min="0" max="0.8" step="0.02" value="${fillO}" style="width:100%;">
             <span id="lbl-fill" class="note">${fillO.toFixed(2)}</span>
           </div>
         </div>
@@ -229,11 +237,8 @@ function renderCard(item){
 }
 
 function attachCardEvents(item){
-  // أخفِ X والذيل تم سابقًا
   if(!editMode) return;
-
-  const c = item.circle;
-
+  const c=item.circle;
   const r = document.getElementById('ctl-radius');
   const lr= document.getElementById('lbl-radius');
   const col=document.getElementById('ctl-color');
@@ -246,16 +251,32 @@ function attachCardEvents(item){
 
   r?.addEventListener('input', ()=>{ const v=+r.value||DEFAULT_RADIUS; lr.textContent=v; c.setRadius(v); persist(); });
   col?.addEventListener('input', ()=>{ const v=col.value||DEFAULT_COLOR; c.setOptions({strokeColor:v, fillColor:v}); persist(); });
-  sw?.addEventListener('input', ()=>{ const v=clamp(+sw.value,1,6); sw.value=v; c.setOptions({strokeWeight:v}); persist(); });
-  fo?.addEventListener('input', ()=>{ const v=clamp(+fo.value,0,0.6); lf.textContent=v.toFixed(2); c.setOptions({fillOpacity:v}); persist(); });
+  sw?.addEventListener('input', ()=>{ const v=clamp(+sw.value,1,8); sw.value=v; c.setOptions({strokeWeight:v}); persist(); });
+  fo?.addEventListener('input', ()=>{ const v=clamp(+fo.value,0,0.8); lf.textContent=v.toFixed(2); c.setOptions({fillOpacity:v}); persist(); });
 
   save?.addEventListener('click', ()=>{ item.meta.recipients = parseRecipients(names.value); openCard(item); persist(); });
   clr?.addEventListener('click',  ()=>{ item.meta.recipients = []; openCard(item); persist(); });
 }
 
+/* ===== Share button ===== */
+async function copyShareLink(){
+  // حدّث الهاش الحالي أولاً
+  writeShare(buildState());
+  try{
+    await navigator.clipboard.writeText(location.href);
+    showToast('تم نسخ رابط المشاركة ✅');
+  }catch{
+    // بديل لمنع المتصفح
+    const tmp=document.createElement('input');
+    tmp.value=location.href; document.body.appendChild(tmp);
+    tmp.select(); document.execCommand('copy'); tmp.remove();
+    showToast('تم نسخ رابط المشاركة ✅');
+  }
+}
+
 /* ===== Helpers ===== */
 function clamp(x,min,max){ return Math.min(max, Math.max(min, x)); }
-function toHex(col){ // يقبل rgb/rgba أو hex ويعيد hex
+function toHex(col){
   if(/^#/.test(col)) return col;
   const m = col.match(/rgba?\s*\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
   if(!m) return DEFAULT_COLOR;
@@ -267,4 +288,10 @@ function parseRecipients(text){
 }
 function escapeHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function showToast(msg){
+  if(!toast) return;
+  toast.textContent = msg;
+  toast.classList.remove('hidden');
+  setTimeout(()=>toast.classList.add('hidden'), 1600);
 }
