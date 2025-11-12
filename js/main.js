@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v11.0 (add-site + live edit + share state for new/existing) */
+/* Diriyah Security Map – v11.1 (flush-before-share + stronger persist) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   let n=0, iv=setInterval(()=>{ if(tryBoot()||++n>60) clearInterval(iv); },250);
 }, {passive:true});
 window.addEventListener('load', tryBoot, {once:true, passive:true});
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) tryBoot(); }, {passive:true});
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) tryBoot(); else flushPersist(); }, {passive:true});
 
 /* ---------------- Globals ---------------- */
 let map, trafficLayer, infoWin=null;
@@ -61,6 +61,7 @@ const parseRecipients=t=>String(t).split(/\r?\n/).map(s=>s.replace(/[،;,]+/g,' 
 
 let persistTimer=null;
 const persist=()=>{ if(shareMode) return; clearTimeout(persistTimer); persistTimer=setTimeout(()=>writeShare(buildState()),180); };
+function flushPersist(){ if(shareMode) return; clearTimeout(persistTimer); writeShare(buildState()); }
 
 /* ---- compact Base64URL ---- */
 function b64uEncode(s){ const b=btoa(unescape(encodeURIComponent(s))); return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
@@ -69,17 +70,14 @@ function readShare(){ const h=(location.hash||'').trim(); if(!/^#x=/.test(h)) re
 function writeShare(state){
   if(shareMode) return;
   let tok=b64uEncode(JSON.stringify(state));
-  if(tok.length>1500){ // fallback minimal
+  if(tok.length>1500){
     const s2={p:state.p,z:state.z,m:state.m,t:state.t,c:state.c?.slice(0,40),n:state.n?.slice(0,10)};
     tok=b64uEncode(JSON.stringify(s2));
   }
   if(location.hash!==`#x=${tok}`) history.replaceState(null,'',`#x=${tok}`);
 }
 
-/* ---- state build/apply ----
-   c: changes for existing seeds -> [id,r,sc,fo,sw,rec,name?]
-   n: newly added circles       -> [[id,lat,lng,name,r,sc,fo,sw,rec]]
-*/
+/* ---- state build/apply ---- */
 function buildState(){
   const ctr=map.getCenter(), z=map.getZoom();
   const m=map.getMapTypeId()==='roadmap'?'r':'h';
@@ -180,13 +178,22 @@ function boot(){
     btnTraffic.setAttribute('aria-pressed', String(!on));
     persist();
   }, {passive:true});
-  btnShare.addEventListener('click', copyShareLink, {passive:true});
+
+  // اجبار تفريغ الحفظ قبل النسخ
+  btnShare.addEventListener('click', async ()=>{
+    await nextTick(); // التقط آخر تغيّر في نفس الفريم
+    flushPersist();
+    await nextTick(); // تأكيد كتابة الهاش قبل النسخ
+    await copyShareLink();
+  }, {passive:true});
+
   btnEdit.addEventListener('click', ()=>{
     if(shareMode) return;
     editMode=!editMode; cardPinned=false; if(infoWin) infoWin.close();
     modeBadge.textContent=editMode?'Edit':'Share';
     setDraggableForAll(editMode);
     if(!editMode){ addMode=false; btnAdd.setAttribute('aria-pressed','false'); document.body.classList.remove('add-cursor'); }
+    persist();
   }, {passive:true});
 
   btnAdd.addEventListener('click', ()=>{
@@ -199,10 +206,7 @@ function boot(){
   }, {passive:true});
 
   map.addListener('click', (e)=>{
-    // 1) unpin any open card
     if (cardPinned && infoWin) { infoWin.close(); cardPinned = false; }
-
-    // 2) add site if addMode
     if(addMode && editMode && !shareMode){
       const id = genNewId();
       const circle = new google.maps.Circle({
@@ -245,6 +249,9 @@ function boot(){
   else { writeShare(buildState()); }
 
   map.addListener('idle', persist);
+
+  // أمان: قبل إغلاق الصفحة/إعادة التحميل
+  window.addEventListener('beforeunload', ()=>{ flushPersist(); });
 }
 
 /* helper to bind events for newly created circles */
@@ -353,7 +360,7 @@ function attachCardEvents(item){
   const c=item.circle;
 
   const inShare=document.getElementById('btn-card-share');
-  if(inShare) inShare.addEventListener('click', copyShareLink, {passive:true});
+  if(inShare) inShare.addEventListener('click', async ()=>{ flushPersist(); await nextTick(); await copyShareLink(); }, {passive:true});
 
   const nameEl=document.getElementById('ctl-name');
   const r=document.getElementById('ctl-radius');
@@ -367,19 +374,27 @@ function attachCardEvents(item){
   const clr=document.getElementById('btn-clear');
   const del=document.getElementById('btn-del');
 
+  const persistBoth=(fn)=>(...a)=>{ fn(...a); persist(); };
+
   if(nameEl){
-    nameEl.addEventListener('input', ()=>{ item.meta.name = nameEl.value.trim(); persist(); }, {passive:true});
+    const h=()=>{ item.meta.name = nameEl.value.trim(); };
+    nameEl.addEventListener('input', persistBoth(h), {passive:true});
+    nameEl.addEventListener('change', persistBoth(h), {passive:true});
   }
   r.addEventListener('input', ()=>{ const v=+r.value||DEFAULT_RADIUS; lr.textContent=v; c.setRadius(v); persist(); }, {passive:true});
+  r.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   col.addEventListener('input', ()=>{ const v=col.value||DEFAULT_COLOR; c.setOptions({strokeColor:v, fillColor:v}); persist(); }, {passive:true});
+  col.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   sw.addEventListener('input', ()=>{ const v=clamp(+sw.value,0,8); sw.value=v; c.setOptions({strokeWeight:v}); persist(); }, {passive:true});
+  sw.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   fo.addEventListener('input', ()=>{ const v=clamp(+fo.value,0,0.95); lf.textContent=v.toFixed(2); c.setOptions({fillOpacity:v}); persist(); }, {passive:true});
+  fo.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
 
   // live move => persist
   google.maps.event.addListener(c,'center_changed', ()=>{ persist(); });
 
-  save.addEventListener('click', ()=>{ item.meta.recipients=parseRecipients(names.value); openCard(item); persist(); showToast('تم الحفظ. اضغط "مشاركة" لنسخ الرابط'); });
-  clr.addEventListener('click',  ()=>{ item.meta.recipients=[]; openCard(item); persist(); showToast('تم حذف الأسماء'); });
+  save.addEventListener('click', ()=>{ item.meta.recipients=parseRecipients(names.value); openCard(item); flushPersist(); showToast('تم الحفظ. الرابط الآن يعكس كل التعديلات'); });
+  clr.addEventListener('click',  ()=>{ item.meta.recipients=[]; openCard(item); flushPersist(); showToast('تم حذف الأسماء'); });
   del.addEventListener('click',  ()=>{
     if(confirm('تأكيد حذف الموقع؟')){
       c.setMap(null);
@@ -387,7 +402,7 @@ function attachCardEvents(item){
       if(idx>=0) circles.splice(idx,1);
       if(infoWin) infoWin.close();
       cardPinned=false;
-      persist();
+      flushPersist();
       showToast('تم حذف الموقع');
     }
   });
@@ -401,7 +416,7 @@ function setViewOnly(){
 
 /* ---------------- Share ---------------- */
 async function copyShareLink(){
-  writeShare(buildState());
+  // هنا نفترض أن writeShare تم استدعاؤه قبلها (flushPersist)
   try{ await navigator.clipboard.writeText(location.href); showToast('تم نسخ رابط المشاركة ✅'); }
   catch{
     const tmp=document.createElement('input'); tmp.value=location.href; document.body.appendChild(tmp);
@@ -423,8 +438,8 @@ function setDraggableForAll(on){
   circles.forEach(it=> it.circle.setDraggable(on));
 }
 function genNewId(){
-  // ensure unique (negative ids to avoid colliding with seeded ids)
   let id = -Date.now();
   while(circles.some(x=>x.id===id)) id--;
   return id;
 }
+function nextTick(){ return new Promise(res=> requestAnimationFrame(()=> requestAnimationFrame(res))); }
