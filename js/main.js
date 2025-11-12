@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v10.1 (unpin on map click + robust init + cards + edit) */
+/* Diriyah Security Map – v11.0 (add-site + live edit + share state for new/existing) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
@@ -19,8 +19,8 @@ document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) tryBoot
 
 /* ---------------- Globals ---------------- */
 let map, trafficLayer, infoWin=null;
-let editMode=false, shareMode=false, cardPinned=false;
-let btnRoadmap, btnSatellite, btnTraffic, btnShare, btnEdit, modeBadge, toast;
+let editMode=false, shareMode=false, cardPinned=false, addMode=false;
+let btnRoadmap, btnSatellite, btnTraffic, btnShare, btnEdit, modeBadge, toast, btnAdd;
 
 const DEFAULT_CENTER = { lat:24.7399, lng:46.5731 };
 const DEFAULT_RADIUS = 20;
@@ -50,9 +50,9 @@ const LOCATIONS = [
   { id:18, name:"مزرعة الحبيب", lat:24.709445443672344, lng:46.593971867951346 },
 ];
 
-const circles = []; // {id,circle,meta:{name,recipients[]}}
+/* Each entry: {id,circle,meta:{name,origName,recipients[],isNew:boolean}} */
+const circles = [];
 
-/* ---------------- Utilities ---------------- */
 const clamp=(x,min,max)=>Math.min(max,Math.max(min,x));
 const escapeHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const toHex=(c)=>{ if(/^#/.test(c)) return c; const m=c&&c.match(/rgba?\s*\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i); if(!m) return DEFAULT_COLOR;
@@ -69,33 +69,50 @@ function readShare(){ const h=(location.hash||'').trim(); if(!/^#x=/.test(h)) re
 function writeShare(state){
   if(shareMode) return;
   let tok=b64uEncode(JSON.stringify(state));
-  if(tok.length>1500){ const s2={c:state.c,t:state.t|0}; tok=b64uEncode(JSON.stringify(s2)); }
+  if(tok.length>1500){ // fallback minimal
+    const s2={p:state.p,z:state.z,m:state.m,t:state.t,c:state.c?.slice(0,40),n:state.n?.slice(0,10)};
+    tok=b64uEncode(JSON.stringify(s2));
+  }
   if(location.hash!==`#x=${tok}`) history.replaceState(null,'',`#x=${tok}`);
 }
 
-/* ---- state build/apply (delta for circles) ---- */
+/* ---- state build/apply ----
+   c: changes for existing seeds -> [id,r,sc,fo,sw,rec,name?]
+   n: newly added circles       -> [[id,lat,lng,name,r,sc,fo,sw,rec]]
+*/
 function buildState(){
   const ctr=map.getCenter(), z=map.getZoom();
   const m=map.getMapTypeId()==='roadmap'?'r':'h';
   const t=btnTraffic.getAttribute('aria-pressed')==='true'?1:0;
 
-  const c=[];
+  const c=[];  // deltas for seeded locations
+  const n=[];  // full specs for new locations
   circles.forEach(({id,circle,meta})=>{
     const r=Math.round(circle.getRadius());
     const sc=(circle.get('strokeColor')||DEFAULT_COLOR).replace('#','');
     const fo=Math.round((circle.get('fillOpacity')??DEFAULT_FILL_OPACITY)*100);
     const sw=(circle.get('strokeWeight')??DEFAULT_STROKE_WEIGHT)|0;
     const rec=(meta.recipients||[]).join('~');
+    const center=circle.getCenter(); const lat=center.lat(); const lng=center.lng();
+
+    if(meta.isNew){
+      n.push([id,+lat.toFixed(7),+lng.toFixed(7),meta.name||'',r,sc,fo,sw,rec]);
+      return;
+    }
 
     const changed=(r!==DEFAULT_RADIUS) ||
       (toHex('#'+sc)!==toHex(DEFAULT_COLOR)) ||
       (fo!==Math.round(DEFAULT_FILL_OPACITY*100)) ||
-      (sw!==DEFAULT_STROKE_WEIGHT) || rec.length>0;
+      (sw!==DEFAULT_STROKE_WEIGHT) ||
+      rec.length>0 ||
+      ((meta.name||'')!==(meta.origName||''));
 
-    if(changed) c.push([id,r,sc,fo,sw,rec]);
+    if(changed) c.push([id,r,sc,fo,sw,rec,meta.name||'']);
   });
-  return { p:[+ctr.lng().toFixed(4), +ctr.lat().toFixed(4)], z, m, t, c };
+
+  return { p:[+ctr.lng().toFixed(4), +ctr.lat().toFixed(4)], z, m, t, c, n };
 }
+
 function applyState(s){
   if(!s) return;
   if(Array.isArray(s.p)) map.setCenter({lat:s.p[1], lng:s.p[0]});
@@ -103,8 +120,10 @@ function applyState(s){
   map.setMapTypeId(s.m==='r'?'roadmap':'hybrid');
   if(s.t){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
   else   { trafficLayer.setMap(null); btnTraffic.setAttribute('aria-pressed','false'); }
+
+  // apply deltas for seeds
   if(Array.isArray(s.c)){
-    s.c.forEach(([id,r,sc,fo,sw,rec])=>{
+    s.c.forEach(([id,r,sc,fo,sw,rec,name])=>{
       const it=circles.find(x=>x.id===id); if(!it) return;
       it.circle.setOptions({
         radius:Number.isFinite(r)?r:DEFAULT_RADIUS,
@@ -113,7 +132,25 @@ function applyState(s){
         fillOpacity:Number.isFinite(fo)?(fo/100):DEFAULT_FILL_OPACITY,
         strokeWeight:Number.isFinite(sw)?sw:DEFAULT_STROKE_WEIGHT
       });
+      if(typeof name==='string' && name.trim()) it.meta.name = name.trim();
       it.meta.recipients = rec ? rec.split('~').map(s=>s.trim()).filter(Boolean) : [];
+    });
+  }
+
+  // spawn newly added circles
+  if(Array.isArray(s.n)){
+    s.n.forEach(([id,lat,lng,name,r,sc,fo,sw,rec])=>{
+      if(circles.some(x=>x.id===id)) return;
+      const circle = new google.maps.Circle({
+        map, center:{lat:+lat,lng:+lng}, radius:Number.isFinite(r)?r:DEFAULT_RADIUS,
+        strokeColor:sc?`#${sc}`:DEFAULT_COLOR, strokeOpacity:.95, strokeWeight:Number.isFinite(sw)?sw:DEFAULT_STROKE_WEIGHT,
+        fillColor:sc?`#${sc}`:DEFAULT_COLOR, fillOpacity:Number.isFinite(fo)?(fo/100):DEFAULT_FILL_OPACITY,
+        clickable:true, draggable:false, editable:false, zIndex:9999
+      });
+      const meta = { name:(name||'موقع جديد'), origName:(name||'موقع جديد'), recipients: rec?rec.split('~').filter(Boolean):[], isNew:true };
+      const item = { id, circle, meta };
+      bindCircleEvents(item);
+      circles.push(item);
     });
   }
 }
@@ -125,6 +162,7 @@ function boot(){
   btnTraffic  = document.getElementById('btnTraffic');
   btnShare    = document.getElementById('btnShare');
   btnEdit     = document.getElementById('btnEdit');
+  btnAdd      = document.getElementById('btnAdd');
   modeBadge   = document.getElementById('modeBadge');
   toast       = document.getElementById('toast');
 
@@ -147,9 +185,42 @@ function boot(){
     if(shareMode) return;
     editMode=!editMode; cardPinned=false; if(infoWin) infoWin.close();
     modeBadge.textContent=editMode?'Edit':'Share';
+    setDraggableForAll(editMode);
+    if(!editMode){ addMode=false; btnAdd.setAttribute('aria-pressed','false'); document.body.classList.remove('add-cursor'); }
   }, {passive:true});
 
-  // دوائر + مستمعات خفيفة
+  btnAdd.addEventListener('click', ()=>{
+    if(shareMode) return;
+    if(!editMode){ showToast('فعّل وضع التحرير أولاً'); return; }
+    addMode=!addMode;
+    btnAdd.setAttribute('aria-pressed', String(addMode));
+    document.body.classList.toggle('add-cursor', addMode);
+    showToast(addMode?'انقر على الخريطة لإضافة موقع جديد':'تم إلغاء الإضافة');
+  }, {passive:true});
+
+  map.addListener('click', (e)=>{
+    // 1) unpin any open card
+    if (cardPinned && infoWin) { infoWin.close(); cardPinned = false; }
+
+    // 2) add site if addMode
+    if(addMode && editMode && !shareMode){
+      const id = genNewId();
+      const circle = new google.maps.Circle({
+        map, center:e.latLng, radius:DEFAULT_RADIUS,
+        strokeColor:DEFAULT_COLOR, strokeOpacity:.95, strokeWeight:DEFAULT_STROKE_WEIGHT,
+        fillColor:DEFAULT_COLOR, fillOpacity:DEFAULT_FILL_OPACITY,
+        clickable:true, draggable:true, editable:false, zIndex:9999
+      });
+      const meta = { name:'موقع جديد', origName:'موقع جديد', recipients:[], isNew:true };
+      const item = { id, circle, meta };
+      circles.push(item);
+      bindCircleEvents(item);
+      openCard(item); cardPinned=true;
+      persist();
+    }
+  });
+
+  // seed circles
   const openCardThrottled = throttle((item)=>openCard(item), 120);
   LOCATIONS.forEach(loc=>{
     const circle = new google.maps.Circle({
@@ -158,7 +229,7 @@ function boot(){
       fillColor:DEFAULT_COLOR, fillOpacity:DEFAULT_FILL_OPACITY,
       clickable:true, draggable:false, editable:false, zIndex:9999
     });
-    const meta = { name:loc.name, recipients:[] };
+    const meta = { name:loc.name, origName:loc.name, recipients:[], isNew:false };
     const item = { id:loc.id, circle, meta };
     circles.push(item);
 
@@ -167,21 +238,21 @@ function boot(){
     circle.addListener('click',     ()=>{ openCard(item); cardPinned=true; });
   });
 
-  // مشاركة/عرض فقط
+  // share/view-only
   const S = readShare();
   shareMode=!!S;
   if(S){ applyState(S); setViewOnly(); }
   else { writeShare(buildState()); }
 
   map.addListener('idle', persist);
+}
 
-  /* <<< الجديد: إلغاء تثبيت الكرت عند الضغط على الخريطة >>> */
-  map.addListener('click', () => {
-    if (cardPinned && infoWin) {
-      infoWin.close();
-      cardPinned = false;
-    }
-  });
+/* helper to bind events for newly created circles */
+function bindCircleEvents(item){
+  const openCardThrottled = throttle((it)=>openCard(it), 120);
+  item.circle.addListener('mouseover', ()=>{ if(!cardPinned) openCardThrottled(item); });
+  item.circle.addListener('mouseout',  ()=>{ if(!cardPinned && infoWin) infoWin.close(); });
+  item.circle.addListener('click',     ()=>{ openCard(item); cardPinned=true; });
 }
 
 /* ---------------- Card ---------------- */
@@ -193,7 +264,7 @@ function openCard(item){
   infoWin.setPosition(item.circle.getCenter());
   infoWin.open({ map });
 
-  // تهيئة مظهر الزجاج
+  // glass look + attach events
   setTimeout(()=>{
     const root=document.getElementById('iw-root'); if(!root) return;
     const close=root.parentElement?.querySelector('.gm-ui-hover-effect'); if(close) close.style.display='none';
@@ -214,6 +285,7 @@ function renderCard(item){
     ? `<ol style="margin:6px 0 0; padding-inline-start:20px;">${names.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ol>`
     : `<div style="font-size:12px;color:#666">لا توجد أسماء مضافة</div>`;
 
+  const center=c.getCenter();
   const radius=Math.round(c.getRadius());
   const color =toHex(c.get('strokeColor')||DEFAULT_COLOR);
   const stroke=c.get('strokeWeight')||DEFAULT_STROKE_WEIGHT;
@@ -225,8 +297,20 @@ function renderCard(item){
                 border:1px solid rgba(0,0,0,0.06); border-radius:18px; padding:14px; color:#111; box-shadow:0 16px 36px rgba(0,0,0,.22)">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
         <img src="img/diriyah-logo.png" alt="Diriyah" style="width:50px;height:50px;object-fit:contain;">
-        <div style="font-weight:800;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(meta.name)}</div>
-        ${(!shareMode && editMode) ? `<button id="btn-card-share" style="margin-inline-start:auto;border:1px solid #ddd;background:#fff;border-radius:10px;padding:4px 8px;cursor:pointer;">نسخ الرابط</button>` : ``}
+        <div style="flex:1 1 auto; min-width:0">
+          ${(!shareMode && editMode) ? `
+            <input id="ctl-name" value="${escapeHtml(meta.name||'')}" placeholder="اسم الموقع"
+              style="width:100%;border:1px solid #ddd;border-radius:10px;padding:6px 8px;font-weight:700;font-size:16px;">
+          ` : `
+            <div style="font-weight:800;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(meta.name)}</div>
+          `}
+        </div>
+        ${(!shareMode && editMode) ? `<button id="btn-card-share" title="نسخ الرابط"
+            style="margin-inline-start:6px;border:1px solid #ddd;background:#fff;border-radius:10px;padding:4px 8px;cursor:pointer;">نسخ الرابط</button>` : ``}
+      </div>
+
+      <div style="font-size:12px;color:#666;margin-bottom:6px">
+        الإحداثيات: ${center.lat().toFixed(6)}, ${center.lng().toFixed(6)}
       </div>
 
       <div style="border-top:1px dashed #e7e7e7; padding-top:8px;">
@@ -239,23 +323,25 @@ function renderCard(item){
         <div style="font-weight:700; margin-bottom:6px;">أدوات الدائرة:</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">نصف القطر (م):</label>
-            <input id="ctl-radius" type="range" min="5" max="120" step="1" value="${radius}" style="width:100%;">
+            <input id="ctl-radius" type="range" min="5" max="300" step="1" value="${radius}" style="width:100%;">
             <span id="lbl-radius" style="font-size:12px;color:#666">${radius}</span></div>
           <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">اللون:</label>
             <input id="ctl-color" type="color" value="${color}" style="width:38px;height:28px;border:none;background:transparent;padding:0"></div>
           <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">حدّ الدائرة:</label>
-            <input id="ctl-stroke" type="number" min="1" max="8" step="1" value="${stroke}" style="width:70px;"></div>
+            <input id="ctl-stroke" type="number" min="0" max="8" step="1" value="${stroke}" style="width:70px;"></div>
           <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">شفافية التعبئة:</label>
-            <input id="ctl-fill" type="range" min="0" max="0.8" step="0.02" value="${fillO}" style="width:100%;">
+            <input id="ctl-fill" type="range" min="0" max="0.95" step="0.02" value="${fillO}" style="width:100%;">
             <span id="lbl-fill" style="font-size:12px;color:#666">${fillO.toFixed(2)}</span></div>
         </div>
         <div style="margin-top:8px;">
           <label style="font-size:12px;color:#666">أسماء المستلمين (سطر لكل اسم):</label>
           <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;">${escapeHtml(names.join("\n"))}</textarea>
-          <div style="display:flex; gap:8px; margin-top:8px;">
+          <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
             <button id="btn-save"  style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حفظ</button>
             <button id="btn-clear" style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الأسماء</button>
+            <button id="btn-del"   style="border:1px solid #f33; color:#f33; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الموقع</button>
           </div>
+          <div style="margin-top:6px;font-size:12px;color:#666">يمكن سحب الدائرة لتغيير موقعها أثناء وضع التحرير.</div>
         </div>
       </div>` : ``}
     </div>
@@ -269,6 +355,7 @@ function attachCardEvents(item){
   const inShare=document.getElementById('btn-card-share');
   if(inShare) inShare.addEventListener('click', copyShareLink, {passive:true});
 
+  const nameEl=document.getElementById('ctl-name');
   const r=document.getElementById('ctl-radius');
   const lr=document.getElementById('lbl-radius');
   const col=document.getElementById('ctl-color');
@@ -278,19 +365,38 @@ function attachCardEvents(item){
   const names=document.getElementById('ctl-names');
   const save=document.getElementById('btn-save');
   const clr=document.getElementById('btn-clear');
+  const del=document.getElementById('btn-del');
 
+  if(nameEl){
+    nameEl.addEventListener('input', ()=>{ item.meta.name = nameEl.value.trim(); persist(); }, {passive:true});
+  }
   r.addEventListener('input', ()=>{ const v=+r.value||DEFAULT_RADIUS; lr.textContent=v; c.setRadius(v); persist(); }, {passive:true});
   col.addEventListener('input', ()=>{ const v=col.value||DEFAULT_COLOR; c.setOptions({strokeColor:v, fillColor:v}); persist(); }, {passive:true});
-  sw.addEventListener('input', ()=>{ const v=clamp(+sw.value,1,8); sw.value=v; c.setOptions({strokeWeight:v}); persist(); }, {passive:true});
-  fo.addEventListener('input', ()=>{ const v=clamp(+fo.value,0,0.8); lf.textContent=v.toFixed(2); c.setOptions({fillOpacity:v}); persist(); }, {passive:true});
+  sw.addEventListener('input', ()=>{ const v=clamp(+sw.value,0,8); sw.value=v; c.setOptions({strokeWeight:v}); persist(); }, {passive:true});
+  fo.addEventListener('input', ()=>{ const v=clamp(+fo.value,0,0.95); lf.textContent=v.toFixed(2); c.setOptions({fillOpacity:v}); persist(); }, {passive:true});
+
+  // live move => persist
+  google.maps.event.addListener(c,'center_changed', ()=>{ persist(); });
 
   save.addEventListener('click', ()=>{ item.meta.recipients=parseRecipients(names.value); openCard(item); persist(); showToast('تم الحفظ. اضغط "مشاركة" لنسخ الرابط'); });
   clr.addEventListener('click',  ()=>{ item.meta.recipients=[]; openCard(item); persist(); showToast('تم حذف الأسماء'); });
+  del.addEventListener('click',  ()=>{
+    if(confirm('تأكيد حذف الموقع؟')){
+      c.setMap(null);
+      const idx=circles.findIndex(x=>x===item);
+      if(idx>=0) circles.splice(idx,1);
+      if(infoWin) infoWin.close();
+      cardPinned=false;
+      persist();
+      showToast('تم حذف الموقع');
+    }
+  });
 }
 
 /* ---------------- View-only ---------------- */
 function setViewOnly(){
   editMode=false; document.body.setAttribute('data-viewonly','1'); modeBadge.textContent='Share';
+  setDraggableForAll(false);
 }
 
 /* ---------------- Share ---------------- */
@@ -312,4 +418,13 @@ function throttle(fn,ms){
     if(now-last>=ms){ last=now; fn.apply(this,args); }
     else { pending=args; clearTimeout(t); t=setTimeout(()=>{ last=performance.now(); fn.apply(this,pending); pending=null; }, ms-(now-last)); }
   };
+}
+function setDraggableForAll(on){
+  circles.forEach(it=> it.circle.setDraggable(on));
+}
+function genNewId(){
+  // ensure unique (negative ids to avoid colliding with seeded ids)
+  let id = -Date.now();
+  while(circles.some(x=>x.id===id)) id--;
+  return id;
 }
