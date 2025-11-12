@@ -28,6 +28,9 @@
     .badge{ font-size:12px; padding:2px 8px; border-radius:8px;
       border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); }
 
+    /* علامة وضع إضافة موقع */
+    .add-cursor, .add-cursor * { cursor: crosshair !important; }
+
     /* إخفاء زر إغلاق الكرت الافتراضي */
     .gm-style-iw button.gm-ui-hover-effect{ display:none !important; }
     .gm-style-iw-d{ overflow:visible !important; }
@@ -38,8 +41,9 @@
       padding:8px 12px; border-radius:10px; backdrop-filter:blur(10px); }
     .toast.hidden{ display:none; }
 
-    /* عرض فقط: أخفِ التحرير */
-    body[data-viewonly="1"] #btnEdit { display:none !important; }
+    /* عرض فقط: أخفِ التحرير والإضافة */
+    body[data-viewonly="1"] #btnEdit,
+    body[data-viewonly="1"] #btnAdd { display:none !important; }
   </style>
 </head>
 <body>
@@ -52,6 +56,7 @@
     <button id="btnTraffic"   class="btn" aria-pressed="false">حركة المرور</button>
     <button id="btnShare"     class="btn">مشاركة</button>
     <button id="btnEdit"      class="btn">تحرير</button>
+    <button id="btnAdd"       class="btn" aria-pressed="false" title="إضافة موقع جديد">إضافة موقع</button>
   </div>
 
   <div id="toast" class="toast hidden"></div>
