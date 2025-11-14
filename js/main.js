@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v11.6 (full build with SVG monochrome marker icons + marker kinds) */
+/* Diriyah Security Map – v11.7 (full build with zoom-aware SVG monochrome marker icons + marker kinds) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
@@ -35,10 +35,12 @@ const DEFAULT_COLOR  = '#ff0000';
 const DEFAULT_FILL_OPACITY = 0.40;
 const DEFAULT_STROKE_WEIGHT = 2;
 
-// marker defaults
-const DEFAULT_MARKER_COLOR = '#666666'; // monochrome default (user can change)
+// marker defaults (monochrome)
+const DEFAULT_MARKER_COLOR = '#666666';
 const DEFAULT_MARKER_SCALE = 1.2;
 const DEFAULT_MARKER_KIND  = 'pin';
+
+const BASE_ZOOM = 15; // reference zoom for sizing
 
 const LOCATIONS = [
   { id:0,  name:"بوابة سمحان", lat:24.742132284177778, lng:46.569503913805825 },
@@ -62,7 +64,7 @@ const LOCATIONS = [
   { id:18, name:"مزرعة الحبيب", lat:24.709445443672344, lng:46.593971867951346 },
 ];
 
-/* marker kinds (monochrome shapes / glyphs) */
+/* marker kinds (monochrome glyphs) */
 const MARKER_KINDS = [
   { id:'pin',    label:'دبوس عام',      glyph:'●'  },
   { id:'guard',  label:'رجل أمن',       glyph:'👮' },
@@ -150,26 +152,30 @@ function escapeForSvg(s){
 }
 
 /**
- * buildMarkerIcon(color, scale, kindId)
- * returns an icon object usable by google.maps.Marker({ icon: ... })
- * Produces a circular monochrome SVG with a glyph (emoji or character) centered.
+ * buildMarkerIcon(color, userScale, kindId)
+ * - userScale: مقياس يحدده المستخدم (مثلاً 0.8..2.0)
+ * - تأخذ بعين الاعتبار zoom الحالي في الخريطة.
  */
-function buildMarkerIcon(color, scale, kindId){
+function buildMarkerIcon(color, userScale, kindId){
   const fill = color || DEFAULT_MARKER_COLOR;
-  const s = Number.isFinite(scale) ? scale : DEFAULT_MARKER_SCALE;
+  const userS = Number.isFinite(userScale) ? userScale : DEFAULT_MARKER_SCALE;
 
-  // base size (px) scaled
-  const base = 36;
-  const w = Math.round(base * s);
-  const h = Math.round(base * s);
-  const r = Math.round((base/2 - 4) * s); // radius inside
+  // current zoom (fallback to BASE_ZOOM)
+  let currentZoom = (typeof map !== 'undefined' && map && typeof map.getZoom === 'function') ? map.getZoom() : BASE_ZOOM;
+  // zoomScale: استخدم علاقة أسية لكن أقل حساسية من الضعف التام
+  const zoomScale = Math.pow(1.6, (currentZoom - BASE_ZOOM) / 1.0);
+
+  // base dimension
+  const base = 28; // مرجعي صغير
+  const w = Math.max(12, Math.round(base * userS * zoomScale));
+  const h = w;
+  const r = Math.max(6, Math.round((base/2 - 3) * userS * zoomScale));
 
   const kind = getMarkerKindDef(kindId);
   const glyph = escapeForSvg(kind.glyph || '●');
 
-  const fontSize = Math.max(10, Math.round(14 * s));
-
-  const strokeWidth = Math.max(1, Math.round(1.2 * s));
+  const fontSize = Math.max(10, Math.round(12 * userS * Math.max(1, zoomScale)));
+  const strokeWidth = Math.max(1, Math.round(1 * Math.max(1, zoomScale)));
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
@@ -232,12 +238,37 @@ function applyShapeVisibility(item){
   }
 }
 
-/* ---------------- State write/read (hash) ---------------- */
-
 /**
- * writeShare(state)
- * If hash length exceeds threshold, trim center/zoom/type and keep only site data.
+ * updateMarkersScale()
+ * Rebuild icon for all markers that use marker representation, to reflect current zoom.
  */
+function updateMarkersScale(){
+  if(!map) return;
+  circles.forEach(item=>{
+    if(!item.meta) return;
+    if(item.meta.useMarker){
+      const color = item.meta.markerColor || DEFAULT_MARKER_COLOR;
+      const userScale = Number.isFinite(item.meta.markerScale) ? item.meta.markerScale : DEFAULT_MARKER_SCALE;
+      const kind = item.meta.markerKind || DEFAULT_MARKER_KIND;
+      try{
+        if(item.marker){
+          item.marker.setIcon(buildMarkerIcon(color, userScale, kind));
+        } else {
+          ensureMarker(item);
+          if(item.marker) item.marker.setIcon(buildMarkerIcon(color, userScale, kind));
+        }
+      }catch(e){
+        // fallback: recreate marker
+        try{
+          if(item.marker) { item.marker.setMap(null); item.marker = null; }
+          ensureMarker(item);
+        }catch(err){}
+      }
+    }
+  });
+}
+
+/* ---------------- State write/read (hash) ---------------- */
 function writeShare(state){
   if(shareMode) return;
 
@@ -264,8 +295,8 @@ function buildState(){
   const m=map.getMapTypeId()==='roadmap'?'r':'h';
   const t=btnTraffic.getAttribute('aria-pressed')==='true'?1:0;
 
-  const c=[];  // deltas for seeded locations
-  const n=[];  // full specs for new locations
+  const c=[];  // deltas for seeded
+  const n=[];  // full specs for new
 
   circles.forEach(({id,circle,meta})=>{
     const r=Math.round(circle.getRadius());
@@ -371,7 +402,6 @@ function applyState(s){
         ? rec.split('~').map(s=>s.trim()).filter(Boolean)
         : [];
 
-      // بيانات الأيقونة (مع توافق خلفي)
       const meta = it.meta;
       meta.useMarker = (useMarker === 1);
       if(mc) meta.markerColor = '#'+mc;
@@ -440,6 +470,9 @@ function boot(){
   });
   trafficLayer = new google.maps.TrafficLayer();
 
+  // update markers when zoom changes
+  map.addListener('zoom_changed', throttle(updateMarkersScale, 80));
+
   btnRoadmap.addEventListener('click', ()=>{
     map.setMapTypeId('roadmap');
     btnRoadmap.setAttribute('aria-pressed','true');
@@ -462,7 +495,7 @@ function boot(){
     persist();
   }, {passive:true});
 
-  // اجبار تفريغ الحفظ قبل النسخ
+  // force flush before copy
   btnShare.addEventListener('click', async ()=>{
     await nextTick();
     flushPersist();
@@ -506,10 +539,13 @@ function boot(){
       cardPinned=true;
       persist();
 
-      // إلغاء وضع الإضافة بعد إنشاء أول موقع — يمنع بقاء المؤشر زائد على الكرت
+      // disable add mode immediately so cursor returns to normal and card is interactive
       addMode=false;
       btnAdd.setAttribute('aria-pressed','false');
       document.body.classList.remove('add-cursor');
+
+      // update marker sizes after creation
+      updateMarkersScale();
     }
   });
 
@@ -537,9 +573,12 @@ function boot(){
   if(S){ applyState(S); setViewOnly(); }
   else { writeShare(buildState()); }
 
+  // ensure markers sized correctly on initial load
+  updateMarkersScale();
+
   map.addListener('idle', persist);
 
-  // أمان: قبل إغلاق الصفحة/إعادة التحميل
+  // before unload, flush persist
   window.addEventListener('beforeunload', ()=>{ flushPersist(); });
 }
 
@@ -551,7 +590,7 @@ function bindCircleEvents(item){
   c.addListener('mouseout',  ()=>{ if(!cardPinned && infoWin) infoWin.close(); });
   c.addListener('click',     ()=>{ openCard(item); cardPinned=true; });
 
-  // تحريك الدائرة يحرك الأيقونة ويعمل حفظ مباشر
+  // move circle -> move marker and persist
   google.maps.event.addListener(c,'center_changed', ()=>{
     if(item.marker){
       item.marker.setPosition(c.getCenter());
@@ -749,6 +788,8 @@ function attachCardEvents(item){
       if(markerTools) markerTools.style.display = useMarker ? '' : 'none';
       applyShapeVisibility(item);
       flushPersist();
+      // update sizes immediately if switched to marker
+      updateMarkersScale();
     }, {passive:true});
   }
 
@@ -758,7 +799,6 @@ function attachCardEvents(item){
       item.meta.markerKind = kind;
       if(item.meta.useMarker){
         const m = ensureMarker(item);
-        // rebuild icon with new glyph
         m.setIcon(buildMarkerIcon(item.meta.markerColor || DEFAULT_MARKER_COLOR, item.meta.markerScale || DEFAULT_MARKER_SCALE, kind));
       }
       flushPersist();
