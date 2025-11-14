@@ -18,6 +18,21 @@ let map, trafficLayer, infoWin=null;
 let editMode=false, shareMode=false, cardPinned=false, addMode=false;
 let btnRoadmap, btnSatellite, btnTraffic, btnShare, btnEdit, modeBadge, toast, btnAdd;
 
+/* حالة الهوفر للكرت/الدائرة */
+let cardHovering = false;
+let circleHovering = false;
+let cardHideTimer = null;
+
+function scheduleCardHide(){
+  clearTimeout(cardHideTimer);
+  if(cardPinned) return; // لو الكرت مثبت لا نخفيه
+  cardHideTimer = setTimeout(()=>{
+    if(!cardPinned && !cardHovering && !circleHovering && infoWin){
+      infoWin.close();
+    }
+  }, 120); // تأخير بسيط للسماح بانتقال الماوس بين الدائرة والكرت
+}
+
 const DEFAULT_CENTER = { lat:24.7399, lng:46.5731 };
 const DEFAULT_RADIUS = 20;
 const DEFAULT_COLOR  = '#ff0000';
@@ -296,11 +311,9 @@ function openRouteCard(latLng){
   routeCardWin.open({ map });
   routeCardPinned = true;
 
-  // نربط الأحداث بعد أن ينتهي Google Maps من إنشاء الـ DOM الخاص بالكرت
   google.maps.event.addListenerOnce(routeCardWin, 'domready', () => {
     attachRouteCardEvents();
 
-    // نفس تنسيق الـ InfoWindow المستخدم في كروت النقاط
     setTimeout(()=>{
       const root=document.getElementById('route-card-root');
       if(!root) return;
@@ -618,6 +631,9 @@ function boot(){
   }, {passive:true});
 
   map.addListener('click', (e)=>{
+    cardHovering = false;
+    circleHovering = false;
+
     if (cardPinned && infoWin) { infoWin.close(); cardPinned = false; }
     if (routeCardPinned && routeCardWin) { routeCardWin.close(); routeCardPinned = false; }
 
@@ -647,7 +663,7 @@ function boot(){
       const item = { id, circle, marker:null, meta };
       circles.push(item);
       bindCircleEvents(item);
-      openCard(item);
+      openCard(item, true);
       cardPinned=true;
       persist();
       addMode=false;
@@ -657,7 +673,7 @@ function boot(){
     }
   });
 
-  const openCardThrottled = throttle((item)=>openCard(item), 120);
+  const openCardThrottled = throttle((item, pin)=>openCard(item, pin), 120);
   LOCATIONS.forEach(loc=>{
     const circle = new google.maps.Circle({
       map, center:{lat:loc.lat,lng:loc.lng}, radius:DEFAULT_RADIUS,
@@ -677,9 +693,18 @@ function boot(){
     };
     const item = { id:loc.id, circle, marker:null, meta };
     circles.push(item);
-    circle.addListener('mouseover', ()=>{ if(!cardPinned) openCardThrottled(item); });
-    circle.addListener('mouseout',  ()=>{ if(!cardPinned && infoWin) infoWin.close(); });
-    circle.addListener('click',     ()=>{ openCard(item); cardPinned=true; });
+
+    circle.addListener('mouseover', ()=>{
+      circleHovering = true;
+      if(!cardPinned) openCardThrottled(item, false); // كرت معاينة فقط
+    });
+    circle.addListener('mouseout',  ()=>{
+      circleHovering = false;
+      scheduleCardHide();
+    });
+    circle.addListener('click',     ()=>{
+      openCard(item, true); // فتح مع تثبيت
+    });
   });
 
   const S = readShare();
@@ -694,11 +719,21 @@ function boot(){
 
 /* helper to bind circle events */
 function bindCircleEvents(item){
-  const openCardThrottled = throttle((it)=>openCard(it), 120);
-  const c=item.circle;
-  c.addListener('mouseover', ()=>{ if(!cardPinned) openCardThrottled(item); });
-  c.addEventListener('mouseout',  ()=>{ if(!cardPinned && infoWin) infoWin.close(); });
-  c.addListener('click',     ()=>{ openCard(item); cardPinned=true; });
+  const openCardThrottled = throttle((it, pin)=>openCard(it, pin), 120);
+  const c = item.circle;
+
+  c.addListener('mouseover', ()=>{
+    circleHovering = true;
+    if(!cardPinned) openCardThrottled(item, false); // معاينة
+  });
+  c.addEventListener('mouseout',  ()=>{
+    circleHovering = false;
+    scheduleCardHide();
+  });
+  c.addListener('click',     ()=>{
+    openCard(item, true); // تثبيت
+  });
+
   google.maps.event.addListener(c,'center_changed', ()=>{
     if(item.marker){ item.marker.setPosition(c.getCenter()); }
     persist();
@@ -706,12 +741,13 @@ function bindCircleEvents(item){
 }
 
 /* ---------------- Card (locations) ---------------- */
-function openCard(item){
+function openCard(item, pin = true){
   if(!infoWin) infoWin = new google.maps.InfoWindow({ content:'', maxWidth:520, pixelOffset:new google.maps.Size(0,-6) });
   infoWin.setContent(renderCard(item));
   infoWin.setPosition(item.circle.getCenter());
   infoWin.open({ map });
-  cardPinned = true;
+  cardPinned = !!pin; // لو pin=false: كرت معاينة فقط
+
   setTimeout(()=>{
     const root=document.getElementById('iw-root'); if(!root) return;
     const close=root.parentElement?.querySelector('.gm-ui-hover-effect'); if(close) close.style.display='none';
@@ -833,6 +869,17 @@ function renderCard(item){
 function attachCardEvents(item){
   if(shareMode || !editMode) return;
   const c=item.circle;
+
+  const root = document.getElementById('iw-root');
+  if(root){
+    root.addEventListener('mouseenter', ()=>{
+      cardHovering = true;
+    }, {passive:true});
+    root.addEventListener('mouseleave', ()=>{
+      cardHovering = false;
+      scheduleCardHide();
+    }, {passive:true});
+  }
 
   const inShare=document.getElementById('btn-card-share');
   if(inShare) inShare.addEventListener('click', async ()=>{
@@ -964,7 +1011,7 @@ function attachCardEvents(item){
   if(clr){
     clr.addEventListener('click',  ()=>{
       item.meta.recipients=[];
-      openCard(item);
+      openCard(item, true);
       flushPersist();
       showToast('تم حذف الأسماء');
     });
@@ -1052,7 +1099,7 @@ function ensureMarker(item){
 
 function applyShapeVisibility(item){
   const useMarker = !!item.meta.useMarker;
-  item.circle.setVisible(true); // الدائرة تبقى مرئية (يمكن تعديل هذا لو حبيت)
+  item.circle.setVisible(true); // الدائرة تبقى مرئية دائماً (يمكنك تغيير هذا لو أردت)
   if (useMarker) {
     const m = ensureMarker(item);
     if (m) m.setMap(map);
