@@ -1,28 +1,17 @@
-/* Diriyah Security Map – v11.9 (full build + route click card) */
+/* Diriyah Security Map – v11.10 (live-preview route styling + Google-like marker icons) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
 let __BOOTED__ = false;
 function tryBoot(){
   if(__BOOTED__) return true;
-  if(window.google && google && google.maps && document.readyState !== 'loading'){
-    __BOOTED__ = true; boot(); return true;
-  }
-  if(window.google && google.maps && document.readyState !== 'loading'){
-    __BOOTED__ = true; boot(); return true;
-  }
+  if(window.google && google && google.maps && document.readyState !== 'loading'){ __BOOTED__ = true; boot(); return true; }
   return false;
 }
 window.initMap = function(){ tryBoot(); };
-document.addEventListener('DOMContentLoaded', ()=>{
-  tryBoot();
-  let n=0, iv=setInterval(()=>{ if(tryBoot()||++n>60) clearInterval(iv); },250);
-}, {passive:true});
+document.addEventListener('DOMContentLoaded', ()=>{ let n=0, iv=setInterval(()=>{ if(tryBoot()||++n>60) clearInterval(iv); },250); }, {passive:true});
 window.addEventListener('load', tryBoot, {once:true, passive:true});
-document.addEventListener('visibilitychange', ()=>{
-  if(!document.hidden) tryBoot();
-  else flushPersist();
-}, {passive:true});
+document.addEventListener('visibilitychange', ()=>{ !document.hidden ? tryBoot() : flushPersist(); }, {passive:true});
 
 /* ---------------- Globals ---------------- */
 let map, trafficLayer, infoWin=null;
@@ -35,12 +24,12 @@ const DEFAULT_COLOR  = '#ff0000';
 const DEFAULT_FILL_OPACITY = 0.40;
 const DEFAULT_STROKE_WEIGHT = 2;
 
-// marker defaults (monochrome)
-const DEFAULT_MARKER_COLOR = '#666666';
-const DEFAULT_MARKER_SCALE = 1.2;
+// marker defaults
+const DEFAULT_MARKER_COLOR = '#ea4335';   // Google red
+const DEFAULT_MARKER_SCALE = 1;
 const DEFAULT_MARKER_KIND  = 'pin';
 
-const BASE_ZOOM = 15; // reference zoom for sizing
+const BASE_ZOOM = 15;
 
 const LOCATIONS = [
   { id:0,  name:"بوابة سمحان", lat:24.742132284177778, lng:46.569503913805825 },
@@ -64,25 +53,44 @@ const LOCATIONS = [
   { id:18, name:"مزرعة الحبيب", lat:24.709445443672344, lng:46.593971867951346 },
 ];
 
-/* marker kinds (monochrome glyphs) */
+/* SVG icons (Google-like) */
 const MARKER_KINDS = [
-  { id:'pin',    label:'دبوس عام',      glyph:'●'  },
-  { id:'guard',  label:'رجل أمن',       glyph:'👮' },
-  { id:'patrol', label:'دورية أمنية',   glyph:'🚓' },
-  { id:'camera', label:'كاميرا مراقبة', glyph:'📹' },
-  { id:'gate',   label:'بوابة',         glyph:'🚪' },
-  { id:'meet',   label:'نقطة تجمع',     glyph:'📍' },
+  { id:'pin',    label:'دبوس عام',      svg:pinSvg('#ea4335') },
+  { id:'guard',  label:'رجل أمن',       svg:guardSvg('#4285f4') },
+  { id:'patrol', label:'دورية أمنية',   svg:patrolSvg('#34a853') },
+  { id:'camera', label:'كاميرا مراقبة', svg:cameraSvg('#fbbc04') },
+  { id:'gate',   label:'بوابة',         svg:gateSvg('#9aa0a6') },
+  { id:'meet',   label:'نقطة تجمع',     svg:meetSvg('#e94235') },
 ];
 
-/* Each entry: {id,circle,marker?,meta:{name,origName,recipients[],isNew,useMarker,markerColor,markerScale,markerKind}} */
-const circles = [];
+function pinSvg(fill){ return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="${fill}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+</svg>`; }
+function guardSvg(fill){ return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="${fill}" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.29L19 6.3v4.61c-1.11 4.16-3.72 7.55-7 8.94-3.28-1.39-5.89-4.78-7-8.94V6.3L12 3.29z"/>
+</svg>`; }
+function patrolSvg(fill){ return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="${fill}" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+</svg>`; }
+function cameraSvg(fill){ return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="${fill}" d="M12 15.2c-1.8 0-3.2-1.4-3.2-3.2s1.4-3.2 3.2-3.2 3.2 1.4 3.2 3.2-1.4 3.2-3.2 3.2zm0-4.8c-1.3 0-2.3 1-2.3 2.3s1 2.3 2.3 2.3 2.3-1 2.3-2.3-1-2.3-2.3-2.3zm7-4.7l-2.8-2.8c-.4-.4-1-.4-1.4 0L12 5.2 9.2 2.4c-.4-.4-1-.4-1.4 0L5 5.2c-.4.4-.4 1 0 1.4L7.8 9H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V11c0-1.1-.9-2-2-2h-2.8L17 6.7c.4-.4.4-1 0-1.4z"/>
+</svg>`; }
+function gateSvg(fill){ return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="${fill}" d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-2 10H5V8h14v8z"/>
+</svg>`; }
+function meetSvg(fill){ return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="${fill}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+</svg>`; }
 
+/* utilities */
 const clamp=(x,min,max)=>Math.min(max,Math.max(min,x));
-const escapeHtml=s=>String(s)
-  .replace(/&/g,'&amp;')
-  .replace(/</g,'&lt;')
-  .replace(/>/g,'&gt;')
-  .replace(/"/g,'&quot;');
+const escapeHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const toHex=(c)=>{
   if(!c) return DEFAULT_COLOR;
   if(/^#/.test(c)) return c;
@@ -91,198 +99,47 @@ const toHex=(c)=>{
   const [r,g,b]=[+m[1],+m[2],+m[3]];
   return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
 };
-const parseRecipients=t=>String(t)
-  .split(/\r?\n/)
-  .map(s=>s.replace(/[،;,]+/g,' ').trim())
-  .filter(Boolean);
+const parseRecipients=t=>String(t).split(/\r?\n/).map(s=>s.replace(/[،;,]+/g,' ').trim()).filter(Boolean);
 
 let persistTimer=null;
-const persist=()=>{
-  if(shareMode) return;
-  clearTimeout(persistTimer);
-  persistTimer=setTimeout(()=>writeShare(buildState()),180);
-};
-function flushPersist(){
-  if(shareMode) return;
-  clearTimeout(persistTimer);
-  writeShare(buildState());
-}
+const persist=()=>{ if(shareMode) return; clearTimeout(persistTimer); persistTimer=setTimeout(()=>writeShare(buildState()),180); };
+function flushPersist(){ if(shareMode) return; clearTimeout(persistTimer); writeShare(buildState()); }
 
-/* ---- compact Base64URL ---- */
-function b64uEncode(s){
-  const b=btoa(unescape(encodeURIComponent(s)));
-  return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-}
+/* Base64URL */
+function b64uEncode(s){ const b=btoa(unescape(encodeURIComponent(s))); return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 function b64uDecode(t){
-  try{
-    t=String(t||'').replace(/[^A-Za-z0-9\-_]/g,'');
-    const pad=t.length%4 ? '='.repeat(4-(t.length%4)) : '';
-    return decodeURIComponent(escape(
-      atob(t.replace(/-/g,'+').replace(/_/g,'/')+pad)
-    ));
-  }catch{
-    return '';
-  }
-}
-function readShare(){
-  const h=(location.hash||'').trim();
-  if(!/^#x=/.test(h)) return null;
-  try{
-    return JSON.parse(b64uDecode(h.slice(3)));
-  }catch{
-    return null;
-  }
-}
+  try{ t=String(t||'').replace(/[^A-Za-z0-9\-_]/g,''); const pad=t.length%4 ? '='.repeat(4-(t.length%4)) : ''; return decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/')+pad))); }catch{return '';} }
+function readShare(){ const h=(location.hash||'').trim(); if(!/^#x=/.test(h)) return null; try{return JSON.parse(b64uDecode(h.slice(3)));}catch{return null;} }
 
-/* ------------ SVG monochrome marker helpers ------------- */
-
-/* return marker kind definition */
-function getMarkerKindDef(kindId){
-  return MARKER_KINDS.find(k=>k.id===kindId) || MARKER_KINDS[0];
-}
-
-/* safe escape for SVG text nodes */
-function escapeForSvg(s){
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-/**
- * buildMarkerIcon(color, userScale, kindId)
- * userScale: مقياس يحدده المستخدم (مثلاً 0.8..2.0)
- * تأخذ بعين الاعتبار zoom الحالي في الخريطة.
- */
+/* SVG icon builder */
 function buildMarkerIcon(color, userScale, kindId){
-  const fill = color || DEFAULT_MARKER_COLOR;
-  const userS = Number.isFinite(userScale) ? userScale : DEFAULT_MARKER_SCALE;
-
-  let currentZoom = (typeof map !== 'undefined' && map && typeof map.getZoom === 'function') ? map.getZoom() : BASE_ZOOM;
+  const currentZoom = (typeof map !== 'undefined' && map && typeof map.getZoom === 'function') ? map.getZoom() : BASE_ZOOM;
   const zoomScale = Math.pow(1.6, (currentZoom - BASE_ZOOM) / 1.0);
-
   const base = 28;
-  const w = Math.max(12, Math.round(base * userS * zoomScale));
+  const w = Math.max(12, Math.round(base * (userScale||DEFAULT_MARKER_SCALE) * zoomScale));
   const h = w;
-  const r = Math.max(6, Math.round((base/2 - 3) * userS * zoomScale));
-
-  const kind = getMarkerKindDef(kindId);
-  const glyph = escapeForSvg(kind.glyph || '●');
-
-  const fontSize = Math.max(10, Math.round(12 * userS * Math.max(1, zoomScale)));
-  const strokeWidth = Math.max(1, Math.round(1 * Math.max(1, zoomScale)));
-
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg " width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-      <g>
-        <circle cx="${w/2}" cy="${h/2}" r="${r}" fill="${fill}" stroke="#ffffff" stroke-width="${strokeWidth}" />
-        <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" fill="#ffffff"
-              font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="700">${glyph}</text>
-      </g>
-    </svg>`.trim();
-
+  const kind = MARKER_KINDS.find(k=>k.id===kindId)||MARKER_KINDS[0];
+  const svg = kind.svg.replace(/fill="([^"]*)"/,`fill="${color||DEFAULT_MARKER_COLOR}"`);
   const encoded = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
-
-  return {
-    url: encoded,
-    scaledSize: new google.maps.Size(w, h),
-    anchor: new google.maps.Point(Math.round(w/2), Math.round(h/2))
-  };
+  return { url: encoded, scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(Math.round(w/2), Math.round(h)) };
 }
 
-/* create or return marker for item; marker uses SVG icon */
-function ensureMarker(item){
-  if(item.marker) return item.marker;
-  const center = item.circle.getCenter();
-  const meta = item.meta;
-  const color = meta.markerColor || DEFAULT_MARKER_COLOR;
-  const scale = Number.isFinite(meta.markerScale) ? meta.markerScale : DEFAULT_MARKER_SCALE;
-  const kind  = meta.markerKind || DEFAULT_MARKER_KIND;
-
-  const icon = buildMarkerIcon(color, scale, kind);
-
-  const marker = new google.maps.Marker({
-    map,
-    position: center,
-    icon: icon,
-    clickable: true,
-    draggable: false,
-    optimized: false
-  });
-
-  marker.addListener('click', ()=>{
-    openCard(item);
-    cardPinned = true;
-  });
-
-  item.marker = marker;
-  return marker;
-}
-
-/* apply visibility: when using marker, hide circle completely; otherwise hide marker and show circle */
-function applyShapeVisibility(item){
-  const meta = item.meta;
-  const useMarker = !!meta.useMarker;
-  if(useMarker){
-    const m = ensureMarker(item);
-    m.setVisible(true);
-    item.circle.setVisible(false);
-  } else {
-    if(item.marker) item.marker.setVisible(false);
-    item.circle.setVisible(true);
-  }
-}
-
-/**
- * updateMarkersScale()
- * Rebuild icon for all markers that use marker representation, to reflect current zoom.
- */
-function updateMarkersScale(){
-  if(!map) return;
-  circles.forEach(item=>{
-    if(!item.meta) return;
-    if(item.meta.useMarker){
-      const color = item.meta.markerColor || DEFAULT_MARKER_COLOR;
-      const userScale = Number.isFinite(item.meta.markerScale) ? item.meta.markerScale : DEFAULT_MARKER_SCALE;
-      const kind = item.meta.markerKind || DEFAULT_MARKER_KIND;
-      try{
-        if(item.marker){
-          item.marker.setIcon(buildMarkerIcon(color, userScale, kind));
-        } else {
-          ensureMarker(item);
-          if(item.marker) item.marker.setIcon(buildMarkerIcon(color, userScale, kind));
-        }
-      }catch(e){
-        try{
-          if(item.marker) { item.marker.setMap(null); item.marker = null; }
-          ensureMarker(item);
-        }catch(err){}
-      }
-    }
-  });
-}
+/* circles & markers arrays */
+const circles = [];
 
 /* ---------- Route (Directions) feature ---------- */
-// directions objects
 let directionsService = null;
 let directionsRenderer = null;
-let routeMode = false;              // true = وضع إنشاء/تحرير مسار
-let routePoints = [];               // array of google.maps.LatLng for stops (in order)
-let routeStopMarkers = [];          // small markers for each stop
-let currentRouteOverview = null;    // overview_polyline string saved for share
+let routeMode = false;
+let routePoints = [];
+let routeStopMarkers = [];
+let currentRouteOverview = null;
+let activeRoutePoly = null;         // Polyline مستخرج للتعديل الفوري
+let routeCardWin = null;
+let routeCardPinned = false;
 
-// UI button references
-let btnRoute = null;
-let btnRouteClear = null;
+let btnRoute, btnRouteClear;
 
-// route line editing card
-let routeCardWin = null;            // InfoWindow خاص بالمسار
-let routeCardPinned = false;        // هل الكرت مفتوح؟
-let activeRoutePoly = null;         // المرجع للـ Polyline الحالي (لتعديل خصائصه)
-
-// ensure Directions objects
 function ensureDirections(){
   if(!directionsService) directionsService = new google.maps.DirectionsService();
   if(!directionsRenderer){
@@ -295,32 +152,17 @@ function ensureDirections(){
   }
 }
 
-// create small numbered stop marker
 function createStopMarker(position, index){
   const m = new google.maps.Marker({
     position,
     map,
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 6,
-      fillColor: '#ffffff',
-      fillOpacity: 1,
-      strokeColor: '#3344ff',
-      strokeWeight: 2
-    },
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 6, fillColor: '#ffffff', fillOpacity: 1, strokeColor: '#3344ff', strokeWeight: 2 },
     label: { text: String(index+1), color:'#3344ff', fontSize:'11px', fontWeight:'700' },
     clickable: true,
     draggable: true
   });
-  m.addListener('dragend', ()=>{
-    routePoints[index] = m.getPosition();
-    requestAndRenderRoute();
-    persist();
-  });
-  m.addListener('rightclick', ()=>{
-    removeRoutePoint(index);
-    persist();
-  });
+  m.addListener('dragend', ()=>{ routePoints[index] = m.getPosition(); requestAndRenderRoute(); persist(); });
+  m.addListener('rightclick', ()=>{ removeRoutePoint(index); persist(); });
   return m;
 }
 
@@ -359,25 +201,15 @@ function requestAndRenderRoute(){
     currentRouteOverview = null;
     return;
   }
-
   const origin = routePoints[0];
   const destination = routePoints[routePoints.length - 1];
   const waypoints = routePoints.slice(1, -1).map(p => ({ location: p, stopover: true }));
-
-  const req = {
-    origin,
-    destination,
-    waypoints,
-    travelMode: google.maps.TravelMode.DRIVING,
-    optimizeWaypoints: false
-  };
-
+  const req = { origin, destination, waypoints, travelMode: google.maps.TravelMode.DRIVING, optimizeWaypoints: false };
   directionsService.route(req, (result, status) => {
     if(status === 'OK' && result){
       directionsRenderer.setDirections(result);
       const r = result.routes && result.routes[0];
       currentRouteOverview = r && r.overview_polyline ? r.overview_polyline.points : null;
-      // بعد الرسم مباشرة نستخرج Polyline لاستخدامه في الكرت
       setTimeout(()=>{ extractActivePolyline(); },0);
     } else {
       showToast('تعذر حساب المسار: ' + status);
@@ -385,7 +217,6 @@ function requestAndRenderRoute(){
   });
 }
 
-// استخراج Polyline من DirectionsRenderer لاستخدامه في تغيير الخصائص
 function extractActivePolyline(){
   if(!directionsRenderer) return;
   const dir = directionsRenderer.getDirections();
@@ -393,18 +224,9 @@ function extractActivePolyline(){
   const path = dir.routes[0].overview_path;
   if(!path || !path.length) return;
   if(activeRoutePoly) activeRoutePoly.setMap(null);
-  activeRoutePoly = new google.maps.Polyline({
-    map,
-    path: path,
-    strokeColor: '#3344ff',
-    strokeWeight: 4,
-    strokeOpacity: 0.95,
-    zIndex: 9997
-  });
-  // إضافة مستمع click على الخط ليفتح كرت التعديل
-  activeRoutePoly.addListener('click', (e)=>{
-    openRouteCard(e.latLng);
-  });
+  const opts = directionsRenderer.get('polylineOptions') || {};
+  activeRoutePoly = new google.maps.Polyline({ map, path, strokeColor: opts.strokeColor, strokeWeight: opts.strokeWeight, strokeOpacity: opts.strokeOpacity, zIndex: 9997 });
+  activeRoutePoly.addListener('click', (e)=>{ openRouteCard(e.latLng); });
 }
 
 function restoreRouteFromOverview(polyStr){
@@ -412,33 +234,17 @@ function restoreRouteFromOverview(polyStr){
   try{
     const path = google.maps.geometry.encoding.decodePath(polyStr);
     clearRouteVisuals();
-    activeRoutePoly = new google.maps.Polyline({
-      map,
-      path: path,
-      strokeColor: '#3344ff',
-      strokeWeight: 4,
-      strokeOpacity: 0.95,
-      zIndex: 9997
-    });
+    activeRoutePoly = new google.maps.Polyline({ map, path, strokeColor: '#3344ff', strokeWeight: 4, strokeOpacity: 0.95, zIndex: 9997 });
     currentRouteOverview = polyStr;
-    activeRoutePoly.addListener('click', (e)=>{
-      openRouteCard(e.latLng);
-    });
-  }catch(e){
-    console.warn('restoreRouteFromOverview failed', e);
-  }
+    activeRoutePoly.addListener('click', (e)=>{ openRouteCard(e.latLng); });
+  }catch(e){ console.warn('restoreRouteFromOverview failed', e); }
 }
 
-/* ---------------- Route Card ---------------- */
+/* ---------------- Route Card (live-preview) ---------------- */
 function openRouteCard(latLng){
   if(shareMode) return;
   if(routeCardWin) routeCardWin.close();
-  routeCardWin = new google.maps.InfoWindow({
-    content: renderRouteCard(),
-    position: latLng,
-    maxWidth: 380,
-    pixelOffset: new google.maps.Size(0,-6)
-  });
+  routeCardWin = new google.maps.InfoWindow({ content: renderRouteCard(), position: latLng, maxWidth: 380, pixelOffset: new google.maps.Size(0,-6) });
   routeCardWin.open({ map });
   routeCardPinned = true;
   attachRouteCardEvents();
@@ -446,22 +252,14 @@ function openRouteCard(latLng){
     const root=document.getElementById('route-card-root');
     if(!root) return;
     const iw=root.closest('.gm-style-iw');
-    if(iw && iw.parentElement){
-      iw.parentElement.style.background='transparent';
-      iw.parentElement.style.boxShadow='none';
-      const tail=iw.parentElement.previousSibling; if(tail && tail.style) tail.style.display='none';
-    }
+    if(iw && iw.parentElement){ iw.parentElement.style.background='transparent'; iw.parentElement.style.boxShadow='none'; const tail=iw.parentElement.previousSibling; if(tail && tail.style) tail.style.display='none'; }
   },0);
 }
 
 function renderRouteCard(){
   const poly = activeRoutePoly;
   let color = '#3344ff', weight = 4, opacity = 0.95;
-  if(poly){
-    color   = poly.get('strokeColor') || color;
-    weight  = poly.get('strokeWeight') || weight;
-    opacity = poly.get('strokeOpacity') || opacity;
-  }
+  if(poly){ color = poly.get('strokeColor') || color; weight = poly.get('strokeWeight') || weight; opacity = poly.get('strokeOpacity') || opacity; }
   return `
   <div id="route-card-root" dir="rtl" style="min-width:320px">
     <div style="background:rgba(255,255,255,0.93); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
@@ -499,40 +297,22 @@ function attachRouteCardEvents(){
   const saveBtn   = document.getElementById('route-save');
   const closeBtn  = document.getElementById('route-close');
 
-  if(colorEl){
-    colorEl.addEventListener('input', ()=>{
-      if(activeRoutePoly) activeRoutePoly.setOptions({ strokeColor: colorEl.value });
-      if(directionsRenderer && directionsRenderer.getDirections()){
-        directionsRenderer.setOptions({
-          polylineOptions: { strokeColor: colorEl.value, strokeWeight: +(weightEl.value)||4, strokeOpacity: +(opacityEl.value)||0.95 }
-        });
-      }
-    }, {passive:true});
+  function apply(){
+    const clr = colorEl.value;
+    const w   = +weightEl.value;
+    const o   = +opacityEl.value;
+    weightLbl.textContent = w;
+    opacityLbl.textContent = o.toFixed(2);
+    if(activeRoutePoly) activeRoutePoly.setOptions({ strokeColor: clr, strokeWeight: w, strokeOpacity: o });
+    if(directionsRenderer){
+      directionsRenderer.setOptions({ polylineOptions: { strokeColor: clr, strokeWeight: w, strokeOpacity: o } });
+    }
   }
-  if(weightEl){
-    weightEl.addEventListener('input', ()=>{
-      const v = +(weightEl.value)||4;
-      weightLbl.textContent = v;
-      if(activeRoutePoly) activeRoutePoly.setOptions({ strokeWeight: v });
-      if(directionsRenderer && directionsRenderer.getDirections()){
-        directionsRenderer.setOptions({
-          polylineOptions: { strokeColor: colorEl.value, strokeWeight: v, strokeOpacity: +(opacityEl.value)||0.95 }
-        });
-      }
-    }, {passive:true});
-  }
-  if(opacityEl){
-    opacityEl.addEventListener('input', ()=>{
-      const v = +(opacityEl.value)||0.95;
-      opacityLbl.textContent = v.toFixed(2);
-      if(activeRoutePoly) activeRoutePoly.setOptions({ strokeOpacity: v });
-      if(directionsRenderer && directionsRenderer.getDirections()){
-        directionsRenderer.setOptions({
-          polylineOptions: { strokeColor: colorEl.value, strokeWeight: +(weightEl.value)||4, strokeOpacity: v }
-        });
-      }
-    }, {passive:true});
-  }
+
+  if(colorEl){ colorEl.addEventListener('input', apply, {passive:true}); colorEl.addEventListener('change', ()=>{ flushPersist(); }, {passive:true}); }
+  if(weightEl){ weightEl.addEventListener('input', apply, {passive:true}); weightEl.addEventListener('change', ()=>{ flushPersist(); }, {passive:true}); }
+  if(opacityEl){ opacityEl.addEventListener('input', apply, {passive:true}); opacityEl.addEventListener('change', ()=>{ flushPersist(); }, {passive:true}); }
+
   if(saveBtn){
     saveBtn.addEventListener('click', ()=>{
       flushPersist();
@@ -552,105 +332,19 @@ function attachRouteCardEvents(){
 /* ---------------- State write/read (hash) ---------------- */
 function writeShare(state){
   if(shareMode) return;
-
   let payload = state;
   let tok = b64uEncode(JSON.stringify(payload));
-
   if(tok.length > 1800){
-    payload = {
-      c: state.c || [],
-      n: state.n || [],
-      r: state.r || null
-    };
+    payload = { c: state.c || [], n: state.n || [], r: state.r || null };
     tok = b64uEncode(JSON.stringify(payload));
   }
-
   const newHash = `#x=${tok}`;
-  if(location.hash !== newHash){
-    history.replaceState(null,'',newHash);
-  }
+  if(location.hash !== newHash){ history.replaceState(null,'',newHash); }
 }
-
-/* ---- state build/apply ---- */
-function buildState(){
-  const ctr=map.getCenter(), z=map.getZoom();
-  const m=map.getMapTypeId()==='roadmap'?'r':'h';
-  const t=btnTraffic.getAttribute('aria-pressed')==='true'?1:0;
-
-  const c=[];  // deltas for seeded
-  const n=[];  // full specs for new
-
-  circles.forEach(({id,circle,meta})=>{
-    const r=Math.round(circle.getRadius());
-    const sc=(circle.get('strokeColor')||DEFAULT_COLOR).replace('#','');
-    const fo=Math.round((circle.get('fillOpacity')??DEFAULT_FILL_OPACITY)*100);
-    const sw=(circle.get('strokeWeight')??DEFAULT_STROKE_WEIGHT)|0;
-    const rec=(meta.recipients||[]).join('~');
-    const center=circle.getCenter();
-    const lat=center.lat();
-    const lng=center.lng();
-
-    const useMarker = meta.useMarker ? 1 : 0;
-    const mc = (meta.markerColor || '').replace('#','');
-    const ms = Number.isFinite(meta.markerScale) ? meta.markerScale : DEFAULT_MARKER_SCALE;
-    const mk = meta.markerKind || DEFAULT_MARKER_KIND;
-
-    if(meta.isNew){
-      n.push([
-        id,
-        +lat.toFixed(7),
-        +lng.toFixed(7),
-        meta.name||'',
-        r, sc, fo, sw, rec,
-        useMarker, mc, ms, mk
-      ]);
-      return;
-    }
-
-    const changed =
-      (r!==DEFAULT_RADIUS) ||
-      (toHex('#'+sc)!==toHex(DEFAULT_COLOR)) ||
-      (fo!==Math.round(DEFAULT_FILL_OPACITY*100)) ||
-      (sw!==DEFAULT_STROKE_WEIGHT) ||
-      rec.length>0 ||
-      ((meta.name||'')!==(meta.origName||'')) ||
-      meta.useMarker ||
-      !!meta.markerColor ||
-      Number.isFinite(meta.markerScale) ||
-      (meta.markerKind && meta.markerKind!==DEFAULT_MARKER_KIND);
-
-    if(changed){
-      c.push([
-        id, r, sc, fo, sw, rec, meta.name||'',
-        useMarker, mc, ms, mk
-      ]);
-    }
-  });
-
-  // route state
-  const routeObj = currentRouteOverview ? { ov: currentRouteOverview } : null;
-
-  return {
-    p:[+ctr.lng().toFixed(4), +ctr.lat().toFixed(4)],
-    z,
-    m,
-    t,
-    c,
-    n,
-    r: routeObj
-  };
-}
-
 function applyState(s){
   if(!s) return;
-
-  if(Array.isArray(s.p) && s.p.length === 2){
-    map.setCenter({lat:s.p[1], lng:s.p[0]});
-  }
-  if(Number.isFinite(s.z)){
-    map.setZoom(s.z);
-  }
-
+  if(Array.isArray(s.p) && s.p.length === 2){ map.setCenter({lat:s.p[1], lng:s.p[0]}); }
+  if(Number.isFinite(s.z)){ map.setZoom(s.z); }
   if(typeof s.m === 'string'){
     const isRoad = (s.m === 'r');
     map.setMapTypeId(isRoad ? 'roadmap' : 'hybrid');
@@ -659,85 +353,38 @@ function applyState(s){
       btnSatellite.setAttribute('aria-pressed', isRoad ? 'false' : 'true');
     }
   }
+  if (s.t === 1){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
+  else if (s.t === 0){ trafficLayer.setMap(null); btnTraffic.setAttribute('aria-pressed','false'); }
 
-  if (s.t === 1){
-    trafficLayer.setMap(map);
-    btnTraffic.setAttribute('aria-pressed','true');
-  } else if (s.t === 0){
-    trafficLayer.setMap(null);
-    btnTraffic.setAttribute('aria-pressed','false');
-  }
-
-  // apply deltas for seeds
   if(Array.isArray(s.c)){
     s.c.forEach(row=>{
       const [id,r,sc,fo,sw,rec,name,useMarker,mc,ms,mk] = row;
       const it=circles.find(x=>x.id===id);
       if(!it) return;
-      it.circle.setOptions({
-        radius:Number.isFinite(r)?r:DEFAULT_RADIUS,
-        strokeColor:sc?`#${sc}`:DEFAULT_COLOR,
-        fillColor:sc?`#${sc}`:DEFAULT_COLOR,
-        fillOpacity:Number.isFinite(fo)?(fo/100):DEFAULT_FILL_OPACITY,
-        strokeWeight:Number.isFinite(sw)?sw:DEFAULT_STROKE_WEIGHT
-      });
-      if(typeof name==='string' && name.trim()){
-        it.meta.name = name.trim();
-      }
-      it.meta.recipients = rec
-        ? rec.split('~').map(s=>s.trim()).filter(Boolean)
-        : [];
-
+      it.circle.setOptions({ radius:Number.isFinite(r)?r:DEFAULT_RADIUS, strokeColor:sc?`#${sc}`:DEFAULT_COLOR, fillColor:sc?`#${sc}`:DEFAULT_COLOR, fillOpacity:Number.isFinite(fo)?(fo/100):DEFAULT_FILL_OPACITY, strokeWeight:Number.isFinite(sw)?sw:DEFAULT_STROKE_WEIGHT });
+      if(typeof name==='string' && name.trim()){ it.meta.name = name.trim(); }
+      it.meta.recipients = rec ? rec.split('~').map(s=>s.trim()).filter(Boolean) : [];
       const meta = it.meta;
       meta.useMarker = (useMarker === 1);
       if(mc) meta.markerColor = '#'+mc;
       if(Number.isFinite(ms)) meta.markerScale = ms;
       if(mk) meta.markerKind = mk;
-
       applyShapeVisibility(it);
     });
   }
-
-  // spawn newly added circles
   if(Array.isArray(s.n)){
     s.n.forEach(row=>{
       const [id,lat,lng,name,r,sc,fo,sw,rec,useMarker,mc,ms,mk] = row;
       if(circles.some(x=>x.id===id)) return;
-      const circle = new google.maps.Circle({
-        map,
-        center:{lat:+lat,lng:+lng},
-        radius:Number.isFinite(r)?r:DEFAULT_RADIUS,
-        strokeColor:sc?`#${sc}`:DEFAULT_COLOR,
-        strokeOpacity:.95,
-        strokeWeight:Number.isFinite(sw)?sw:DEFAULT_STROKE_WEIGHT,
-        fillColor:sc?`#${sc}`:DEFAULT_COLOR,
-        fillOpacity:Number.isFinite(fo)?(fo/100):DEFAULT_FILL_OPACITY,
-        clickable:true,
-        draggable:false,
-        editable:false,
-        zIndex:9999
-      });
-      const meta = {
-        name:(name||'موقع جديد'),
-        origName:(name||'موقع جديد'),
-        recipients: rec?rec.split('~').filter(Boolean):[],
-        isNew:true,
-        useMarker: (useMarker === 1),
-        markerColor: mc ? '#'+mc : undefined,
-        markerScale: Number.isFinite(ms) ? ms : undefined,
-        markerKind: mk || DEFAULT_MARKER_KIND
-      };
+      const circle = new google.maps.Circle({ map, center:{lat:+lat,lng:+lng}, radius:Number.isFinite(r)?r:DEFAULT_RADIUS, strokeColor:sc?`#${sc}`:DEFAULT_COLOR, strokeOpacity:.95, strokeWeight:Number.isFinite(sw)?sw:DEFAULT_STROKE_WEIGHT, fillColor:sc?`#${sc}`:DEFAULT_COLOR, fillOpacity:Number.isFinite(fo)?(fo/100):DEFAULT_FILL_OPACITY, clickable:true, draggable:false, editable:false, zIndex:9999 });
+      const meta = { name:(name||'موقع جديد'), origName:(name||'موقع جديد'), recipients: rec?rec.split('~').filter(Boolean):[], isNew:true, useMarker: (useMarker === 1), markerColor: mc ? '#'+mc : undefined, markerScale: Number.isFinite(ms) ? ms : undefined, markerKind: mk || DEFAULT_MARKER_KIND };
       const item = { id, circle, marker:null, meta };
       circles.push(item);
       bindCircleEvents(item);
       applyShapeVisibility(item);
     });
   }
-
-  // restore route if present
-  if(s && s.r && s.r.ov){
-    restoreRouteFromOverview(s.r.ov);
-  }
+  if(s && s.r && s.r.ov){ restoreRouteFromOverview(s.r.ov); }
 }
 
 /* ---------------- Boot ---------------- */
@@ -763,32 +410,12 @@ function boot(){
   });
   trafficLayer = new google.maps.TrafficLayer();
 
-  // update markers when zoom changes
   map.addListener('zoom_changed', throttle(updateMarkersScale, 80));
 
-  btnRoadmap.addEventListener('click', ()=>{
-    map.setMapTypeId('roadmap');
-    btnRoadmap.setAttribute('aria-pressed','true');
-    btnSatellite.setAttribute('aria-pressed','false');
-    persist();
-  }, {passive:true});
+  btnRoadmap.addEventListener('click', ()=>{ map.setMapTypeId('roadmap'); btnRoadmap.setAttribute('aria-pressed','true'); btnSatellite.setAttribute('aria-pressed','false'); persist(); }, {passive:true});
+  btnSatellite.addEventListener('click', ()=>{ map.setMapTypeId('hybrid'); btnSatellite.setAttribute('aria-pressed','true'); btnRoadmap.setAttribute('aria-pressed','false'); persist(); }, {passive:true});
+  btnTraffic.addEventListener('click', ()=>{ const on=btnTraffic.getAttribute('aria-pressed')==='true'; if(on) trafficLayer.setMap(null); else trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed', String(!on)); persist(); }, {passive:true});
 
-  btnSatellite.addEventListener('click', ()=>{
-    map.setMapTypeId('hybrid');
-    btnSatellite.setAttribute('aria-pressed','true');
-    btnRoadmap.setAttribute('aria-pressed','false');
-    persist();
-  }, {passive:true});
-
-  btnTraffic.addEventListener('click', ()=>{
-    const on=btnTraffic.getAttribute('aria-pressed')==='true';
-    if(on) trafficLayer.setMap(null);
-    else   trafficLayer.setMap(map);
-    btnTraffic.setAttribute('aria-pressed', String(!on));
-    persist();
-  }, {passive:true});
-
-  // route button
   if(btnRoute){
     btnRoute.addEventListener('click', ()=>{
       if(shareMode){ showToast('وضع المشاركة لا يسمح بالتحرير'); return; }
@@ -804,8 +431,6 @@ function boot(){
       }
     }, {passive:true});
   }
-
-  // route clear button
   if(btnRouteClear){
     btnRouteClear.addEventListener('click', ()=>{
       routePoints = [];
@@ -815,14 +440,7 @@ function boot(){
     }, {passive:true});
   }
 
-  // force flush before copy
-  btnShare.addEventListener('click', async ()=>{
-    await nextTick();
-    flushPersist();
-    await nextTick();
-    await copyShareLink();
-  }, {passive:true});
-
+  btnShare.addEventListener('click', async ()=>{ await nextTick(); flushPersist(); await nextTick(); await copyShareLink(); }, {passive:true});
   btnEdit.addEventListener('click', ()=>{
     if(shareMode) return;
     editMode=!editMode; cardPinned=false; if(infoWin) infoWin.close();
@@ -831,7 +449,6 @@ function boot(){
     if(!editMode){ addMode=false; btnAdd.setAttribute('aria-pressed','false'); document.body.classList.remove('add-cursor'); }
     persist();
   }, {passive:true});
-
   btnAdd.addEventListener('click', ()=>{
     if(shareMode) return;
     if(!editMode){ showToast('فعّل وضع التحرير أولاً'); return; }
@@ -845,12 +462,7 @@ function boot(){
     if (cardPinned && infoWin) { infoWin.close(); cardPinned = false; }
     if (routeCardPinned && routeCardWin) { routeCardWin.close(); routeCardPinned = false; }
 
-    // route mode priority
-    if(routeMode && editMode && !shareMode){
-      addRoutePoint(e.latLng);
-      return;
-    }
-
+    if(routeMode && editMode && !shareMode){ addRoutePoint(e.latLng); return; }
     if(addMode && editMode && !shareMode){
       const id = genNewId();
       const circle = new google.maps.Circle({
@@ -866,18 +478,13 @@ function boot(){
       openCard(item);
       cardPinned=true;
       persist();
-
-      // disable add mode immediately so cursor returns to normal and card is interactive
       addMode=false;
       btnAdd.setAttribute('aria-pressed','false');
       document.body.classList.remove('add-cursor');
-
-      // update marker sizes after creation
       updateMarkersScale();
     }
   });
 
-  // seed circles
   const openCardThrottled = throttle((item)=>openCard(item), 120);
   LOCATIONS.forEach(loc=>{
     const circle = new google.maps.Circle({
@@ -889,63 +496,44 @@ function boot(){
     const meta = { name:loc.name, origName:loc.name, recipients:[], isNew:false, useMarker:false, markerColor:undefined, markerScale:undefined, markerKind:DEFAULT_MARKER_KIND };
     const item = { id:loc.id, circle, marker:null, meta };
     circles.push(item);
-
     circle.addListener('mouseover', ()=>{ if(!cardPinned) openCardThrottled(item); });
     circle.addListener('mouseout',  ()=>{ if(!cardPinned && infoWin) infoWin.close(); });
     circle.addListener('click',     ()=>{ openCard(item); cardPinned=true; });
   });
 
-  // share/view-only
   const S = readShare();
   shareMode = !!S;
   if(S){ applyState(S); setViewOnly(); }
   else { writeShare(buildState()); }
 
-  // ensure markers sized correctly on initial load
   updateMarkersScale();
-
   map.addListener('idle', persist);
-
-  // before unload, flush persist
   window.addEventListener('beforeunload', ()=>{ flushPersist(); });
 }
 
-/* helper to bind events for newly created circles */
+/* helper to bind circle events */
 function bindCircleEvents(item){
   const openCardThrottled = throttle((it)=>openCard(it), 120);
   const c=item.circle;
   c.addListener('mouseover', ()=>{ if(!cardPinned) openCardThrottled(item); });
-  c.addListener('mouseout',  ()=>{ if(!cardPinned && infoWin) infoWin.close(); });
+  c.addEventListener('mouseout',  ()=>{ if(!cardPinned && infoWin) infoWin.close(); });
   c.addListener('click',     ()=>{ openCard(item); cardPinned=true; });
-
-  // move circle -> move marker and persist
-  google.maps.event.addListener(c,'center_changed', ()=>{
-    if(item.marker){
-      item.marker.setPosition(c.getCenter());
-    }
-    persist();
-  });
+  google.maps.event.addListener(c,'center_changed', ()=>{ if(item.marker){ item.marker.setPosition(c.getCenter()); } persist(); });
 }
 
 /* ---------------- Card ---------------- */
+let infoWin = null;
 function openCard(item){
-  if(!infoWin){
-    infoWin = new google.maps.InfoWindow({ content:'', maxWidth:520, pixelOffset:new google.maps.Size(0,-6) });
-  }
+  if(!infoWin) infoWin = new google.maps.InfoWindow({ content:'', maxWidth:520, pixelOffset:new google.maps.Size(0,-6) });
   infoWin.setContent(renderCard(item));
   infoWin.setPosition(item.circle.getCenter());
   infoWin.open({ map });
-
-  // glass look + attach events
+  cardPinned = true;
   setTimeout(()=>{
     const root=document.getElementById('iw-root'); if(!root) return;
     const close=root.parentElement?.querySelector('.gm-ui-hover-effect'); if(close) close.style.display='none';
     const iw=root.closest('.gm-style-iw');
-    if(iw && iw.parentElement){
-      iw.parentElement.style.background='transparent';
-      iw.parentElement.style.boxShadow='none';
-      const tail=iw.parentElement.previousSibling; if(tail && tail.style) tail.style.display='none';
-    }
+    if(iw && iw.parentElement){ iw.parentElement.style.background='transparent'; iw.parentElement.style.boxShadow='none'; const tail=iw.parentElement.previousSibling; if(tail && tail.style) tail.style.display='none'; }
     attachCardEvents(item);
   },0);
 }
@@ -956,18 +544,15 @@ function renderCard(item){
   const namesHtml = names.length
     ? `<ol style="margin:6px 0 0; padding-inline-start:20px;">${names.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ol>`
     : `<div style="font-size:12px;color:#666">لا توجد أسماء مضافة</div>`;
-
   const center=c.getCenter();
   const radius=Math.round(c.getRadius());
   const color =toHex(c.get('strokeColor')||DEFAULT_COLOR);
   const stroke=c.get('strokeWeight')||DEFAULT_STROKE_WEIGHT;
   const fillO =Number(c.get('fillOpacity')??DEFAULT_FILL_OPACITY);
-
   const useMarker = !!meta.useMarker;
   const markerColor = meta.markerColor || DEFAULT_MARKER_COLOR;
   const markerScale = Number.isFinite(meta.markerScale) ? meta.markerScale : DEFAULT_MARKER_SCALE;
   const markerKind  = meta.markerKind || DEFAULT_MARKER_KIND;
-
   const optionsHtml = MARKER_KINDS.map(k=>`<option value="${k.id}" ${k.id===markerKind?'selected':''}>${k.label}</option>`).join('');
 
   return `
@@ -1086,27 +671,11 @@ function attachCardEvents(item){
 
   const persistBoth=(fn)=>(...a)=>{ fn(...a); persist(); };
 
-  if(nameEl){
-    const h=()=>{ item.meta.name = nameEl.value.trim(); };
-    nameEl.addEventListener('input', persistBoth(h), {passive:true});
-    nameEl.addEventListener('change', persistBoth(h), {passive:true});
-  }
-  if(r){
-    r.addEventListener('input', ()=>{ const v=+r.value||DEFAULT_RADIUS; lr.textContent=v; c.setRadius(v); persist(); }, {passive:true});
-    r.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
-  }
-  if(col){
-    col.addEventListener('input', ()=>{ const v=col.value||DEFAULT_COLOR; c.setOptions({strokeColor:v, fillColor:v}); persist(); }, {passive:true});
-    col.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
-  }
-  if(sw){
-    sw.addEventListener('input', ()=>{ const v=clamp(+sw.value,0,8); sw.value=v; c.setOptions({strokeWeight:v}); persist(); }, {passive:true});
-    sw.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
-  }
-  if(fo){
-    fo.addEventListener('input', ()=>{ const v=clamp(+fo.value,0,0.95); lf.textContent=v.toFixed(2); c.setOptions({fillOpacity:v}); persist(); }, {passive:true});
-    fo.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
-  }
+  if(nameEl){ const h=()=>{ item.meta.name = nameEl.value.trim(); }; nameEl.addEventListener('input', persistBoth(h), {passive:true}); nameEl.addEventListener('change', persistBoth(h), {passive:true}); }
+  if(r){ r.addEventListener('input', ()=>{ const v=+r.value||DEFAULT_RADIUS; lr.textContent=v; c.setRadius(v); persist(); }, {passive:true}); r.addEventListener('change', ()=>{ flushPersist(); }, {passive:true}); }
+  if(col){ col.addEventListener('input', ()=>{ const v=col.value||DEFAULT_COLOR; c.setOptions({strokeColor:v, fillColor:v}); persist(); }, {passive:true}); col.addEventListener('change', ()=>{ flushPersist(); }, {passive:true}); }
+  if(sw){ sw.addEventListener('input', ()=>{ const v=clamp(+sw.value,0,8); sw.value=v; c.setOptions({strokeWeight:v}); persist(); }, {passive:true}); sw.addEventListener('change', ()=>{ flushPersist(); }, {passive:true}); }
+  if(fo){ fo.addEventListener('input', ()=>{ const v=clamp(+fo.value,0,0.95); lf.textContent=v.toFixed(2); c.setOptions({fillOpacity:v}); persist(); }, {passive:true}); fo.addEventListener('change', ()=>{ flushPersist(); }, {passive:true}); }
 
   if(shapeSel){
     shapeSel.addEventListener('change', ()=>{
@@ -1116,11 +685,9 @@ function attachCardEvents(item){
       if(markerTools) markerTools.style.display = useMarker ? '' : 'none';
       applyShapeVisibility(item);
       flushPersist();
-      // update sizes immediately if switched to marker
       updateMarkersScale();
     }, {passive:true});
   }
-
   if(markerKindSel){
     markerKindSel.addEventListener('change', ()=>{
       const kind = markerKindSel.value || DEFAULT_MARKER_KIND;
@@ -1132,7 +699,6 @@ function attachCardEvents(item){
       flushPersist();
     }, {passive:true});
   }
-
   if(markerColorEl){
     markerColorEl.addEventListener('input', ()=>{
       const v = markerColorEl.value || DEFAULT_MARKER_COLOR;
@@ -1145,7 +711,6 @@ function attachCardEvents(item){
     }, {passive:true});
     markerColorEl.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   }
-
   if(markerScaleEl){
     markerScaleEl.addEventListener('input', ()=>{
       const scale = +markerScaleEl.value || DEFAULT_MARKER_SCALE;
@@ -1165,10 +730,7 @@ function attachCardEvents(item){
     save.addEventListener('click', ()=>{
       item.meta.recipients = parseRecipients(names.value);
       flushPersist();
-      if(infoWin){
-        infoWin.close();
-        cardPinned = false;
-      }
+      if(infoWin){ infoWin.close(); cardPinned = false; }
       showToast('تم الحفظ وتم إغلاق الكرت. الرابط الآن يعكس كل التعديلات');
     });
   }
@@ -1176,7 +738,7 @@ function attachCardEvents(item){
     clr.addEventListener('click',  ()=>{ item.meta.recipients=[]; openCard(item); flushPersist(); showToast('تم حذف الأسماء'); });
   }
   if(del){
-    clr.addEventListener('click',  ()=>{
+    del.addEventListener('click',  ()=>{
       if(confirm('تأكيد حذف الموقع؟')){
         c.setMap(null);
         if(item.marker) item.marker.setMap(null);
@@ -1223,4 +785,3 @@ function throttle(fn,ms){
 function setDraggableForAll(on){ circles.forEach(it=> it.circle.setDraggable(on)); }
 function genNewId(){ let id = -Date.now(); while(circles.some(x=>x.id===id)) id--; return id; }
 function nextTick(){ return new Promise(res=> requestAnimationFrame(()=> requestAnimationFrame(res))); }
-
