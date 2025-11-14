@@ -1,10 +1,13 @@
-/* Diriyah Security Map – v11.5 (fix add cursor + marker kinds) */
+/* Diriyah Security Map – v11.6 (full build with SVG monochrome marker icons + marker kinds) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
 let __BOOTED__ = false;
 function tryBoot(){
   if(__BOOTED__) return true;
+  if(window.google && google && google.maps && document.readyState !== 'loading'){
+    __BOOTED__ = true; boot(); return true;
+  }
   if(window.google && google.maps && document.readyState !== 'loading'){
     __BOOTED__ = true; boot(); return true;
   }
@@ -33,8 +36,8 @@ const DEFAULT_FILL_OPACITY = 0.40;
 const DEFAULT_STROKE_WEIGHT = 2;
 
 // marker defaults
-const DEFAULT_MARKER_COLOR = '#ff0000';
-const DEFAULT_MARKER_SCALE = 1.4;
+const DEFAULT_MARKER_COLOR = '#666666'; // monochrome default (user can change)
+const DEFAULT_MARKER_SCALE = 1.2;
 const DEFAULT_MARKER_KIND  = 'pin';
 
 const LOCATIONS = [
@@ -59,14 +62,14 @@ const LOCATIONS = [
   { id:18, name:"مزرعة الحبيب", lat:24.709445443672344, lng:46.593971867951346 },
 ];
 
-/* icon kinds (تشبه Google My Maps) */
+/* marker kinds (monochrome shapes / glyphs) */
 const MARKER_KINDS = [
-  { id:'pin',    label:'دبوس عام',      emoji:'●'  },
-  { id:'guard',  label:'رجل أمن',       emoji:'👮' },
-  { id:'patrol', label:'دورية أمنية',   emoji:'🚓' },
-  { id:'camera', label:'كاميرا مراقبة', emoji:'📹' },
-  { id:'gate',   label:'بوابة',         emoji:'🚪' },
-  { id:'meet',   label:'نقطة تجمع',     emoji:'📍' },
+  { id:'pin',    label:'دبوس عام',      glyph:'●'  },
+  { id:'guard',  label:'رجل أمن',       glyph:'👮' },
+  { id:'patrol', label:'دورية أمنية',   glyph:'🚓' },
+  { id:'camera', label:'كاميرا مراقبة', glyph:'📹' },
+  { id:'gate',   label:'بوابة',         glyph:'🚪' },
+  { id:'meet',   label:'نقطة تجمع',     glyph:'📍' },
 ];
 
 /* Each entry: {id,circle,marker?,meta:{name,origName,recipients[],isNew,useMarker,markerColor,markerScale,markerKind}} */
@@ -79,6 +82,7 @@ const escapeHtml=s=>String(s)
   .replace(/>/g,'&gt;')
   .replace(/"/g,'&quot;');
 const toHex=(c)=>{
+  if(!c) return DEFAULT_COLOR;
   if(/^#/.test(c)) return c;
   const m=c&&c.match(/rgba?\s*\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
   if(!m) return DEFAULT_COLOR;
@@ -102,7 +106,7 @@ function flushPersist(){
   writeShare(buildState());
 }
 
-/* ---- Base64URL ---- */
+/* ---- compact Base64URL ---- */
 function b64uEncode(s){
   const b=btoa(unescape(encodeURIComponent(s)));
   return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -128,34 +132,64 @@ function readShare(){
   }
 }
 
-/* ------------ Marker helpers ------------- */
+/* ------------ SVG monochrome marker helpers ------------- */
+
+/* return marker kind definition */
 function getMarkerKindDef(kindId){
   return MARKER_KINDS.find(k=>k.id===kindId) || MARKER_KINDS[0];
 }
-function buildMarkerIcon(color, scale){
-  const path =
-    "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z";
-  const c = color || DEFAULT_MARKER_COLOR;
-  const s = Number.isFinite(scale) ? scale : DEFAULT_MARKER_SCALE;
-  return {
-    path,
-    fillColor: c,
-    fillOpacity: 1,
-    strokeColor: "#ffffff",
-    strokeWeight: 1.5,
-    scale: s,
-    anchor: new google.maps.Point(12, 24)
-  };
+
+/* safe escape for SVG text nodes */
+function escapeForSvg(s){
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
-function buildMarkerLabel(kindId){
-  const def = getMarkerKindDef(kindId);
+
+/**
+ * buildMarkerIcon(color, scale, kindId)
+ * returns an icon object usable by google.maps.Marker({ icon: ... })
+ * Produces a circular monochrome SVG with a glyph (emoji or character) centered.
+ */
+function buildMarkerIcon(color, scale, kindId){
+  const fill = color || DEFAULT_MARKER_COLOR;
+  const s = Number.isFinite(scale) ? scale : DEFAULT_MARKER_SCALE;
+
+  // base size (px) scaled
+  const base = 36;
+  const w = Math.round(base * s);
+  const h = Math.round(base * s);
+  const r = Math.round((base/2 - 4) * s); // radius inside
+
+  const kind = getMarkerKindDef(kindId);
+  const glyph = escapeForSvg(kind.glyph || '●');
+
+  const fontSize = Math.max(10, Math.round(14 * s));
+
+  const strokeWidth = Math.max(1, Math.round(1.2 * s));
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+      <g>
+        <circle cx="${w/2}" cy="${h/2}" r="${r}" fill="${fill}" stroke="#ffffff" stroke-width="${strokeWidth}" />
+        <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" fill="#ffffff"
+              font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="700">${glyph}</text>
+      </g>
+    </svg>`.trim();
+
+  const encoded = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+
   return {
-    text: def.emoji,
-    fontSize: "14px",
-    fontWeight: "700",
+    url: encoded,
+    scaledSize: new google.maps.Size(w, h),
+    anchor: new google.maps.Point(Math.round(w/2), Math.round(h/2))
   };
 }
 
+/* create or return marker for item; marker uses SVG icon */
 function ensureMarker(item){
   if(item.marker) return item.marker;
   const center = item.circle.getCenter();
@@ -164,22 +198,27 @@ function ensureMarker(item){
   const scale = Number.isFinite(meta.markerScale) ? meta.markerScale : DEFAULT_MARKER_SCALE;
   const kind  = meta.markerKind || DEFAULT_MARKER_KIND;
 
+  const icon = buildMarkerIcon(color, scale, kind);
+
   const marker = new google.maps.Marker({
     map,
     position: center,
-    icon: buildMarkerIcon(color, scale),
-    label: buildMarkerLabel(kind),
+    icon: icon,
     clickable: true,
-    draggable: false
+    draggable: false,
+    optimized: false
   });
+
   marker.addListener('click', ()=>{
     openCard(item);
     cardPinned = true;
   });
+
   item.marker = marker;
   return marker;
 }
 
+/* apply visibility: when using marker, hide circle completely; otherwise hide marker and show circle */
 function applyShapeVisibility(item){
   const meta = item.meta;
   const useMarker = !!meta.useMarker;
@@ -187,13 +226,18 @@ function applyShapeVisibility(item){
     const m = ensureMarker(item);
     m.setVisible(true);
     item.circle.setVisible(false);
-  }else{
+  } else {
     if(item.marker) item.marker.setVisible(false);
     item.circle.setVisible(true);
   }
 }
 
-/* نكتب حالة الخريطة في الـ hash بدون قصّ المواقع. */
+/* ---------------- State write/read (hash) ---------------- */
+
+/**
+ * writeShare(state)
+ * If hash length exceeds threshold, trim center/zoom/type and keep only site data.
+ */
 function writeShare(state){
   if(shareMode) return;
 
@@ -220,8 +264,8 @@ function buildState(){
   const m=map.getMapTypeId()==='roadmap'?'r':'h';
   const t=btnTraffic.getAttribute('aria-pressed')==='true'?1:0;
 
-  const c=[];  // deltas
-  const n=[];  // new
+  const c=[];  // deltas for seeded locations
+  const n=[];  // full specs for new locations
 
   circles.forEach(({id,circle,meta})=>{
     const r=Math.round(circle.getRadius());
@@ -307,6 +351,7 @@ function applyState(s){
     btnTraffic.setAttribute('aria-pressed','false');
   }
 
+  // apply deltas for seeds
   if(Array.isArray(s.c)){
     s.c.forEach(row=>{
       const [id,r,sc,fo,sw,rec,name,useMarker,mc,ms,mk] = row;
@@ -326,6 +371,7 @@ function applyState(s){
         ? rec.split('~').map(s=>s.trim()).filter(Boolean)
         : [];
 
+      // بيانات الأيقونة (مع توافق خلفي)
       const meta = it.meta;
       meta.useMarker = (useMarker === 1);
       if(mc) meta.markerColor = '#'+mc;
@@ -336,6 +382,7 @@ function applyState(s){
     });
   }
 
+  // spawn newly added circles
   if(Array.isArray(s.n)){
     s.n.forEach(row=>{
       const [id,lat,lng,name,r,sc,fo,sw,rec,useMarker,mc,ms,mk] = row;
@@ -415,6 +462,7 @@ function boot(){
     persist();
   }, {passive:true});
 
+  // اجبار تفريغ الحفظ قبل النسخ
   btnShare.addEventListener('click', async ()=>{
     await nextTick();
     flushPersist();
@@ -424,25 +472,16 @@ function boot(){
 
   btnEdit.addEventListener('click', ()=>{
     if(shareMode) return;
-    editMode=!editMode;
-    cardPinned=false;
-    if(infoWin) infoWin.close();
+    editMode=!editMode; cardPinned=false; if(infoWin) infoWin.close();
     modeBadge.textContent=editMode?'Edit':'Share';
     setDraggableForAll(editMode);
-    if(!editMode){
-      addMode=false;
-      btnAdd.setAttribute('aria-pressed','false');
-      document.body.classList.remove('add-cursor');
-    }
+    if(!editMode){ addMode=false; btnAdd.setAttribute('aria-pressed','false'); document.body.classList.remove('add-cursor'); }
     persist();
   }, {passive:true});
 
   btnAdd.addEventListener('click', ()=>{
     if(shareMode) return;
-    if(!editMode){
-      showToast('فعّل وضع التحرير أولاً');
-      return;
-    }
+    if(!editMode){ showToast('فعّل وضع التحرير أولاً'); return; }
     addMode=!addMode;
     btnAdd.setAttribute('aria-pressed', String(addMode));
     document.body.classList.toggle('add-cursor', addMode);
@@ -450,36 +489,16 @@ function boot(){
   }, {passive:true});
 
   map.addListener('click', (e)=>{
-    if (cardPinned && infoWin) {
-      infoWin.close();
-      cardPinned = false;
-    }
+    if (cardPinned && infoWin) { infoWin.close(); cardPinned = false; }
     if(addMode && editMode && !shareMode){
       const id = genNewId();
       const circle = new google.maps.Circle({
-        map,
-        center:e.latLng,
-        radius:DEFAULT_RADIUS,
-        strokeColor:DEFAULT_COLOR,
-        strokeOpacity:.95,
-        strokeWeight:DEFAULT_STROKE_WEIGHT,
-        fillColor:DEFAULT_COLOR,
-        fillOpacity:DEFAULT_FILL_OPACITY,
-        clickable:true,
-        draggable:true,
-        editable:false,
-        zIndex:9999
+        map, center:e.latLng, radius:DEFAULT_RADIUS,
+        strokeColor:DEFAULT_COLOR, strokeOpacity:.95, strokeWeight:DEFAULT_STROKE_WEIGHT,
+        fillColor:DEFAULT_COLOR, fillOpacity:DEFAULT_FILL_OPACITY,
+        clickable:true, draggable:true, editable:false, zIndex:9999
       });
-      const meta = {
-        name:'موقع جديد',
-        origName:'موقع جديد',
-        recipients:[],
-        isNew:true,
-        useMarker:false,
-        markerColor:undefined,
-        markerScale:undefined,
-        markerKind:DEFAULT_MARKER_KIND
-      };
+      const meta = { name:'موقع جديد', origName:'موقع جديد', recipients:[], isNew:true, useMarker:false, markerColor:undefined, markerScale:undefined, markerKind:DEFAULT_MARKER_KIND };
       const item = { id, circle, marker:null, meta };
       circles.push(item);
       bindCircleEvents(item);
@@ -487,39 +506,23 @@ function boot(){
       cardPinned=true;
       persist();
 
-      // إلغاء وضع الإضافة بعد إنشاء أول موقع
+      // إلغاء وضع الإضافة بعد إنشاء أول موقع — يمنع بقاء المؤشر زائد على الكرت
       addMode=false;
       btnAdd.setAttribute('aria-pressed','false');
       document.body.classList.remove('add-cursor');
     }
   });
 
+  // seed circles
   const openCardThrottled = throttle((item)=>openCard(item), 120);
   LOCATIONS.forEach(loc=>{
     const circle = new google.maps.Circle({
-      map,
-      center:{lat:loc.lat,lng:loc.lng},
-      radius:DEFAULT_RADIUS,
-      strokeColor:DEFAULT_COLOR,
-      strokeOpacity:.95,
-      strokeWeight:DEFAULT_STROKE_WEIGHT,
-      fillColor:DEFAULT_COLOR,
-      fillOpacity:DEFAULT_FILL_OPACITY,
-      clickable:true,
-      draggable:false,
-      editable:false,
-      zIndex:9999
+      map, center:{lat:loc.lat,lng:loc.lng}, radius:DEFAULT_RADIUS,
+      strokeColor:DEFAULT_COLOR, strokeOpacity:.95, strokeWeight:DEFAULT_STROKE_WEIGHT,
+      fillColor:DEFAULT_COLOR, fillOpacity:DEFAULT_FILL_OPACITY,
+      clickable:true, draggable:false, editable:false, zIndex:9999
     });
-    const meta = {
-      name:loc.name,
-      origName:loc.name,
-      recipients:[],
-      isNew:false,
-      useMarker:false,
-      markerColor:undefined,
-      markerScale:undefined,
-      markerKind:DEFAULT_MARKER_KIND
-    };
+    const meta = { name:loc.name, origName:loc.name, recipients:[], isNew:false, useMarker:false, markerColor:undefined, markerScale:undefined, markerKind:DEFAULT_MARKER_KIND };
     const item = { id:loc.id, circle, marker:null, meta };
     circles.push(item);
 
@@ -528,30 +531,27 @@ function boot(){
     circle.addListener('click',     ()=>{ openCard(item); cardPinned=true; });
   });
 
+  // share/view-only
   const S = readShare();
   shareMode = !!S;
-  if(S){
-    applyState(S);
-    setViewOnly();
-  } else {
-    writeShare(buildState());
-  }
+  if(S){ applyState(S); setViewOnly(); }
+  else { writeShare(buildState()); }
 
   map.addListener('idle', persist);
 
-  window.addEventListener('beforeunload', ()=>{
-    flushPersist();
-  });
+  // أمان: قبل إغلاق الصفحة/إعادة التحميل
+  window.addEventListener('beforeunload', ()=>{ flushPersist(); });
 }
 
-/* helper to bind events */
+/* helper to bind events for newly created circles */
 function bindCircleEvents(item){
   const openCardThrottled = throttle((it)=>openCard(it), 120);
-  const c = item.circle;
+  const c=item.circle;
   c.addListener('mouseover', ()=>{ if(!cardPinned) openCardThrottled(item); });
   c.addListener('mouseout',  ()=>{ if(!cardPinned && infoWin) infoWin.close(); });
   c.addListener('click',     ()=>{ openCard(item); cardPinned=true; });
 
+  // تحريك الدائرة يحرك الأيقونة ويعمل حفظ مباشر
   google.maps.event.addListener(c,'center_changed', ()=>{
     if(item.marker){
       item.marker.setPosition(c.getCenter());
@@ -563,27 +563,21 @@ function bindCircleEvents(item){
 /* ---------------- Card ---------------- */
 function openCard(item){
   if(!infoWin){
-    infoWin = new google.maps.InfoWindow({
-      content:'',
-      maxWidth:520,
-      pixelOffset:new google.maps.Size(0,-6)
-    });
+    infoWin = new google.maps.InfoWindow({ content:'', maxWidth:520, pixelOffset:new google.maps.Size(0,-6) });
   }
   infoWin.setContent(renderCard(item));
   infoWin.setPosition(item.circle.getCenter());
   infoWin.open({ map });
 
+  // glass look + attach events
   setTimeout(()=>{
-    const root=document.getElementById('iw-root');
-    if(!root) return;
-    const close=root.parentElement?.querySelector('.gm-ui-hover-effect');
-    if(close) close.style.display='none';
+    const root=document.getElementById('iw-root'); if(!root) return;
+    const close=root.parentElement?.querySelector('.gm-ui-hover-effect'); if(close) close.style.display='none';
     const iw=root.closest('.gm-style-iw');
     if(iw && iw.parentElement){
       iw.parentElement.style.background='transparent';
       iw.parentElement.style.boxShadow='none';
-      const tail=iw.parentElement.previousSibling;
-      if(tail && tail.style) tail.style.display='none';
+      const tail=iw.parentElement.previousSibling; if(tail && tail.style) tail.style.display='none';
     }
     attachCardEvents(item);
   },0);
@@ -607,9 +601,7 @@ function renderCard(item){
   const markerScale = Number.isFinite(meta.markerScale) ? meta.markerScale : DEFAULT_MARKER_SCALE;
   const markerKind  = meta.markerKind || DEFAULT_MARKER_KIND;
 
-  const optionsHtml = MARKER_KINDS.map(k=>
-    `<option value="${k.id}" ${k.id===markerKind?'selected':''}>${k.label}</option>`
-  ).join('');
+  const optionsHtml = MARKER_KINDS.map(k=>`<option value="${k.id}" ${k.id===markerKind?'selected':''}>${k.label}</option>`).join('');
 
   return `
   <div id="iw-root" dir="rtl" style="min-width:360px;max-width:520px">
@@ -703,13 +695,7 @@ function attachCardEvents(item){
   const c=item.circle;
 
   const inShare=document.getElementById('btn-card-share');
-  if(inShare){
-    inShare.addEventListener('click', async ()=>{
-      flushPersist();
-      await nextTick();
-      await copyShareLink();
-    }, {passive:true});
-  }
+  if(inShare) inShare.addEventListener('click', async ()=>{ flushPersist(); await nextTick(); await copyShareLink(); }, {passive:true});
 
   const nameEl=document.getElementById('ctl-name');
   const r=document.getElementById('ctl-radius');
@@ -739,38 +725,19 @@ function attachCardEvents(item){
     nameEl.addEventListener('change', persistBoth(h), {passive:true});
   }
   if(r){
-    r.addEventListener('input', ()=>{
-      const v=+r.value||DEFAULT_RADIUS;
-      lr.textContent=v;
-      c.setRadius(v);
-      persist();
-    }, {passive:true});
+    r.addEventListener('input', ()=>{ const v=+r.value||DEFAULT_RADIUS; lr.textContent=v; c.setRadius(v); persist(); }, {passive:true});
     r.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   }
   if(col){
-    col.addEventListener('input', ()=>{
-      const v=col.value||DEFAULT_COLOR;
-      c.setOptions({strokeColor:v, fillColor:v});
-      persist();
-    }, {passive:true});
+    col.addEventListener('input', ()=>{ const v=col.value||DEFAULT_COLOR; c.setOptions({strokeColor:v, fillColor:v}); persist(); }, {passive:true});
     col.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   }
   if(sw){
-    sw.addEventListener('input', ()=>{
-      const v=clamp(+sw.value,0,8);
-      sw.value=v;
-      c.setOptions({strokeWeight:v});
-      persist();
-    }, {passive:true});
+    sw.addEventListener('input', ()=>{ const v=clamp(+sw.value,0,8); sw.value=v; c.setOptions({strokeWeight:v}); persist(); }, {passive:true});
     sw.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   }
   if(fo){
-    fo.addEventListener('input', ()=>{
-      const v=clamp(+fo.value,0,0.95);
-      lf.textContent=v.toFixed(2);
-      c.setOptions({fillOpacity:v});
-      persist();
-    }, {passive:true});
+    fo.addEventListener('input', ()=>{ const v=clamp(+fo.value,0,0.95); lf.textContent=v.toFixed(2); c.setOptions({fillOpacity:v}); persist(); }, {passive:true});
     fo.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   }
 
@@ -791,7 +758,8 @@ function attachCardEvents(item){
       item.meta.markerKind = kind;
       if(item.meta.useMarker){
         const m = ensureMarker(item);
-        m.setLabel(buildMarkerLabel(kind));
+        // rebuild icon with new glyph
+        m.setIcon(buildMarkerIcon(item.meta.markerColor || DEFAULT_MARKER_COLOR, item.meta.markerScale || DEFAULT_MARKER_SCALE, kind));
       }
       flushPersist();
     }, {passive:true});
@@ -803,7 +771,7 @@ function attachCardEvents(item){
       item.meta.markerColor = v;
       if(item.meta.useMarker){
         const m = ensureMarker(item);
-        m.setIcon(buildMarkerIcon(v, item.meta.markerScale));
+        m.setIcon(buildMarkerIcon(v, item.meta.markerScale || DEFAULT_MARKER_SCALE, item.meta.markerKind || DEFAULT_MARKER_KIND));
       }
       persist();
     }, {passive:true});
@@ -818,7 +786,7 @@ function attachCardEvents(item){
       item.meta.markerScale = scale;
       if(item.meta.useMarker){
         const m = ensureMarker(item);
-        m.setIcon(buildMarkerIcon(item.meta.markerColor, scale));
+        m.setIcon(buildMarkerIcon(item.meta.markerColor || DEFAULT_MARKER_COLOR, scale, item.meta.markerKind || DEFAULT_MARKER_KIND));
       }
       persist();
     }, {passive:true});
@@ -837,12 +805,7 @@ function attachCardEvents(item){
     });
   }
   if(clr){
-    clr.addEventListener('click',  ()=>{
-      item.meta.recipients=[];
-      openCard(item);
-      flushPersist();
-      showToast('تم حذف الأسماء');
-    });
+    clr.addEventListener('click',  ()=>{ item.meta.recipients=[]; openCard(item); flushPersist(); showToast('تم حذف الأسماء'); });
   }
   if(del){
     del.addEventListener('click',  ()=>{
@@ -874,53 +837,21 @@ async function copyShareLink(){
     await navigator.clipboard.writeText(location.href);
     showToast('تم نسخ رابط المشاركة ✅');
   }catch{
-    const tmp=document.createElement('input');
-    tmp.value=location.href;
-    document.body.appendChild(tmp);
-    tmp.select();
-    document.execCommand('copy');
-    tmp.remove();
-    showToast('تم النسخ');
+    const tmp=document.createElement('input'); tmp.value=location.href; document.body.appendChild(tmp);
+    tmp.select(); document.execCommand('copy'); tmp.remove(); showToast('تم النسخ');
   }
 }
 
 /* ---------------- Helpers ---------------- */
-function showToast(msg){
-  if(!toast) return;
-  toast.textContent=msg;
-  toast.classList.remove('hidden');
-  setTimeout(()=>toast.classList.add('hidden'),1600);
-}
+function showToast(msg){ if(!toast) return; toast.textContent=msg; toast.classList.remove('hidden'); setTimeout(()=>toast.classList.add('hidden'),1600); }
 function throttle(fn,ms){
   let last=0, t=null, pending=null;
   return function(...args){
     const now=performance.now();
-    if(now-last>=ms){
-      last=now;
-      fn.apply(this,args);
-    }else{
-      pending=args;
-      clearTimeout(t);
-      t=setTimeout(()=>{
-        last=performance.now();
-        fn.apply(this,pending);
-        pending=null;
-      }, ms-(now-last));
-    }
+    if(now-last>=ms){ last=now; fn.apply(this,args); }
+    else { pending=args; clearTimeout(t); t=setTimeout(()=>{ last=performance.now(); fn.apply(this,pending); pending=null; }, ms-(now-last)); }
   };
 }
-function setDraggableForAll(on){
-  circles.forEach(it=> it.circle.setDraggable(on));
-}
-function genNewId(){
-  let id = -Date.now();
-  while(circles.some(x=>x.id===id)) id--;
-  return id;
-}
-function nextTick(){
-  return new Promise(res=>
-    requestAnimationFrame(()=>
-      requestAnimationFrame(res)
-    )
-  );
-}
+function setDraggableForAll(on){ circles.forEach(it=> it.circle.setDraggable(on)); }
+function genNewId(){ let id = -Date.now(); while(circles.some(x=>x.id===id)) id--; return id; }
+function nextTick(){ return new Promise(res=> requestAnimationFrame(()=> requestAnimationFrame(res))); }
