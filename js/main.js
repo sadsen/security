@@ -522,7 +522,6 @@ function bindCircleEvents(item){
 }
 
 /* ---------------- Card ---------------- */
-let infoWin = null;
 function openCard(item){
   if(!infoWin) infoWin = new google.maps.InfoWindow({ content:'', maxWidth:520, pixelOffset:new google.maps.Size(0,-6) });
   infoWin.setContent(renderCard(item));
@@ -785,3 +784,4 @@ function throttle(fn,ms){
 function setDraggableForAll(on){ circles.forEach(it=> it.circle.setDraggable(on)); }
 function genNewId(){ let id = -Date.now(); while(circles.some(x=>x.id===id)) id--; return id; }
 function nextTick(){ return new Promise(res=> requestAnimationFrame(()=> requestAnimationFrame(res))); }
+
