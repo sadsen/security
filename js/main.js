@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v11.1 (flush-before-share + stronger persist) */
+/* Diriyah Security Map – v11.2 (no truncation of sites + safer applyState) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
@@ -7,7 +7,8 @@ function tryBoot(){
   if(__BOOTED__) return true;
   if(window.google && google.maps && document.readyState !== 'loading'){
     __BOOTED__ = true; boot(); return true;
-  } return false;
+  } 
+  return false;
 }
 window.initMap = function(){ tryBoot(); };
 document.addEventListener('DOMContentLoaded', ()=>{
@@ -15,7 +16,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   let n=0, iv=setInterval(()=>{ if(tryBoot()||++n>60) clearInterval(iv); },250);
 }, {passive:true});
 window.addEventListener('load', tryBoot, {once:true, passive:true});
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) tryBoot(); else flushPersist(); }, {passive:true});
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden) tryBoot(); 
+  else flushPersist();
+}, {passive:true});
 
 /* ---------------- Globals ---------------- */
 let map, trafficLayer, infoWin=null;
@@ -54,27 +58,87 @@ const LOCATIONS = [
 const circles = [];
 
 const clamp=(x,min,max)=>Math.min(max,Math.max(min,x));
-const escapeHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const toHex=(c)=>{ if(/^#/.test(c)) return c; const m=c&&c.match(/rgba?\s*\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i); if(!m) return DEFAULT_COLOR;
-  const [r,g,b]=[+m[1],+m[2],+m[3]]; return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join(''); };
-const parseRecipients=t=>String(t).split(/\r?\n/).map(s=>s.replace(/[،;,]+/g,' ').trim()).filter(Boolean);
+const escapeHtml=s=>String(s)
+  .replace(/&/g,'&amp;')
+  .replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;');
+const toHex=(c)=>{
+  if(/^#/.test(c)) return c;
+  const m=c&&c.match(/rgba?\s*\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+  if(!m) return DEFAULT_COLOR;
+  const [r,g,b]=[+m[1],+m[2],+m[3]];
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+};
+const parseRecipients=t=>String(t)
+  .split(/\r?\n/)
+  .map(s=>s.replace(/[،;,]+/g,' ').trim())
+  .filter(Boolean);
 
 let persistTimer=null;
-const persist=()=>{ if(shareMode) return; clearTimeout(persistTimer); persistTimer=setTimeout(()=>writeShare(buildState()),180); };
-function flushPersist(){ if(shareMode) return; clearTimeout(persistTimer); writeShare(buildState()); }
+const persist=()=>{
+  if(shareMode) return;
+  clearTimeout(persistTimer);
+  persistTimer=setTimeout(()=>writeShare(buildState()),180);
+};
+function flushPersist(){
+  if(shareMode) return;
+  clearTimeout(persistTimer);
+  writeShare(buildState());
+}
 
 /* ---- compact Base64URL ---- */
-function b64uEncode(s){ const b=btoa(unescape(encodeURIComponent(s))); return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-function b64uDecode(t){ try{ t=String(t||'').replace(/[^A-Za-z0-9\-_]/g,''); const pad=t.length%4?'='.repeat(4-(t.length%4)):''; return decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/')+pad))); }catch{ return ''; } }
-function readShare(){ const h=(location.hash||'').trim(); if(!/^#x=/.test(h)) return null; try{ return JSON.parse(b64uDecode(h.slice(3))); }catch{ return null; } }
+function b64uEncode(s){
+  const b=btoa(unescape(encodeURIComponent(s)));
+  return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function b64uDecode(t){
+  try{
+    t=String(t||'').replace(/[^A-Za-z0-9\-_]/g,'');
+    const pad=t.length%4 ? '='.repeat(4-(t.length%4)) : '';
+    return decodeURIComponent(escape(
+      atob(t.replace(/-/g,'+').replace(/_/g,'/')+pad)
+    ));
+  }catch{
+    return '';
+  }
+}
+function readShare(){
+  const h=(location.hash||'').trim();
+  if(!/^#x=/.test(h)) return null;
+  try{
+    return JSON.parse(b64uDecode(h.slice(3)));
+  }catch{
+    return null;
+  }
+}
+
+/**
+ * نكتب حالة الخريطة في الـ hash
+ * بدون قصّ المواقع حتى لا تضيع التعديلات عند فتح الرابط على جهاز آخر.
+ * إذا كان الرابط طويل جدًا، نرمي فقط إعدادات العرض (المركز، الزوم، نوع الخريطة، المرور)
+ * ونبقي بيانات الدوائر كاملة.
+ */
 function writeShare(state){
   if(shareMode) return;
-  let tok=b64uEncode(JSON.stringify(state));
-  if(tok.length>1500){
-    const s2={p:state.p,z:state.z,m:state.m,t:state.t,c:state.c?.slice(0,40),n:state.n?.slice(0,10)};
-    tok=b64uEncode(JSON.stringify(s2));
+
+  // محاولة أولى: الحالة كاملة كما هي
+  let payload = state;
+  let tok = b64uEncode(JSON.stringify(payload));
+
+  // إذا زاد الطول كثير، نحذف إعدادات العرض ونكتفي بالدوائر
+  if (tok.length > 1800) {
+    payload = {
+      c: state.c || [],
+      n: state.n || []
+    };
+    tok = b64uEncode(JSON.stringify(payload));
   }
-  if(location.hash!==`#x=${tok}`) history.replaceState(null,'',`#x=${tok}`);
+
+  const newHash = `#x=${tok}`;
+  if(location.hash !== newHash){
+    history.replaceState(null,'',newHash);
+  }
 }
 
 /* ---- state build/apply ---- */
@@ -85,44 +149,86 @@ function buildState(){
 
   const c=[];  // deltas for seeded locations
   const n=[];  // full specs for new locations
+
   circles.forEach(({id,circle,meta})=>{
     const r=Math.round(circle.getRadius());
     const sc=(circle.get('strokeColor')||DEFAULT_COLOR).replace('#','');
     const fo=Math.round((circle.get('fillOpacity')??DEFAULT_FILL_OPACITY)*100);
     const sw=(circle.get('strokeWeight')??DEFAULT_STROKE_WEIGHT)|0;
     const rec=(meta.recipients||[]).join('~');
-    const center=circle.getCenter(); const lat=center.lat(); const lng=center.lng();
+    const center=circle.getCenter(); 
+    const lat=center.lat(); 
+    const lng=center.lng();
 
     if(meta.isNew){
-      n.push([id,+lat.toFixed(7),+lng.toFixed(7),meta.name||'',r,sc,fo,sw,rec]);
+      n.push([
+        id,
+        +lat.toFixed(7),
+        +lng.toFixed(7),
+        meta.name||'',
+        r, sc, fo, sw, rec
+      ]);
       return;
     }
 
-    const changed=(r!==DEFAULT_RADIUS) ||
+    const changed=
+      (r!==DEFAULT_RADIUS) ||
       (toHex('#'+sc)!==toHex(DEFAULT_COLOR)) ||
       (fo!==Math.round(DEFAULT_FILL_OPACITY*100)) ||
       (sw!==DEFAULT_STROKE_WEIGHT) ||
       rec.length>0 ||
       ((meta.name||'')!==(meta.origName||''));
 
-    if(changed) c.push([id,r,sc,fo,sw,rec,meta.name||'']);
+    if(changed){
+      c.push([id, r, sc, fo, sw, rec, meta.name||'']);
+    }
   });
 
-  return { p:[+ctr.lng().toFixed(4), +ctr.lat().toFixed(4)], z, m, t, c, n };
+  return { 
+    p:[+ctr.lng().toFixed(4), +ctr.lat().toFixed(4)], 
+    z, 
+    m, 
+    t, 
+    c, 
+    n 
+  };
 }
 
 function applyState(s){
   if(!s) return;
-  if(Array.isArray(s.p)) map.setCenter({lat:s.p[1], lng:s.p[0]});
-  if(Number.isFinite(s.z)) map.setZoom(s.z);
-  map.setMapTypeId(s.m==='r'?'roadmap':'hybrid');
-  if(s.t){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
-  else   { trafficLayer.setMap(null); btnTraffic.setAttribute('aria-pressed','false'); }
+
+  // المركز والزوم
+  if(Array.isArray(s.p) && s.p.length === 2){
+    map.setCenter({lat:s.p[1], lng:s.p[0]});
+  }
+  if(Number.isFinite(s.z)){
+    map.setZoom(s.z);
+  }
+
+  // نوع الخريطة (roadmap / hybrid) إذا كان موجود
+  if(typeof s.m === 'string'){
+    const isRoad = (s.m === 'r');
+    map.setMapTypeId(isRoad ? 'roadmap' : 'hybrid');
+    if(btnRoadmap && btnSatellite){
+      btnRoadmap.setAttribute('aria-pressed', isRoad ? 'true' : 'false');
+      btnSatellite.setAttribute('aria-pressed', isRoad ? 'false' : 'true');
+    }
+  }
+
+  // طبقة حركة المرور إذا كانت معرّفة صراحة
+  if (s.t === 1){
+    trafficLayer.setMap(map);
+    btnTraffic.setAttribute('aria-pressed','true');
+  } else if (s.t === 0){
+    trafficLayer.setMap(null);
+    btnTraffic.setAttribute('aria-pressed','false');
+  }
 
   // apply deltas for seeds
   if(Array.isArray(s.c)){
     s.c.forEach(([id,r,sc,fo,sw,rec,name])=>{
-      const it=circles.find(x=>x.id===id); if(!it) return;
+      const it=circles.find(x=>x.id===id); 
+      if(!it) return;
       it.circle.setOptions({
         radius:Number.isFinite(r)?r:DEFAULT_RADIUS,
         strokeColor:sc?`#${sc}`:DEFAULT_COLOR,
@@ -130,8 +236,12 @@ function applyState(s){
         fillOpacity:Number.isFinite(fo)?(fo/100):DEFAULT_FILL_OPACITY,
         strokeWeight:Number.isFinite(sw)?sw:DEFAULT_STROKE_WEIGHT
       });
-      if(typeof name==='string' && name.trim()) it.meta.name = name.trim();
-      it.meta.recipients = rec ? rec.split('~').map(s=>s.trim()).filter(Boolean) : [];
+      if(typeof name==='string' && name.trim()){
+        it.meta.name = name.trim();
+      }
+      it.meta.recipients = rec
+        ? rec.split('~').map(s=>s.trim()).filter(Boolean)
+        : [];
     });
   }
 
@@ -140,12 +250,25 @@ function applyState(s){
     s.n.forEach(([id,lat,lng,name,r,sc,fo,sw,rec])=>{
       if(circles.some(x=>x.id===id)) return;
       const circle = new google.maps.Circle({
-        map, center:{lat:+lat,lng:+lng}, radius:Number.isFinite(r)?r:DEFAULT_RADIUS,
-        strokeColor:sc?`#${sc}`:DEFAULT_COLOR, strokeOpacity:.95, strokeWeight:Number.isFinite(sw)?sw:DEFAULT_STROKE_WEIGHT,
-        fillColor:sc?`#${sc}`:DEFAULT_COLOR, fillOpacity:Number.isFinite(fo)?(fo/100):DEFAULT_FILL_OPACITY,
-        clickable:true, draggable:false, editable:false, zIndex:9999
+        map,
+        center:{lat:+lat,lng:+lng},
+        radius:Number.isFinite(r)?r:DEFAULT_RADIUS,
+        strokeColor:sc?`#${sc}`:DEFAULT_COLOR,
+        strokeOpacity:.95,
+        strokeWeight:Number.isFinite(sw)?sw:DEFAULT_STROKE_WEIGHT,
+        fillColor:sc?`#${sc}`:DEFAULT_COLOR,
+        fillOpacity:Number.isFinite(fo)?(fo/100):DEFAULT_FILL_OPACITY,
+        clickable:true,
+        draggable:false,
+        editable:false,
+        zIndex:9999
       });
-      const meta = { name:(name||'موقع جديد'), origName:(name||'موقع جديد'), recipients: rec?rec.split('~').filter(Boolean):[], isNew:true };
+      const meta = { 
+        name:(name||'موقع جديد'), 
+        origName:(name||'موقع جديد'), 
+        recipients: rec?rec.split('~').filter(Boolean):[], 
+        isNew:true 
+      };
       const item = { id, circle, meta };
       bindCircleEvents(item);
       circles.push(item);
@@ -165,40 +288,66 @@ function boot(){
   toast       = document.getElementById('toast');
 
   map = new google.maps.Map(document.getElementById('map'), {
-    center:DEFAULT_CENTER, zoom:15, mapTypeId:'roadmap',
-    disableDefaultUI:true, clickableIcons:false, gestureHandling:'greedy'
+    center:DEFAULT_CENTER,
+    zoom:15,
+    mapTypeId:'roadmap',
+    disableDefaultUI:true,
+    clickableIcons:false,
+    gestureHandling:'greedy'
   });
   trafficLayer = new google.maps.TrafficLayer();
 
-  btnRoadmap.addEventListener('click', ()=>{ map.setMapTypeId('roadmap');  btnRoadmap.setAttribute('aria-pressed','true');  btnSatellite.setAttribute('aria-pressed','false'); persist(); }, {passive:true});
-  btnSatellite.addEventListener('click', ()=>{ map.setMapTypeId('hybrid');   btnSatellite.setAttribute('aria-pressed','true'); btnRoadmap.setAttribute('aria-pressed','false');  persist(); }, {passive:true});
+  btnRoadmap.addEventListener('click', ()=>{
+    map.setMapTypeId('roadmap');
+    btnRoadmap.setAttribute('aria-pressed','true');
+    btnSatellite.setAttribute('aria-pressed','false');
+    persist();
+  }, {passive:true});
+
+  btnSatellite.addEventListener('click', ()=>{
+    map.setMapTypeId('hybrid');
+    btnSatellite.setAttribute('aria-pressed','true');
+    btnRoadmap.setAttribute('aria-pressed','false');
+    persist();
+  }, {passive:true});
+
   btnTraffic.addEventListener('click', ()=>{
     const on=btnTraffic.getAttribute('aria-pressed')==='true';
-    if(on) trafficLayer.setMap(null); else trafficLayer.setMap(map);
+    if(on) trafficLayer.setMap(null); 
+    else   trafficLayer.setMap(map);
     btnTraffic.setAttribute('aria-pressed', String(!on));
     persist();
   }, {passive:true});
 
   // اجبار تفريغ الحفظ قبل النسخ
   btnShare.addEventListener('click', async ()=>{
-    await nextTick(); // التقط آخر تغيّر في نفس الفريم
-    flushPersist();
-    await nextTick(); // تأكيد كتابة الهاش قبل النسخ
+    await nextTick();     // التقاط آخر تغيّر
+    flushPersist();       // كتابة الحالة بالكامل في الهاش
+    await nextTick();     // التأكد أن الهاش تحدّث
     await copyShareLink();
   }, {passive:true});
 
   btnEdit.addEventListener('click', ()=>{
     if(shareMode) return;
-    editMode=!editMode; cardPinned=false; if(infoWin) infoWin.close();
+    editMode=!editMode; 
+    cardPinned=false; 
+    if(infoWin) infoWin.close();
     modeBadge.textContent=editMode?'Edit':'Share';
     setDraggableForAll(editMode);
-    if(!editMode){ addMode=false; btnAdd.setAttribute('aria-pressed','false'); document.body.classList.remove('add-cursor'); }
+    if(!editMode){
+      addMode=false; 
+      btnAdd.setAttribute('aria-pressed','false'); 
+      document.body.classList.remove('add-cursor');
+    }
     persist();
   }, {passive:true});
 
   btnAdd.addEventListener('click', ()=>{
     if(shareMode) return;
-    if(!editMode){ showToast('فعّل وضع التحرير أولاً'); return; }
+    if(!editMode){ 
+      showToast('فعّل وضع التحرير أولاً'); 
+      return; 
+    }
     addMode=!addMode;
     btnAdd.setAttribute('aria-pressed', String(addMode));
     document.body.classList.toggle('add-cursor', addMode);
@@ -206,20 +355,37 @@ function boot(){
   }, {passive:true});
 
   map.addListener('click', (e)=>{
-    if (cardPinned && infoWin) { infoWin.close(); cardPinned = false; }
+    if (cardPinned && infoWin) { 
+      infoWin.close(); 
+      cardPinned = false; 
+    }
     if(addMode && editMode && !shareMode){
       const id = genNewId();
       const circle = new google.maps.Circle({
-        map, center:e.latLng, radius:DEFAULT_RADIUS,
-        strokeColor:DEFAULT_COLOR, strokeOpacity:.95, strokeWeight:DEFAULT_STROKE_WEIGHT,
-        fillColor:DEFAULT_COLOR, fillOpacity:DEFAULT_FILL_OPACITY,
-        clickable:true, draggable:true, editable:false, zIndex:9999
+        map,
+        center:e.latLng,
+        radius:DEFAULT_RADIUS,
+        strokeColor:DEFAULT_COLOR,
+        strokeOpacity:.95,
+        strokeWeight:DEFAULT_STROKE_WEIGHT,
+        fillColor:DEFAULT_COLOR,
+        fillOpacity:DEFAULT_FILL_OPACITY,
+        clickable:true,
+        draggable:true,
+        editable:false,
+        zIndex:9999
       });
-      const meta = { name:'موقع جديد', origName:'موقع جديد', recipients:[], isNew:true };
+      const meta = { 
+        name:'موقع جديد', 
+        origName:'موقع جديد', 
+        recipients:[], 
+        isNew:true 
+      };
       const item = { id, circle, meta };
       circles.push(item);
       bindCircleEvents(item);
-      openCard(item); cardPinned=true;
+      openCard(item); 
+      cardPinned=true;
       persist();
     }
   });
@@ -228,12 +394,25 @@ function boot(){
   const openCardThrottled = throttle((item)=>openCard(item), 120);
   LOCATIONS.forEach(loc=>{
     const circle = new google.maps.Circle({
-      map, center:{lat:loc.lat,lng:loc.lng}, radius:DEFAULT_RADIUS,
-      strokeColor:DEFAULT_COLOR, strokeOpacity:.95, strokeWeight:DEFAULT_STROKE_WEIGHT,
-      fillColor:DEFAULT_COLOR, fillOpacity:DEFAULT_FILL_OPACITY,
-      clickable:true, draggable:false, editable:false, zIndex:9999
+      map,
+      center:{lat:loc.lat,lng:loc.lng},
+      radius:DEFAULT_RADIUS,
+      strokeColor:DEFAULT_COLOR,
+      strokeOpacity:.95,
+      strokeWeight:DEFAULT_STROKE_WEIGHT,
+      fillColor:DEFAULT_COLOR,
+      fillOpacity:DEFAULT_FILL_OPACITY,
+      clickable:true,
+      draggable:false,
+      editable:false,
+      zIndex:9999
     });
-    const meta = { name:loc.name, origName:loc.name, recipients:[], isNew:false };
+    const meta = { 
+      name:loc.name, 
+      origName:loc.name, 
+      recipients:[], 
+      isNew:false 
+    };
     const item = { id:loc.id, circle, meta };
     circles.push(item);
 
@@ -244,14 +423,20 @@ function boot(){
 
   // share/view-only
   const S = readShare();
-  shareMode=!!S;
-  if(S){ applyState(S); setViewOnly(); }
-  else { writeShare(buildState()); }
+  shareMode = !!S;
+  if(S){
+    applyState(S);
+    setViewOnly();
+  } else {
+    writeShare(buildState());
+  }
 
   map.addListener('idle', persist);
 
   // أمان: قبل إغلاق الصفحة/إعادة التحميل
-  window.addEventListener('beforeunload', ()=>{ flushPersist(); });
+  window.addEventListener('beforeunload', ()=>{
+    flushPersist();
+  });
 }
 
 /* helper to bind events for newly created circles */
@@ -265,7 +450,11 @@ function bindCircleEvents(item){
 /* ---------------- Card ---------------- */
 function openCard(item){
   if(!infoWin){
-    infoWin = new google.maps.InfoWindow({ content:'', maxWidth:520, pixelOffset:new google.maps.Size(0,-6) });
+    infoWin = new google.maps.InfoWindow({ 
+      content:'', 
+      maxWidth:520, 
+      pixelOffset:new google.maps.Size(0,-6) 
+    });
   }
   infoWin.setContent(renderCard(item));
   infoWin.setPosition(item.circle.getCenter());
@@ -273,13 +462,16 @@ function openCard(item){
 
   // glass look + attach events
   setTimeout(()=>{
-    const root=document.getElementById('iw-root'); if(!root) return;
-    const close=root.parentElement?.querySelector('.gm-ui-hover-effect'); if(close) close.style.display='none';
+    const root=document.getElementById('iw-root'); 
+    if(!root) return;
+    const close=root.parentElement?.querySelector('.gm-ui-hover-effect'); 
+    if(close) close.style.display='none';
     const iw=root.closest('.gm-style-iw');
     if(iw && iw.parentElement){
       iw.parentElement.style.background='transparent';
       iw.parentElement.style.boxShadow='none';
-      const tail=iw.parentElement.previousSibling; if(tail && tail.style) tail.style.display='none';
+      const tail=iw.parentElement.previousSibling; 
+      if(tail && tail.style) tail.style.display='none';
     }
     attachCardEvents(item);
   },0);
@@ -360,7 +552,13 @@ function attachCardEvents(item){
   const c=item.circle;
 
   const inShare=document.getElementById('btn-card-share');
-  if(inShare) inShare.addEventListener('click', async ()=>{ flushPersist(); await nextTick(); await copyShareLink(); }, {passive:true});
+  if(inShare){
+    inShare.addEventListener('click', async ()=>{
+      flushPersist();
+      await nextTick();
+      await copyShareLink();
+    }, {passive:true});
+  }
 
   const nameEl=document.getElementById('ctl-name');
   const r=document.getElementById('ctl-radius');
@@ -381,20 +579,49 @@ function attachCardEvents(item){
     nameEl.addEventListener('input', persistBoth(h), {passive:true});
     nameEl.addEventListener('change', persistBoth(h), {passive:true});
   }
-  r.addEventListener('input', ()=>{ const v=+r.value||DEFAULT_RADIUS; lr.textContent=v; c.setRadius(v); persist(); }, {passive:true});
+  r.addEventListener('input', ()=>{
+    const v=+r.value||DEFAULT_RADIUS; 
+    lr.textContent=v; 
+    c.setRadius(v); 
+    persist();
+  }, {passive:true});
   r.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
-  col.addEventListener('input', ()=>{ const v=col.value||DEFAULT_COLOR; c.setOptions({strokeColor:v, fillColor:v}); persist(); }, {passive:true});
+  col.addEventListener('input', ()=>{
+    const v=col.value||DEFAULT_COLOR; 
+    c.setOptions({strokeColor:v, fillColor:v}); 
+    persist();
+  }, {passive:true});
   col.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
-  sw.addEventListener('input', ()=>{ const v=clamp(+sw.value,0,8); sw.value=v; c.setOptions({strokeWeight:v}); persist(); }, {passive:true});
+  sw.addEventListener('input', ()=>{
+    const v=clamp(+sw.value,0,8); 
+    sw.value=v; 
+    c.setOptions({strokeWeight:v}); 
+    persist();
+  }, {passive:true});
   sw.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
-  fo.addEventListener('input', ()=>{ const v=clamp(+fo.value,0,0.95); lf.textContent=v.toFixed(2); c.setOptions({fillOpacity:v}); persist(); }, {passive:true});
+  fo.addEventListener('input', ()=>{
+    const v=clamp(+fo.value,0,0.95); 
+    lf.textContent=v.toFixed(2); 
+    c.setOptions({fillOpacity:v}); 
+    persist();
+  }, {passive:true});
   fo.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
 
   // live move => persist
   google.maps.event.addListener(c,'center_changed', ()=>{ persist(); });
 
-  save.addEventListener('click', ()=>{ item.meta.recipients=parseRecipients(names.value); openCard(item); flushPersist(); showToast('تم الحفظ. الرابط الآن يعكس كل التعديلات'); });
-  clr.addEventListener('click',  ()=>{ item.meta.recipients=[]; openCard(item); flushPersist(); showToast('تم حذف الأسماء'); });
+  save.addEventListener('click', ()=>{
+    item.meta.recipients=parseRecipients(names.value);
+    openCard(item);
+    flushPersist();
+    showToast('تم الحفظ. الرابط الآن يعكس كل التعديلات');
+  });
+  clr.addEventListener('click',  ()=>{
+    item.meta.recipients=[];
+    openCard(item);
+    flushPersist();
+    showToast('تم حذف الأسماء');
+  });
   del.addEventListener('click',  ()=>{
     if(confirm('تأكيد حذف الموقع؟')){
       c.setMap(null);
@@ -410,28 +637,53 @@ function attachCardEvents(item){
 
 /* ---------------- View-only ---------------- */
 function setViewOnly(){
-  editMode=false; document.body.setAttribute('data-viewonly','1'); modeBadge.textContent='Share';
+  editMode=false; 
+  document.body.setAttribute('data-viewonly','1'); 
+  modeBadge.textContent='Share';
   setDraggableForAll(false);
 }
 
 /* ---------------- Share ---------------- */
 async function copyShareLink(){
-  // هنا نفترض أن writeShare تم استدعاؤه قبلها (flushPersist)
-  try{ await navigator.clipboard.writeText(location.href); showToast('تم نسخ رابط المشاركة ✅'); }
-  catch{
-    const tmp=document.createElement('input'); tmp.value=location.href; document.body.appendChild(tmp);
-    tmp.select(); document.execCommand('copy'); tmp.remove(); showToast('تم النسخ');
+  // نفترض أن writeShare تم استدعاؤه قبلها (flushPersist)
+  try{
+    await navigator.clipboard.writeText(location.href);
+    showToast('تم نسخ رابط المشاركة ✅');
+  }catch{
+    const tmp=document.createElement('input'); 
+    tmp.value=location.href; 
+    document.body.appendChild(tmp);
+    tmp.select(); 
+    document.execCommand('copy'); 
+    tmp.remove(); 
+    showToast('تم النسخ');
   }
 }
 
 /* ---------------- Helpers ---------------- */
-function showToast(msg){ if(!toast) return; toast.textContent=msg; toast.classList.remove('hidden'); setTimeout(()=>toast.classList.add('hidden'),1600); }
+function showToast(msg){
+  if(!toast) return; 
+  toast.textContent=msg; 
+  toast.classList.remove('hidden'); 
+  setTimeout(()=>toast.classList.add('hidden'),1600);
+}
 function throttle(fn,ms){
   let last=0, t=null, pending=null;
   return function(...args){
     const now=performance.now();
-    if(now-last>=ms){ last=now; fn.apply(this,args); }
-    else { pending=args; clearTimeout(t); t=setTimeout(()=>{ last=performance.now(); fn.apply(this,pending); pending=null; }, ms-(now-last)); }
+    if(now-last>=ms){ 
+      last=now; 
+      fn.apply(this,args); 
+    }
+    else { 
+      pending=args; 
+      clearTimeout(t); 
+      t=setTimeout(()=>{
+        last=performance.now(); 
+        fn.apply(this,pending); 
+        pending=null; 
+      }, ms-(now-last)); 
+    }
   };
 }
 function setDraggableForAll(on){
@@ -442,4 +694,10 @@ function genNewId(){
   while(circles.some(x=>x.id===id)) id--;
   return id;
 }
-function nextTick(){ return new Promise(res=> requestAnimationFrame(()=> requestAnimationFrame(res))); }
+function nextTick(){
+  return new Promise(res=> 
+    requestAnimationFrame(()=> 
+      requestAnimationFrame(res)
+    )
+  );
+}
