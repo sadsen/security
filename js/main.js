@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v13.1 (✅ fixed: route sharing, recipients, and toast) */
+/* Diriyah Security Map – v13.2 (✅ المسار في وضع المشاركة والعرض، تأكيد نسخ الرابط، وتفعيل زر واحد فقط) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
@@ -139,11 +139,11 @@ function guardSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox
 function patrolSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`; }
 function cameraSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 15.2c-1.8 0-3.2-1.4-3.2-3.2s1.4-3.2 3.2-3.2 3.2 1.4 3.2 3.2-1.4 3.2-3.2 3.2zm0-4.8c-1.3 0-2.3 1-2.3 2.3s1 2.3 2.3 2.3 2.3-1 2.3-2.3zm7-4.7l-2.8-2.8c-.4-.4-1-.4-1.4 0L12 5.2 9.2 2.4c-.4-.4-1-.4-1.4 0L5 5.2c-.4.4-.4 1 0 1.4L7.8 9H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V11c0-1.1-.9-2-2-2h-2.8L17 6.7c.4-.4.4-1 0-1.4z"/></svg>`; }
 function gateSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-2 10H5V8h14v8z"/></svg>`; }
-function meetSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`; }
+function meetSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>`; }
 
 /* utilities */
 const clamp=(x,min,max)=>Math.min(max,Math.max(min,x));
-const escapeHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'&quot;');
+const escapeHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const toHex=(c)=>{
   if(!c) return DEFAULT_COLOR;
   if(/^#/.test(c)) return c;
@@ -301,7 +301,7 @@ function buildMarkerIcon(color, userScale, kindId){
   const h = w;
   const kind = MARKER_KINDS.find(k=>k.id===kindId)||MARKER_KINDS[0];
   const svg = kind.svg.replace(/fill="([^"]*)"/,`fill="${color||DEFAULT_MARKER_COLOR}"`);
-  const encoded = 'image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+  const encoded = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
   return { url: encoded, scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(Math.round(w/2), Math.round(h)) };
 }
 
@@ -476,42 +476,28 @@ function openRouteInfoCard(latLng, pinned = false){
   const pointCount = routePoints.length;
   
   const content = `
-  <div dir="rtl" style="min-width:280px">
-    <div style="background:rgba(255,255,255,0.95); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
-                border:1px solid rgba(0,0,0,0.08); border-radius:16px; padding:16px; color:#111; box-shadow:0 12px 28px rgba(0,0,0,.15)">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-        <div style="width:36px;height:36px;background:${routeStyle.color}; border-radius:10px; display:flex;align-items:center;justify-content:center;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-            <path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 013 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L6.04 7.5 12 10.85l5.96-3.35L12 4.15zM5 15.91l6 3.38v-6.71L5 9.21v6.7zm14 0v-6.7l-6 3.37v6.71l6-3.38z"/>
-          </svg>
-        </div>
-        <div style="flex:1">
-          <div style="font-weight:800;font-size:16px;color:#333;">معلومات المسار</div>
-          <div style="font-size:12px;color:#666;">${pointCount} نقطة</div>
-        </div>
+  <div class="info-card">
+    <div class="card-header">
+      <div class="card-title">
+        <strong>معلومات المسار</strong>
+        <div>${pointCount} نقطة</div>
       </div>
-      
-      <div style="border-top:1px solid #f0f0f0; padding-top:12px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div style="text-align:center;">
-            <div style="font-size:11px;color:#666;margin-bottom:4px;">المسافة</div>
-            <div style="font-weight:700;font-size:14px;color:#333;">${distanceText}</div>
-          </div>
-          <div style="text-align:center;">
-            <div style="font-size:11px;color:#666;margin-bottom:4px;">الوقت المتوقع</div>
-            <div style="font-weight:700;font-size:14px;color:#333;">${durationText}</div>
-          </div>
-        </div>
-      </div>
-      
-      ${!shareMode ? `
-      <div style="border-top:1px solid #f0f0f0; padding-top:12px; margin-top:12px;">
-        <div style="font-size:11px;color:#666;text-align:center;">
-          💡 انقر على الخط لتعديل الإعدادات
-        </div>
-      </div>
-      ` : ''}
     </div>
+    <div class="card-body">
+      <div class="card-row">
+        <div class="info-label">المسافة</div>
+        <div class="info-value">${distanceText}</div>
+      </div>
+      <div class="card-row">
+        <div class="info-label">الوقت المتوقع</div>
+        <div class="info-value">${durationText}</div>
+      </div>
+    </div>
+    ${!shareMode ? `
+    <div class="card-footer">
+      <small>💡 انقر على الخط لتعديل الإعدادات</small>
+    </div>
+    ` : ''}
   </div>`;
   
   routeInfoWin.setContent(content);
@@ -683,42 +669,41 @@ function renderRouteCard(){
   const durationText = formatDuration(routeDuration);
   
   return `
-  <div id="route-card-root" dir="rtl" style="min-width:320px">
-    <div style="background:rgba(255,255,255,0.93); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
-                border:1px solid rgba(0,0,0,0.06); border-radius:18px; padding:14px; color:#111; box-shadow:0 16px 36px rgba(0,0,0,.22)">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-        <img src="img/diriyah-logo.png" alt="Diriyah" style="width:40px;height:40px;object-fit:contain;">
-        <div style="flex:1;font-weight:800;font-size:16px;">إعدادات المسار</div>
-      </div>
-      
-      <!-- 🔧 جديد: عرض معلومات المسار -->
-      <div style="background:rgba(0,0,0,0.03); border-radius:12px; padding:12px; margin-bottom:12px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px; text-align:center;">
-          <div>
-            <div style="font-size:11px;color:#666;margin-bottom:2px;">المسافة</div>
-            <div style="font-weight:700;font-size:13px;color:#333;">${distanceText}</div>
-          </div>
-          <div>
-            <div style="font-size:11px;color:#666;margin-bottom:2px;">الوقت المتوقع</div>
-            <div style="font-weight:700;font-size:13px;color:#333;">${durationText}</div>
-          </div>
+  <div class="route-card">
+    <div class="card-header">
+      <strong>إعدادات المسار</strong>
+    </div>
+    <div class="card-body">
+      <div class="card-section">
+        <div class="card-row">
+          <div class="info-label">المسافة</div>
+          <div class="info-value">${distanceText}</div>
+        </div>
+        <div class="card-row">
+          <div class="info-label">الوقت المتوقع</div>
+          <div class="info-value">${durationText}</div>
         </div>
       </div>
-      
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-        <div class="field"><label style="font-size:12px;color:#333;">اللون:</label>
-          <input id="route-color" type="color" value="${color}" style="width:100%;height:28px;border:none;background:transparent;padding:0"></div>
-        <div class="field"><label style="font-size:12px;color:#333;">سماكة الخط:</label>
-          <input id="route-weight" type="range" min="1" max="12" step="1" value="${weight}" style="width:100%;">
-          <span id="route-weight-lbl" style="font-size:12px;color:#666">${weight}</span></div>
-        <div class="field"><label style="font-size:12px;color:#333;">الشفافية:</label>
-          <input id="route-opacity" type="range" min="0.1" max="1" step="0.05" value="${opacity}" style="width:100%;">
-          <span id="route-opacity-lbl" style="font-size:12px;color:#666">${opacity.toFixed(2)}</span></div>
+      <div class="card-section">
+        <div class="form-row">
+          <label>اللون:</label>
+          <input id="route-color" type="color" value="${color}">
+        </div>
+        <div class="form-row">
+          <label>سماكة الخط:</label>
+          <input id="route-weight" type="range" min="1" max="12" step="1" value="${weight}">
+          <span id="route-weight-lbl">${weight}</span>
+        </div>
+        <div class="form-row">
+          <label>الشفافية:</label>
+          <input id="route-opacity" type="range" min="0.1" max="1" step="0.05" value="${opacity}">
+          <span id="route-opacity-lbl">${opacity.toFixed(2)}</span>
+        </div>
       </div>
-      <div style="display:flex;gap:6px;margin-top:10px;">
-        <button id="route-save"  style="flex:1;border:1px solid #ddd;background:#fff;border-radius:10px;padding:6px 8px;cursor:pointer;">حفظ</button>
-        <button id="route-close" style="flex:1;border:1px solid #ddd;background:#fff;border-radius:10px;padding:6px 8px;cursor:pointer;">إغلاق</button>
-      </div>
+    </div>
+    <div class="card-footer">
+      <button id="route-save" class="btn">حفظ</button>
+      <button id="route-close" class="btn">إغلاق</button>
     </div>
   </div>`;
 }
@@ -913,6 +898,15 @@ function applyState(s){
         s.r.distance || 0,
         s.r.duration || 0
       );
+      
+      // 🔧 إصلاح: عرض معلومات المسار بعد الاستعادة في وضع المشاركة
+      if(shareMode && activeRoutePoly && routePoints.length > 0) {
+        setTimeout(() => {
+          // افتح نافذة معلومات المسار في وضع المشاركة إذا كان هناك مسار نشط
+          const midPoint = activeRoutePoly.getPath().getAt(Math.floor(activeRoutePoly.getPath().getLength() / 2));
+          if(midPoint) openRouteInfoCard(midPoint, true);
+        }, 1000);
+      }
     }, 1500);
   } else {
     console.log('ℹ️ No route data in state');
@@ -1122,7 +1116,7 @@ function boot(){
       // استخدم Clipboard API إذا كان متاحاً
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(shareUrl);
-        showToast('✅ تم نسخ رابط المشاركة إلى الحافظة', 3000);
+        showToast('✓ تم نسخ رابط المشاركة إلى الحافظة', 3000);
       } else {
         // طريقة بديلة للمتصفحات القديمة
         const textArea = document.createElement('textarea');
@@ -1139,7 +1133,7 @@ function boot(){
           document.body.removeChild(textArea);
           
           if (successful) {
-            showToast('✅ تم نسخ رابط المشاركة إلى الحافظة', 3000);
+            showToast('✓ تم نسخ رابط المشاركة إلى الحافظة', 3000);
           } else {
             throw new Error('فشل النسخ');
           }
@@ -1166,8 +1160,11 @@ function boot(){
     if(shareMode){ showToast('وضع المشاركة لا يسمح بالتحرير'); return; }
     routeMode = !routeMode;
     btnRoute.setAttribute('aria-pressed', String(routeMode));
+    
+    // 🔧 إصلاح: تفعيل/إلغاء زر المسار وتعطيل زر الإضافة عند تفعيل المسار
     if(routeMode){
       showToast('✅ وضع المسار مفعل — انقر على الخريطة لإضافة نقاط المسار');
+      // إلغاء وضع الإضافة عند تفعيل وضع المسار
       addMode = false; 
       if(btnAdd) btnAdd.setAttribute('aria-pressed','false'); 
       document.body.classList.remove('add-cursor');
@@ -1189,13 +1186,25 @@ function boot(){
     btnShare.addEventListener('click', copyShareLink, {passive:true});
   }
 
+  // 🔧 إصلاح: تعديل سلوك زر الإضافة لإلغاء زر المسار عند تفعيله
   if(btnAdd) btnAdd.addEventListener('click', ()=>{
     if(shareMode) return;
     addMode = !addMode;
     btnAdd.setAttribute('aria-pressed', String(addMode));
-    document.body.classList.toggle('add-cursor', addMode);
-    document.body.classList.remove('route-cursor');
-    showToast(addMode ? '✅ انقر على الخريطة لإضافة موقع' : '✅ تم إلغاء الإضافة');
+    
+    // تفاعل الأزرار: إلغاء وضع المسار عند تفعيل وضع الإضافة
+    if (addMode) {
+      document.body.classList.add('add-cursor');
+      document.body.classList.remove('route-cursor');
+      showToast('✅ انقر على الخريطة لإضافة موقع');
+      
+      // إلغاء وضع المسار
+      routeMode = false;
+      if(btnRoute) btnRoute.setAttribute('aria-pressed', 'false');
+    } else {
+      document.body.classList.remove('add-cursor');
+      showToast('✅ تم إلغاء الإضافة');
+    }
   }, {passive:true});
 
   map.addListener('click', (e)=>{
@@ -1354,8 +1363,12 @@ function renderCard(item){
   const c=item.circle, meta=item.meta;
   const names=Array.isArray(meta.recipients)?meta.recipients:[];
   const namesHtml = names.length
-    ? `<ol style="margin:6px 0 0; padding-inline-start:20px;">${names.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ol>`
-    : `<div style="font-size:12px;color:#666">لا توجد أسماء مضافة</div>`;
+    ? `<div class="names-list">
+${names.map(n=>`<div class="name">${escapeHtml(n)}</div>`).join('')}
+</div>`
+    : `<div class="names-empty">
+لا توجد أسماء مضافة
+</div>`;
   const center=c.getCenter();
   const radius=Math.round(c.getRadius());
   const color =toHex(c.get('strokeColor')||DEFAULT_COLOR);
@@ -1365,86 +1378,88 @@ function renderCard(item){
   const markerColor = meta.markerColor || DEFAULT_MARKER_COLOR;
   const markerScale = Number.isFinite(meta.markerScale) ? meta.markerScale : DEFAULT_MARKER_SCALE;
   const markerKind  = meta.markerKind || DEFAULT_MARKER_KIND;
-  const optionsHtml = MARKER_KINDS.map(k=>`<option value="${k.id}" ${k.id===markerKind?'selected':''}>${k.label}</option>`).join('');
+  const optionsHtml = MARKER_KINDS.map(k=>`<option value="${k.id}"${k.id===markerKind?' selected':''}>${k.label}</option>`).join('');
   
   const showEditTools = !shareMode && editMode;
   
   return `
-  <div id="iw-root" dir="rtl" style="min-width:360px;max-width:520px">
-    <div style="background:rgba(255,255,255,0.93); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
-                border:1px solid rgba(0,0,0,0.06); border-radius:18px; padding:14px; color:#111; box-shadow:0 16px 36px rgba(0,0,0,.22)">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-        <img src="img/diriyah-logo.png" alt="Diriyah" style="width:50px;height:50px;object-fit:contain;">
-        <div style="flex:1 1 auto; min-width:0">
-          ${showEditTools ? `
-            <input id="ctl-name" value="${escapeHtml(meta.name||'')}" placeholder="اسم الموقع"
-              style="width:100%;border:1px solid #ddd;border-radius:10px;padding:6px 8px;font-weight:700;font-size:16px;">
-          ` : `
-            <div style="font-weight:800;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(meta.name)}</div>
-          `}
-        </div>
-        ${showEditTools ? `<button id="btn-card-share" title="نسخ الرابط"
-            style="margin-inline-start:6px;border:1px solid #ddd;background:#fff;border-radius:10px;padding:4px 8px;cursor:pointer;">نسخ الرابط</button>` : ``}
+  <div class="card" id="iw-root">
+    <div class="card-header">
+      <div class="title">
+        ${showEditTools ? `
+          <input type="text" id="ctl-name" value="${escapeHtml(meta.name)}" autocomplete="off" placeholder="اكتب اسماً للموقع">
+        ` : `
+          <strong>${escapeHtml(meta.name)}</strong>
+        `}
       </div>
-      <div style="font-size:12px;color:#666;margin-bottom:6px">
-        الإحداثيات: ${center.lat().toFixed(6)}, ${center.lng().toFixed(6)}
-      </div>
-      <div style="border-top:1px dashed #e7e7e7; padding-top:8px;">
-        <div style="font-weight:700; margin-bottom:4px;">المستلمون:</div>
-        ${namesHtml}
-      </div>
-      ${showEditTools ? `
-      <div style="margin-top:12px;border-top:1px dashed #e7e7e7;padding-top:10px;">
-        <div style="font-weight:700; margin-bottom:6px;">أدوات التمثيل:</div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-          <label style="font-size:12px;color:#333;white-space:nowrap;">نوع التمثيل:</label>
-          <select id="ctl-shape" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:4px 6px;">
-            <option value="circle" ${useMarker?'':'selected'}>دائرة</option>
-            <option value="marker" ${useMarker?'selected':''}>أيقونة</option>
-          </select>
+      ${showEditTools ? `<button id="btn-card-share" title="نسخ الرابط">🔗</button>` : ``}
+    </div>
+    <div class="coords">
+      الإحداثيات: ${center.lat().toFixed(6)}, ${center.lng().toFixed(6)}
+    </div>
+    <div class="recipients">
+      <h3>المستلمون:</h3>
+      ${namesHtml}
+    </div>
+    ${showEditTools ? `
+    <div class="tools">
+      <div class="shape-selector">
+        <h3>نوع التمثيل:</h3>
+        <div class="radio-group">
+          <label><input type="radio" name="shape" value="circle" id="ctl-shape" ${!useMarker?'checked':''}> دائرة</label>
+          <label><input type="radio" name="shape" value="marker" ${useMarker?'checked':''}> أيقونة</label>
         </div>
-        <div id="circle-tools" style="${useMarker?'display:none;':''}">
-          <div style="font-weight:700; margin-bottom:6px;">أدوات الدائرة:</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">نصف القطر (م):</label>
-              <input id="ctl-radius" type="range" min="5" max="300" step="1" value="${radius}" style="width:100%;">
-              <span id="lbl-radius" style="font-size:12px;color:#666">${radius}</span></div>
-            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">اللون:</label>
-              <input id="ctl-color" type="color" value="${color}" style="width:38px;height:28px;border:none;background:transparent;padding:0"></div>
-            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">حدّ الدائرة:</label>
-              <input id="ctl-stroke" type="number" min="0" max="8" step="1" value="${stroke}" style="width:70px;"></div>
-            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">شفافية التعبئة:</label>
-              <input id="ctl-fill" type="range" min="0" max="0.95" step="0.02" value="${fillO}" style="width:100%;">
-              <span id="lbl-fill" style="font-size:12px;color:#666">${fillO.toFixed(2)}</span></div>
-          </div>
+      </div>
+      <div class="circle-tools" style="${useMarker?'display:none;':''}">
+        <h4>أدوات الدائرة:</h4>
+        <div class="form-row">
+          <label>نصف القطر (م):
+              <input type="range" id="ctl-radius" min="5" max="1000" step="5" value="${radius}">
+              <span id="lbl-radius">${radius}</span>
+          </label>
+          <label>اللون:
+              <input type="color" id="ctl-color" value="${color}">
+          </label>
+          <label>حدّ الدائرة:
+              <input type="range" id="ctl-stroke" min="1" max="8" step="1" value="${stroke}">
+          </label>
+          <label>شفافية التعبئة:
+              <input type="range" id="ctl-fill" min="0" max="1" step="0.05" value="${fillO}">
+              <span id="lbl-fill">${fillO.toFixed(2)}</span>
+          </label>
         </div>
-        <div id="marker-tools" style="margin-top:10px;${useMarker?'':'display:none;'}">
-          <div style="font-weight:700; margin-bottom:6px;">أدوات الأيقونة:</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">نوع الأيقونة:</label>
-              <select id="ctl-marker-kind" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:4px 6px;">
+      </div>
+      <div class="marker-tools" style="${!useMarker?'display:none;':''}">
+        <h4>أدوات الأيقونة:</h4>
+        <div class="form-row">
+          <label>نوع الأيقونة:
+              <select id="ctl-marker-kind">
                 ${optionsHtml}
               </select>
-            </div>
-            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">لون الأيقونة:</label>
-              <input id="ctl-marker-color" type="color" value="${markerColor}"
-                     style="width:38px;height:28px;border:none;background:transparent;padding:0"></div>
-            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">حجم الأيقونة:</label>
-              <input id="ctl-marker-scale" type="range" min="0.6" max="2.4" step="0.1" value="${markerScale}" style="width:100%;">
-              <span id="lbl-marker-scale" style="font-size:12px;color:#666">${markerScale.toFixed(1)}</span></div>
-          </div>
+          </label>
+          <label>لون الأيقونة:
+              <input type="color" id="ctl-marker-color" value="${markerColor}">
+          </label>
+          <label>حجم الأيقونة:
+              <input type="range" id="ctl-marker-scale" min="0.5" max="3" step="0.1" value="${markerScale}">
+              <span id="lbl-marker-scale">${markerScale.toFixed(1)}</span>
+          </label>
         </div>
-        <div style="margin-top:8px;">
-          <label style="font-size:12px;color:#666">أسماء المستلمين (سطر لكل اسم):</label>
-          <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;">${escapeHtml(names.join("\n"))}</textarea>
-          <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
-            <button id="btn-save"  style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حفظ</button>
-            <button id="btn-clear" style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الأسماء</button>
-            <button id="btn-del"   style="border:1px solid #f33; color:#f33; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الموقع</button>
-          </div>
+      </div>
+      <div class="card-footer">
+        <div class="recipient-input">
+          <label>أسماء المستلمين (سطر لكل اسم):</label>
+          <textarea id="ctl-names" rows="4">${escapeHtml(names.join("\n"))}</textarea>
         </div>
-      </div>` : ``}
+        <div class="button-group">
+          <button class="btn" id="btn-save">حفظ</button>
+          <button class="btn" id="btn-clear">حذف الأسماء</button>
+          <button class="btn" id="btn-del">حذف الموقع</button>
+        </div>
+      </div>
     </div>
+  </div>
+` : ``}
   </div>`;
 }
 
@@ -1686,6 +1701,7 @@ function showToast(msg, dur=3000){
       box-shadow: 0 8px 25px rgba(0,0,0,0.3);
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255,255,255,0.1);
+      opacity: 1;
     `;
     document.body.appendChild(toastElement);
   }
