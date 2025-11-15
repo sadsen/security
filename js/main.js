@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v12.9 (✅ fixed: share functionality) */
+/* Diriyah Security Map – v13.0 (✅ fixed: route sharing and toast notifications) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
@@ -248,11 +248,7 @@ function compressState(state) {
 
 function b64uEncode(s){ 
   try {
-    // استخدام TextEncoder للتأكد من الترميز الصحيح
-    const encoder = new TextEncoder();
-    const data = encoder.encode(s);
-    const binaryString = String.fromCharCode(...data);
-    const b = btoa(binaryString); 
+    const b=btoa(unescape(encodeURIComponent(s))); 
     return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   } catch(e) {
     console.error('Base64 encoding error:', e);
@@ -264,12 +260,7 @@ function b64uDecode(t){
   try{ 
     t=String(t||'').replace(/[^A-Za-z0-9\-_]/g,''); 
     const pad=t.length%4 ? '='.repeat(4-(t.length%4)) : ''; 
-    const binaryString = atob(t.replace(/-/g,'+').replace(/_/g,'/')+pad);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return new TextDecoder().decode(bytes);
+    return decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/')+pad))); 
   }catch(e){ 
     console.error('Base64 decoding error:', e);
     return ''; 
@@ -282,7 +273,9 @@ function readShare(){
   try{
     const decoded = b64uDecode(h.slice(3));
     if(!decoded) return null;
-    return JSON.parse(decoded);
+    const state = JSON.parse(decoded);
+    console.log('Loaded shared state:', state);
+    return state;
   }catch(e){
     console.error('Error parsing shared state:', e);
     return null;
@@ -865,18 +858,22 @@ function applyState(s){
     });
   }
   
-  // 🔧 إصلاح: استعادة المسار مع النمط ومعلومات المسار بشكل صحيح
+  // 🔧 إصلاح كامل: استعادة المسار بشكل صحيح
   if(s.r !== undefined) {
+    console.log('Restoring route data:', s.r);
     if(s.r === null) {
       clearRouteVisuals();
     } else if(s.r.ov || (s.r.points && s.r.points.length > 0)) {
-      restoreRouteFromOverview(
-        s.r.ov, 
-        s.r.points, 
-        s.r.style,
-        s.r.distance,
-        s.r.duration
-      );
+      // تأخير استعادة المسار لضمان تحميل الخريطة أولاً
+      setTimeout(() => {
+        restoreRouteFromOverview(
+          s.r.ov, 
+          s.r.points, 
+          s.r.style,
+          s.r.distance || 0,
+          s.r.duration || 0
+        );
+      }, 1000);
     }
   }
   
@@ -1060,7 +1057,7 @@ function boot(){
       flushPersist();
       
       // انتظر قليلاً لضمان حفظ الحالة
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // أنشئ الرابط
       const baseUrl = window.location.origin + window.location.pathname;
@@ -1083,7 +1080,7 @@ function boot(){
       // استخدم Clipboard API إذا كان متاحاً
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(shareUrl);
-        showToast('✓ تم نسخ رابط المشاركة إلى الحافظة');
+        showToast('✓ تم نسخ رابط المشاركة إلى الحافظة', 3000);
       } else {
         // طريقة بديلة للمتصفحات القديمة
         const textArea = document.createElement('textarea');
@@ -1097,21 +1094,22 @@ function boot(){
         
         try {
           const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+          
           if (successful) {
-            showToast('✓ تم نسخ رابط المشاركة إلى الحافظة');
+            showToast('✓ تم نسخ رابط المشاركة إلى الحافظة', 3000);
           } else {
             throw new Error('فشل النسخ');
           }
         } catch (err) {
-          // إذا فشل النسخ، اعرض الرابط للمستخدم لنسخه يدوياً
-          showToast('فشل النسخ التلقائي. الرابط: ' + shareUrl);
-        } finally {
           document.body.removeChild(textArea);
+          // إذا فشل النسخ، اعرض الرابط للمستخدم لنسخه يدوياً
+          showToast('فشل النسخ التلقائي. الرابط: ' + shareUrl, 5000);
         }
       }
     } catch(err) {
       console.error('Share error:', err);
-      showToast('❌ فشل نسخ الرابط. حاول مرة أخرى.');
+      showToast('❌ فشل نسخ الرابط. حاول مرة أخرى.', 3000);
     }
   }
 
@@ -1258,9 +1256,11 @@ function boot(){
   shareMode = !!savedState;
   
   if(savedState){
+    console.log('Applying saved state in share mode:', shareMode);
     setTimeout(() => {
       applyState(savedState);
       if(modeBadge) modeBadge.textContent = shareMode ? 'SHARE' : 'EDIT';
+      showToast(shareMode ? '✓ وضع المشاركة مفعل' : '✓ وضع التحرير مفعل');
     }, 500);
   } else {
     setTimeout(() => {
@@ -1610,11 +1610,37 @@ function buildState(){
   return state;
 }
 
+// 🔧 إصلاح كامل لدالة showToast
 function showToast(msg, dur=3000){
-  if(!toast) return;
-  toast.textContent=msg;
-  toast.classList.add('show');
-  setTimeout(()=>{ toast.classList.remove('show'); },dur);
+  if(!toast) {
+    console.log('Toast element not found, creating one...');
+    // إنشاء عنصر toast إذا لم يكن موجوداً
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 25px;
+      font-family: Tajawal, sans-serif;
+      font-size: 14px;
+      z-index: 10000;
+      transition: transform 0.3s ease;
+      white-space: nowrap;
+    `;
+    document.body.appendChild(toast);
+  }
+  
+  toast.textContent = msg;
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  
+  setTimeout(()=>{ 
+    toast.style.transform = 'translateX(-50%) translateY(100px)'; 
+  }, dur);
 }
 
 function updateUIForShareMode(){
