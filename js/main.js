@@ -1,10 +1,10 @@
-/* Diriyah Security Map – v11.13 (with map type selector, syntax errors fixed) */
+/* Diriyah Security Map – v11.14 (with map type selector, no roadmap/satellite buttons) */
 'use strict';
 /* ---------------- Robust init ---------------- */
 let __BOOTED__ = false;
 function tryBoot(){
   if(__BOOTED__) return true;
-  if(window.google && google && google.maps && document.readyState !== 'loading'){ __BOOTED__ = true; boot(); return true; }
+  if(window.google && google.maps && document.readyState !== 'loading'){ __BOOTED__ = true; boot(); return true; }
   return false;
 }
 window.initMap = function(){ tryBoot(); };
@@ -14,9 +14,10 @@ document.addEventListener('visibilitychange', ()=>{ !document.hidden ? tryBoot()
 /* ---------------- Globals ---------------- */
 let map, trafficLayer, infoWin=null;
 let editMode=false, shareMode=false, cardPinned=false, addMode=false;
-let btnRoadmap, btnSatellite, btnTraffic, btnShare, btnEdit, modeBadge, toast, btnAdd;
-let mapTypeSelector; // <-- متغير جديد للقائمة
-/* حالة الهوفر للكرت/الدائرة */
+// btnRoadmap و btnSatellite تم إزالتهما
+let btnTraffic, btnShare, btnEdit, modeBadge, toast, btnAdd;
+let mapTypeSelector;
+/* Hover state */
 let cardHovering = false;
 let circleHovering = false;
 let cardHideTimer = null;
@@ -34,7 +35,6 @@ const DEFAULT_RADIUS = 20;
 const DEFAULT_COLOR  = '#ff0000';
 const DEFAULT_FILL_OPACITY = 0.40;
 const DEFAULT_STROKE_WEIGHT = 2;
-// marker defaults
 const DEFAULT_MARKER_COLOR = '#ea4335';
 const DEFAULT_MARKER_SCALE = 1;
 const DEFAULT_MARKER_KIND  = 'pin';
@@ -97,14 +97,14 @@ function b64uDecode(t){
 function readShare(){ const h=(location.hash||'').trim(); if(!/^#x=/.test(h)) return null; try{return JSON.parse(b64uDecode(h.slice(3)));}catch{return null;} }
 /* SVG icon builder */
 function buildMarkerIcon(color, userScale, kindId){
-  const currentZoom = (typeof map !== 'undefined' && map && typeof map.getZoom === 'function') ? map.getZoom() : BASE_ZOOM;
+  const currentZoom = (map && typeof map.getZoom === 'function') ? map.getZoom() : BASE_ZOOM;
   const zoomScale = Math.pow(1.6, (currentZoom - BASE_ZOOM) / 1.0);
   const base = 28;
   const w = Math.max(12, Math.round(base * (userScale||DEFAULT_MARKER_SCALE) * zoomScale));
   const h = w;
   const kind = MARKER_KINDS.find(k=>k.id===kindId)||MARKER_KINDS[0];
   const svg = kind.svg.replace(/fill="([^"]*)"/,`fill="${color||DEFAULT_MARKER_COLOR}"`);
-  const encoded = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+  const encoded = 'image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
   return { url: encoded, scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(Math.round(w/2), Math.round(h)) };
 }
 /* circles & markers arrays */
@@ -399,11 +399,6 @@ function applyState(s){
       map.setMapTypeId(mapTypeId);
       if(mapTypeSelector) mapTypeSelector.value = mapTypeId;
     }
-    const isRoad = (s.m === 'r');
-    if(btnRoadmap && btnSatellite){
-      btnRoadmap.setAttribute('aria-pressed', isRoad ? 'true' : 'false');
-      btnSatellite.setAttribute('aria-pressed', isRoad ? 'false' : 'true');
-    }
   }
   if (s.t === 1){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
   else if (s.t === 0){ trafficLayer.setMap(null); btnTraffic.setAttribute('aria-pressed','false'); }
@@ -467,8 +462,7 @@ function applyState(s){
 }
 /* ---------------- Boot ---------------- */
 function boot(){
-  btnRoadmap  = document.getElementById('btnRoadmap');
-  btnSatellite= document.getElementById('btnSatellite');
+  // btnRoadmap و btnSatellite لم تعد تُستخدم
   btnTraffic  = document.getElementById('btnTraffic');
   btnShare    = document.getElementById('btnShare');
   btnEdit     = document.getElementById('btnEdit');
@@ -503,6 +497,7 @@ function boot(){
   mapControlsDiv.appendChild(mapTypeSelector);
   document.body.appendChild(mapControlsDiv);
 
+  // ربط الحدث لتغيير نوع الخريطة
   mapTypeSelector.addEventListener('change', () => {
     const type = mapTypeSelector.value;
     map.setMapTypeId(type);
@@ -518,6 +513,7 @@ function boot(){
     gestureHandling:'greedy'
   });
 
+  // تحديث القائمة عند تغيير الخريطة من خارجها
   map.addListener('maptypeid_changed', () => {
     const type = map.getMapTypeId();
     if(mapTypeSelector && ['roadmap','satellite','hybrid','terrain'].includes(type)) {
@@ -528,20 +524,7 @@ function boot(){
   trafficLayer = new google.maps.TrafficLayer();
   map.addListener('zoom_changed', throttle(updateMarkersScale, 80));
 
-  btnRoadmap.addEventListener('click', ()=>{
-    map.setMapTypeId('roadmap');
-    btnRoadmap.setAttribute('aria-pressed','true');
-    btnSatellite.setAttribute('aria-pressed','false');
-    mapTypeSelector.value = 'roadmap';
-    persist();
-  }, {passive:true});
-  btnSatellite.addEventListener('click', ()=>{
-    map.setMapTypeId('hybrid');
-    btnSatellite.setAttribute('aria-pressed','true');
-    btnRoadmap.setAttribute('aria-pressed','false');
-    mapTypeSelector.value = 'hybrid';
-    persist();
-  }, {passive:true});
+  // --- أزرار متبقية فقط ---
   btnTraffic.addEventListener('click', ()=>{
     const on=btnTraffic.getAttribute('aria-pressed')==='true';
     if(on) trafficLayer.setMap(null); else trafficLayer.setMap(map);
