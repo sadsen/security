@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v11.11 (fixed regex & map type selector) */
+/* Diriyah Security Map – v11.12 (final fix for syntax errors) */
 'use strict';
 /* ---------------- Robust init ---------------- */
 let __BOOTED__ = false;
@@ -15,7 +15,6 @@ document.addEventListener('visibilitychange', ()=>{ !document.hidden ? tryBoot()
 let map, trafficLayer, infoWin=null;
 let editMode=false, shareMode=false, cardPinned=false, addMode=false;
 let btnRoadmap, btnSatellite, btnTraffic, btnShare, btnEdit, modeBadge, toast, btnAdd;
-let mapTypeSelector; // <-- إضافة متغير جديد
 /* حالة الهوفر للكرت/الدائرة */
 let cardHovering = false;
 let circleHovering = false;
@@ -395,25 +394,12 @@ function applyState(s){
   if(Array.isArray(s.p) && s.p.length === 2){ map.setCenter({lat:s.p[1], lng:s.p[0]}); }
   if(Number.isFinite(s.z)){ map.setZoom(s.z); }
   if(typeof s.m === 'string'){
-    let mapTypeId = s.m;
-    // تحويل الرموز إلى نوع الخريطة الكامل
-    if (s.m === 'r') mapTypeId = 'roadmap';
-    else if (s.m === 's') mapTypeId = 'satellite';
-    else if (s.m === 'h') mapTypeId = 'hybrid';
-    else if (s.m === 't') mapTypeId = 'terrain';
-    // تأكد أن نوع الخريطة مدعوم
-    if(['roadmap', 'satellite', 'hybrid', 'terrain'].includes(mapTypeId)) {
-      map.setMapTypeId(mapTypeId);
-      // تحديث القائمة المنسدلة
-      if (mapTypeSelector) mapTypeSelector.value = mapTypeId;
-    }
-    // --- الحفاظ على التوافق مع الأزرار القديمة ---
     const isRoad = (s.m === 'r');
+    map.setMapTypeId(isRoad ? 'roadmap' : 'hybrid');
     if(btnRoadmap && btnSatellite){
       btnRoadmap.setAttribute('aria-pressed', isRoad ? 'true' : 'false');
       btnSatellite.setAttribute('aria-pressed', isRoad ? 'false' : 'true');
     }
-    // ---
   }
   if (s.t === 1){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
   else if (s.t === 0){ trafficLayer.setMap(null); btnTraffic.setAttribute('aria-pressed','false'); }
@@ -487,33 +473,6 @@ function boot(){
   btnRouteClear = document.getElementById('btnRouteClear');
   modeBadge   = document.getElementById('modeBadge');
   toast       = document.getElementById('toast');
-
-  // --- إنشاء عنصر القائمة المنسدلة ---
-  const mapControlsDiv = document.createElement('div');
-  mapControlsDiv.id = 'mapControls';
-  mapControlsDiv.style.cssText = `
-    position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; padding: 8px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    display: flex; flex-direction: column; gap: 4px; max-width: 200px;
-  `;
-  const label = document.createElement('label');
-  label.htmlFor = 'mapTypeSelector';
-  label.textContent = 'نوع الخريطة:';
-  label.style.cssText = 'font-size: 12px; margin-bottom: 2px; color: #333;';
-  const select = document.createElement('select');
-  select.id = 'mapTypeSelector';
-  select.style.cssText = 'font-size: 14px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; background: white;';
-  select.innerHTML = `
-    <option value="roadmap"> roadmap - الطرق </option>
-    <option value="satellite"> satellite - الأقمار الصناعية </option>
-    <option value="hybrid"> hybrid - مختلط </option>
-    <option value="terrain"> terrain - التضاريس </option>
-  `;
-  mapControlsDiv.appendChild(label);
-  mapControlsDiv.appendChild(select);
-  document.body.appendChild(mapControlsDiv);
-  mapTypeSelector = select; // <-- ربط المتغير
-  // --- النهاية ---
-
   map = new google.maps.Map(document.getElementById('map'), {
     center:DEFAULT_CENTER,
     zoom:15,
@@ -522,22 +481,6 @@ function boot(){
     clickableIcons:false,
     gestureHandling:'greedy'
   });
-
-  // --- ربط الحدث بتغيير نوع الخريطة ---
-  mapTypeSelector.addEventListener('change', () => {
-    const selectedType = mapTypeSelector.value;
-    map.setMapTypeId(selectedType);
-    persist(); // <-- لحفظ التغيير في الرابط
-  }, {passive:true});
-
-  // --- تحديث القائمة عند تغيير نوع الخريطة من مصدر آخر (مثل الأزرار القديمة أو الرابط) ---
-  map.addListener('maptypeid_changed', () => {
-    const currentType = map.getMapTypeId();
-    if (['roadmap', 'satellite', 'hybrid', 'terrain'].includes(currentType)) {
-      mapTypeSelector.value = currentType;
-    }
-  });
-
   trafficLayer = new google.maps.TrafficLayer();
   map.addListener('zoom_changed', throttle(updateMarkersScale, 80));
   btnRoadmap.addEventListener('click', ()=>{
@@ -808,15 +751,18 @@ function renderCard(item){
           </div>
         </div>
         <div style="margin-top:8px;">
-  <label style="font-size:12px;color:#666">أسماء المستلمين (سطر لكل اسم):</label>
-  <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;">${escapeHtml(names.join("\n"))}</textarea>
-  <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
-    <button id="btn-save"  style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حفظ</button>
-    <button id="btn-clear" style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الأسماء</button>
-    <button id="btn-del"   style="border:1px solid #f33; color:#f33; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الموقع</button>
-  </div>
-  <div style="margin-top:6px;font-size:12px;color:#666">يمكن سحب الدائرة لتغيير الموقع، والأيقونة تتحرك تلقائيًا.</div>
-</div>
+          <label style="font-size:12px;color:#666">أسماء المستلمين (سطر لكل اسم):</label>
+          <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;">${escapeHtml(names.join("\n"))}</textarea>
+          <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+            <button id="btn-save"  style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حفظ</button>
+            <button id="btn-clear" style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الأسماء</button>
+            <button id="btn-del"   style="border:1px solid #f33; color:#f33; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الموقع</button>
+          </div>
+          <div style="margin-top:6px;font-size:12px;color:#666">يمكن سحب الدائرة لتغيير الموقع، والأيقونة تتحرك تلقائيًا.</div>
+        </div>
+      </div>` : ``}
+    </div>
+  </div>`;
 }
 function attachCardEvents(item){
   if(shareMode || !editMode) return;
