@@ -1,6 +1,5 @@
-/* Diriyah Security Map – v11.16 (✅ all bugs fixed: editMode, live route preview, map type selector, no roadmap/sat buttons) */
+/* Diriyah Security Map – v11.17 (✅ fixed: share button, route styling init, black line on load) */
 'use strict';
-
 /* ---------------- Robust init ---------------- */
 let __BOOTED__ = false;
 function tryBoot(){
@@ -21,14 +20,11 @@ document.addEventListener('visibilitychange', ()=>{
   if(!document.hidden) tryBoot();
   else flushPersist();
 }, {passive:true});
-
 /* ---------------- Globals ---------------- */
 let map, trafficLayer, infoWin = null;
 let editMode = false, shareMode = false, cardPinned = false, addMode = false;
-// ✅ btnRoadmap و btnSatellite محذوفتان تمامًا — لا توجد إشارة إليهما
 let btnTraffic, btnShare, btnEdit, modeBadge, toast, btnAdd;
-let mapTypeSelector; // القائمة المنسدلة
-
+let mapTypeSelector;
 /* Route globals */
 let directionsService = null;
 let directionsRenderer = null;
@@ -40,7 +36,6 @@ let activeRoutePoly = null;
 let routeCardWin = null;
 let routeCardPinned = false;
 let btnRoute, btnRouteClear;
-
 /* Hover state */
 let cardHovering = false;
 let circleHovering = false;
@@ -54,25 +49,21 @@ function scheduleCardHide(){
     }
   }, 120);
 }
-
 const DEFAULT_CENTER = { lat:24.7399, lng:46.5731 };
 const DEFAULT_RADIUS = 20;
 const DEFAULT_COLOR  = '#ff0000';
 const DEFAULT_FILL_OPACITY = 0.40;
 const DEFAULT_STROKE_WEIGHT = 2;
-
 const DEFAULT_MARKER_COLOR = '#ea4335';
 const DEFAULT_MARKER_SCALE = 1;
 const DEFAULT_MARKER_KIND  = 'pin';
 const BASE_ZOOM = 15;
-
 /* Route style — مخزّن عالميًا */
 let routeStyle = {
   color:   '#3344ff',
   weight:  4,
   opacity: 0.95
 };
-
 const LOCATIONS = [
   { id:0,  name:"بوابة سمحان", lat:24.742132284177778, lng:46.569503913805825 },
   { id:1,  name:"منطقة سمحان", lat:24.74091335108621,  lng:46.571891407130025 },
@@ -94,7 +85,6 @@ const LOCATIONS = [
   { id:17, name:"دوار راس النعامة", lat:24.710329841152387, lng:46.572921959358204 },
   { id:18, name:"مزرعة الحبيب", lat:24.709445443672344, lng:46.593971867951346 },
 ];
-
 /* SVG icons */
 const MARKER_KINDS = [
   { id:'pin',    label:'دبوس عام',      svg:pinSvg('#ea4335') },
@@ -107,10 +97,9 @@ const MARKER_KINDS = [
 function pinSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`; }
 function guardSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.29L19 6.3v4.61c-1.11 4.16-3.72 7.55-7 8.94-3.28-1.39-5.89-4.78-7-8.94V6.3L12 3.29z"/></svg>`; }
 function patrolSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`; }
-function cameraSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 15.2c-1.8 0-3.2-1.4-3.2-3.2s1.4-3.2 3.2-3.2 3.2 1.4 3.2 3.2-1.4 3.2-3.2 3.2zm0-4.8c-1.3 0-2.3 1-2.3 2.3s1 2.3 2.3 2.3 2.3-1 2.3-2.3-1-2.3-2.3-2.3zm7-4.7l-2.8-2.8c-.4-.4-1-.4-1.4 0L12 5.2 9.2 2.4c-.4-.4-1-.4-1.4 0L5 5.2c-.4.4-.4 1 0 1.4L7.8 9H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V11c0-1.1-.9-2-2-2h-2.8L17 6.7c.4-.4.4-1 0-1.4z"/></svg>`; }
+function cameraSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 15.2c-1.8 0-3.2-1.4-3.2-3.2s1.4-3.2 3.2-3.2 3.2 1.4 3.2 3.2-1.4 3.2-3.2 3.2zm0-4.8c-1.3 0-2.3 1-2.3 2.3s1 2.3 2.3 2.3 2.3-1 2.3-2.3zm7-4.7l-2.8-2.8c-.4-.4-1-.4-1.4 0L12 5.2 9.2 2.4c-.4-.4-1-.4-1.4 0L5 5.2c-.4.4-.4 1 0 1.4L7.8 9H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2 2h-2.8L17 6.7c.4-.4.4-1 0-1.4z"/></svg>`; }
 function gateSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-2 10H5V8h14v8z"/></svg>`; }
 function meetSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`; }
-
 /* utilities */
 const clamp=(x,min,max)=>Math.min(max,Math.max(min,x));
 const escapeHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'&quot;');
@@ -122,18 +111,15 @@ const toHex=(c)=>{
   const [r,g,b]=[+m[1],+m[2],+m[3]];
   return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
 };
-// ✅ تم إصلاح parseRecipients
-const parseRecipients=t=>String(t).split(/\r?\n/).map(s=>s.replace(/[،;,]+/g,' ').trim()).filter(Boolean);
+const parseRecipients=t=>String(t).split(/\r?\n/).map(s=>s.replace(/[،;，,]+/g,' ').trim()).filter(Boolean);
 let persistTimer=null;
 const persist=()=>{ if(shareMode) return; clearTimeout(persistTimer); persistTimer=setTimeout(()=>writeShare(buildState()),180); };
 function flushPersist(){ if(shareMode) return; clearTimeout(persistTimer); writeShare(buildState()); }
-
 /* Base64URL */
 function b64uEncode(s){ const b=btoa(unescape(encodeURIComponent(s))); return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 function b64uDecode(t){
   try{ t=String(t||'').replace(/[^A-Za-z0-9\-_]/g,''); const pad=t.length%4 ? '='.repeat(4-(t.length%4)) : ''; return decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/')+pad))); }catch{return '';} }
 function readShare(){ const h=(location.hash||'').trim(); if(!/^#x=/.test(h)) return null; try{return JSON.parse(b64uDecode(h.slice(3)));}catch{return null;} }
-
 /* SVG icon builder */
 function buildMarkerIcon(color, userScale, kindId){
   const currentZoom = (map && typeof map.getZoom === 'function') ? map.getZoom() : BASE_ZOOM;
@@ -146,9 +132,7 @@ function buildMarkerIcon(color, userScale, kindId){
   const encoded = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
   return { url: encoded, scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(Math.round(w/2), Math.round(h)) };
 }
-
 const circles = [];
-
 /* ---------------- Route helpers ---------------- */
 function ensureDirections(){
   if(!directionsService) directionsService = new google.maps.DirectionsService();
@@ -161,7 +145,6 @@ function ensureDirections(){
     });
   }
 }
-
 function createStopMarker(position, index){
   const m = new google.maps.Marker({
     position,
@@ -175,7 +158,6 @@ function createStopMarker(position, index){
   m.addListener('rightclick', ()=>{ removeRoutePoint(index); persist(); });
   return m;
 }
-
 function clearRouteVisuals(){
   routeStopMarkers.forEach(m=>m.setMap(null));
   routeStopMarkers = [];
@@ -183,7 +165,6 @@ function clearRouteVisuals(){
   if(activeRoutePoly) { activeRoutePoly.setMap(null); activeRoutePoly = null; }
   currentRouteOverview = null;
 }
-
 function addRoutePoint(latLng){
   routePoints.push(latLng);
   const idx = routePoints.length - 1;
@@ -192,7 +173,6 @@ function addRoutePoint(latLng){
   requestAndRenderRoute();
   persist();
 }
-
 function removeRoutePoint(idx){
   if(idx < 0 || idx >= routePoints.length) return;
   routePoints.splice(idx,1);
@@ -205,7 +185,6 @@ function removeRoutePoint(idx){
   });
   requestAndRenderRoute();
 }
-
 function requestAndRenderRoute(){
   if(!map) return;
   ensureDirections();
@@ -229,7 +208,6 @@ function requestAndRenderRoute(){
     }
   });
 }
-
 function extractActivePolyline(){
   if(!directionsRenderer) return;
   const dir = directionsRenderer.getDirections();
@@ -245,18 +223,20 @@ function extractActivePolyline(){
   });
   activeRoutePoly.addListener('click', (e)=>{ openRouteCard(e.latLng); });
 }
-
-function restoreRouteFromOverview(polyStr){
+// 🔧 FIX: قراءة routeStyle من polyStr metadata (إذا وُجدت)
+function restoreRouteFromOverview(polyStr, styleFromState = null){
   if(!polyStr) return;
   try{
     const path = google.maps.geometry.encoding.decodePath(polyStr);
     clearRouteVisuals();
-    activeRoutePoly = new google.maps.Polyline({
+    // 🔧 تطبيق styleFromState إن وُجد، وإلا استخدم routeStyle الحالية
+    const opts = {
       map,
       path,
-      ...routeStyle,
-      zIndex: 9997
-    });
+      zIndex: 9997,
+      ...(styleFromState || routeStyle)
+    };
+    activeRoutePoly = new google.maps.Polyline(opts);
     currentRouteOverview = polyStr;
     activeRoutePoly.addListener('click', (e)=>{ openRouteCard(e.latLng); });
   }catch(e){ console.warn('restoreRouteFromOverview failed', e); }
@@ -289,7 +269,6 @@ function openRouteCard(latLng){
     },0);
   });
 }
-
 function renderRouteCard(){
   const color   = routeStyle.color   || '#3344ff';
   const weight  = routeStyle.weight  || 4;
@@ -319,7 +298,6 @@ function renderRouteCard(){
     </div>
   </div>`;
 }
-
 function attachRouteCardEvents(){
   const colorEl   = document.getElementById('route-color');
   const weightEl  = document.getElementById('route-weight');
@@ -329,20 +307,18 @@ function attachRouteCardEvents(){
   const saveBtn   = document.getElementById('route-save');
   const closeBtn  = document.getElementById('route-close');
 
-  function apply(){
-    const clr = colorEl?.value || routeStyle.color;
-    const w   = +weightEl?.value || routeStyle.weight;
-    const o   = +opacityEl?.value || routeStyle.opacity;
-
-    // ✅ تحديث routeStyle فورًا
-    routeStyle = { color: clr, weight: w, opacity: o };
-
-    // ✅ تحديث activeRoutePoly فورًا (الخط يصبح باللون الجديد)
+  // 🔧 FIX: تطبيق القيم الحالية فوراً عند فتح البطاقة
+  function applyCurrentStyle(){
+    const clr = routeStyle.color   || '#3344ff';
+    const w   = routeStyle.weight  || 4;
+    const o   = routeStyle.opacity || 0.95;
+    if(colorEl)   colorEl.value = clr;
+    if(weightEl){ weightEl.value = w; weightLbl.textContent = w; }
+    if(opacityEl){ opacityEl.value = o; opacityLbl.textContent = o.toFixed(2); }
+    // ثم نُطبّقها فوراً على الخط وعلامات التوقف
     if(activeRoutePoly){
       activeRoutePoly.setOptions({ strokeColor: clr, strokeWeight: w, strokeOpacity: o });
     }
-
-    // ✅ تحديث علامات التوقف فورًا (الدائرة + النص)
     routeStopMarkers.forEach(m => {
       if(m.setIcon){
         m.setIcon({
@@ -359,8 +335,32 @@ function attachRouteCardEvents(){
       }
     });
   }
+  applyCurrentStyle(); // ✅ تطبيق فوري
 
-  // ✅ ربط الأحداث
+  function apply(){
+    const clr = colorEl?.value || routeStyle.color;
+    const w   = +weightEl?.value || routeStyle.weight;
+    const o   = +opacityEl?.value || routeStyle.opacity;
+    routeStyle = { color: clr, weight: w, opacity: o };
+    if(activeRoutePoly){
+      activeRoutePoly.setOptions({ strokeColor: clr, strokeWeight: w, strokeOpacity: o });
+    }
+    routeStopMarkers.forEach(m => {
+      if(m.setIcon){
+        m.setIcon({
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 6,
+          fillColor: '#ffffff',
+          fillOpacity: 1,
+          strokeColor: clr,
+          strokeWeight: 2
+        });
+      }
+      if(m.setLabel){
+        m.setLabel({ text: m.getLabel()?.text || '1', color: clr, fontSize: '11px', fontWeight: '700' });
+      }
+    });
+  }
   if(colorEl){
     colorEl.addEventListener('input', apply, {passive:true});
     colorEl.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
@@ -379,7 +379,6 @@ function attachRouteCardEvents(){
   if(opacityEl && opacityLbl){
     opacityEl.addEventListener('input', ()=>{ opacityLbl.textContent = (+opacityEl.value).toFixed(2); });
   }
-
   if(saveBtn){
     saveBtn.addEventListener('click', ()=>{
       flushPersist();
@@ -401,7 +400,7 @@ function writeShare(state){
   if(shareMode) return;
   let tok = b64uEncode(JSON.stringify(state));
   if(tok.length > 1800){
-    const payload = { p:state.p, z:state.z, m:state.m, t:state.t, e:state.e };
+    const payload = { p:state.p, z:state.z, m:state.m, t:state.t, e:state.e, rs:state.rs };
     tok = b64uEncode(JSON.stringify(payload));
   }
   const newHash = `#x=${tok}`;
@@ -410,6 +409,7 @@ function writeShare(state){
   }
 }
 
+// 🔧 FIX: إضافة قراءة routeStyle من الحالة (مفتاح `rs`)
 function applyState(s){
   if(!s) return;
   if(Array.isArray(s.p) && s.p.length === 2){ map.setCenter({lat:s.p[1], lng:s.p[0]}); }
@@ -426,8 +426,17 @@ function applyState(s){
       if(mapTypeSelector) mapTypeSelector.value = mapTypeId;
     }
   }
-  // --- ✅ حالة التحرير: القراءة من الرابط ---
+  // --- ✅ حالة التحرير ---
   if(Number.isFinite(s.e)){ editMode = !!s.e; }
+  // --- ✅ routeStyle من الرابط (جديد) ---
+  if(s.rs && typeof s.rs === 'object'){
+    const rs = s.rs;
+    routeStyle = {
+      color:   rs.c || '#3344ff',
+      weight:  Number.isFinite(rs.w) ? rs.w : 4,
+      opacity: Number.isFinite(rs.o) ? rs.o : 0.95
+    };
+  }
   // --- حركة المرور ---
   if (s.t === 1){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
   else if (s.t === 0){ trafficLayer.setMap(null); btnTraffic.setAttribute('aria-pressed','false'); }
@@ -489,12 +498,18 @@ function applyState(s){
     });
   }
   // --- المسار ---
-  if(s && s.r && s.r.ov){ restoreRouteFromOverview(s.r.ov); }
+  if(s && s.r && s.r.ov){
+    // 🔧 نمرّر routeStyle المُحدّث عند الاسترجاع
+    restoreRouteFromOverview(s.r.ov, s.rs ? {
+      strokeColor: s.rs.c || routeStyle.color,
+      strokeWeight: Number.isFinite(s.rs.w) ? s.rs.w : routeStyle.weight,
+      strokeOpacity: Number.isFinite(s.rs.o) ? s.rs.o : routeStyle.opacity
+    } : null);
+  }
 }
 
 /* ---------------- Boot ---------------- */
 function boot(){
-  // ✅ لا يوجد btnRoadmap أو btnSatellite
   btnTraffic  = document.getElementById('btnTraffic');
   btnShare    = document.getElementById('btnShare');
   btnEdit     = document.getElementById('btnEdit');
@@ -503,8 +518,7 @@ function boot(){
   btnRouteClear = document.getElementById('btnRouteClear');
   modeBadge   = document.getElementById('modeBadge');
   toast       = document.getElementById('toast');
-
-  // --- القائمة المنسدلة (التحكم الوحيد بنوع الخريطة) ---
+  // --- القائمة المنسدلة ---
   const mapControlsDiv = document.createElement('div');
   mapControlsDiv.id = 'mapControls';
   mapControlsDiv.style.cssText = `
@@ -528,13 +542,11 @@ function boot(){
   mapControlsDiv.appendChild(label);
   mapControlsDiv.appendChild(mapTypeSelector);
   document.body.appendChild(mapControlsDiv);
-
   mapTypeSelector.addEventListener('change', () => {
     const type = mapTypeSelector.value;
     map.setMapTypeId(type);
     persist();
   }, {passive:true});
-
   map = new google.maps.Map(document.getElementById('map'), {
     center: DEFAULT_CENTER,
     zoom: 15,
@@ -543,18 +555,28 @@ function boot(){
     clickableIcons: false,
     gestureHandling: 'greedy'
   });
-
   map.addListener('maptypeid_changed', () => {
     const type = map.getMapTypeId();
     if(mapTypeSelector && ['roadmap','satellite','hybrid','terrain'].includes(type)) {
       mapTypeSelector.value = type;
     }
   });
-
   trafficLayer = new google.maps.TrafficLayer();
   map.addListener('zoom_changed', throttle(updateMarkersScale, 80));
 
-  // --- الأزرار المتبقية ---
+  // 🔧 FIX: إضافة دالة copyShareLink()
+  async function copyShareLink(){
+    try{
+      flushPersist();
+      const url = window.location.href;
+      await navigator.clipboard.writeText(url);
+      showToast('✓ تم نسخ رابط المشاركة إلى الحافظة');
+    }catch(err){
+      console.error('Clipboard write failed:', err);
+      showToast('فشل النسخ — حاول يدويًا');
+    }
+  }
+
   btnTraffic?.addEventListener('click', ()=>{
     const on = btnTraffic.getAttribute('aria-pressed') === 'true';
     if(on) trafficLayer.setMap(null); else trafficLayer.setMap(map);
@@ -577,13 +599,15 @@ function boot(){
   }, {passive:true});
 
   btnShare?.addEventListener('click', async ()=>{
-    await nextTick(); flushPersist(); await nextTick(); await copyShareLink();
+    await nextTick();
+    flushPersist();
+    await nextTick();
+    await copyShareLink(); // ✅ الآن معرّفة
   }, {passive:true});
 
-  // ✅ ✅ ✅ الحل الجذري لمشكلة "تحرير لا يعمل بعد التحديث"
   btnEdit?.addEventListener('click', ()=>{
     if(shareMode) return;
-    editMode = !editMode; // ✅ التغيير فعلي
+    editMode = !editMode;
     cardPinned = false;
     if(infoWin) infoWin.close();
     modeBadge.textContent = editMode ? 'Edit' : 'Share';
@@ -593,7 +617,7 @@ function boot(){
       btnAdd.setAttribute('aria-pressed','false');
       document.body.classList.remove('add-cursor');
     }
-    persist(); // ✅ يحفظ `e: 1` أو `e: 0`
+    persist();
   }, {passive:true});
 
   btnAdd?.addEventListener('click', ()=>{
@@ -652,18 +676,15 @@ function boot(){
     circle.addListener('click',     ()=>{ openCard(item, true); });
   });
 
-  // --- ✅ تحميل الحالة من الرابط (بما في ذلك editMode) ---
   const S = readShare();
   shareMode = !!S;
   if(S){
     applyState(S);
-    // ✅ تعيين editMode من الحالة المحملة
     editMode = Number.isFinite(S.e) ? !!S.e : false;
     modeBadge.textContent = editMode ? 'Edit' : 'Share';
   } else {
     writeShare(buildState());
   }
-
   updateMarkersScale();
   map.addListener('idle', persist);
   window.addEventListener('beforeunload', ()=>{ flushPersist(); });
@@ -681,7 +702,6 @@ function bindCircleEvents(item){
     persist();
   });
 }
-
 function openCard(item, pin = true){
   if(!infoWin) infoWin = new google.maps.InfoWindow({ content:'', maxWidth:520, pixelOffset:new google.maps.Size(0,-6) });
   infoWin.setContent(renderCard(item));
@@ -701,7 +721,6 @@ function openCard(item, pin = true){
     attachCardEvents(item);
   },0);
 }
-
 function renderCard(item){
   const c=item.circle, meta=item.meta;
   const names=Array.isArray(meta.recipients)?meta.recipients:[];
@@ -865,7 +884,6 @@ function updateMarkersScale(){
     }
   });
 }
-
 function buildState(){
   const center = map.getCenter();
   const zoom   = map.getZoom();
@@ -889,7 +907,6 @@ function buildState(){
       cRows.push([it.id, r, sc, fo, sw, rec, name, useMarker, mc, ms, mk]);
     }
   });
-  // --- تحويل نوع الخريطة إلى رمز ---
   const typ = map.getMapTypeId && map.getMapTypeId();
   let m = 'r';
   if(typ === 'roadmap') m = 'r';
@@ -898,7 +915,12 @@ function buildState(){
   else if(typ === 'terrain') m = 't';
   const t = (trafficLayer && trafficLayer.getMap && trafficLayer.getMap()) ? 1 : 0;
   const r = currentRouteOverview ? { ov: currentRouteOverview } : null;
-  // ✅ e: editMode محفوظ هنا
+  // 🔧 FIX: حفظ routeStyle في الحالة (مفتاح `rs`)
+  const rs = {
+    c: routeStyle.color,
+    w: routeStyle.weight,
+    o: routeStyle.opacity
+  };
   return {
     p:[center.lng(), center.lat()],
     z:zoom,
@@ -907,6 +929,7 @@ function buildState(){
     e: editMode ? 1 : 0,
     c:cRows,
     n:nRows,
-    r
+    r,
+    rs  // ✅ محفوظ الآن
   };
 }
