@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v12.4 (✅ fixed: route sharing now works correctly) */
+/* Diriyah Security Map – v12.5 (✅ fixed: throttle function added, route sharing works) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
@@ -26,6 +26,26 @@ document.addEventListener('visibilitychange', ()=>{
   if(!document.hidden) tryBoot();
   else flushPersist();
 }, {passive:true});
+
+/* ---------------- Throttle Function ---------------- */
+function throttle(fn, ms){
+  let last = 0, timer = null, pendingArgs = null;
+  return function(...args){
+    const now = performance.now();
+    if(now - last >= ms){
+      last = now;
+      fn.apply(this, args);
+    } else {
+      pendingArgs = args;
+      clearTimeout(timer);
+      timer = setTimeout(()=>{
+        last = performance.now();
+        fn.apply(this, pendingArgs);
+        pendingArgs = null;
+      }, ms - (now - last));
+    }
+  };
+}
 
 /* ---------------- Globals ---------------- */
 let map, trafficLayer, infoWin = null;
@@ -980,8 +1000,299 @@ function boot(){
   showToast('✓ جاهز للاستخدام - التحرير مفعل');
 }
 
-// ... باقي الدوال (bindCircleEvents, openCard, renderCard, attachCardEvents, etc.) ...
-// تبقى كما هي بدون تغيير ...
+/* ---------------- Card Functions ---------------- */
+function bindCircleEvents(item){
+  const openCardThrottled = throttle((it, pin)=>openCard(it, pin), 120);
+  const c = item.circle;
+  c.addListener('mouseover', ()=>{ circleHovering = true; if(!cardPinned) openCardThrottled(item, false); });
+  c.addListener('mouseout',  ()=>{ circleHovering = false; scheduleCardHide(); });
+  c.addListener('click',     ()=>{ openCard(item, true); });
+  google.maps.event.addListener(c,'center_changed', ()=>{
+    if(item.marker){ item.marker.setPosition(c.getCenter()); }
+    persist();
+  });
+}
+
+function openCard(item, pin = true){
+  if(!infoWin) infoWin = new google.maps.InfoWindow({ content:'', maxWidth:520, pixelOffset:new google.maps.Size(0,-6) });
+  infoWin.setContent(renderCard(item));
+  infoWin.setPosition(item.circle.getCenter());
+  infoWin.open({ map });
+  cardPinned = !!pin;
+  setTimeout(()=>{
+    const root=document.getElementById('iw-root'); 
+    if(!root) return;
+    attachCardEvents(item);
+  },0);
+}
+
+function renderCard(item){
+  const c=item.circle, meta=item.meta;
+  const names=Array.isArray(meta.recipients)?meta.recipients:[];
+  const namesHtml = names.length
+    ? `<ol style="margin:6px 0 0; padding-inline-start:20px;">${names.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ol>`
+    : `<div style="font-size:12px;color:#666">لا توجد أسماء مضافة</div>`;
+  const center=c.getCenter();
+  const radius=Math.round(c.getRadius());
+  const color =toHex(c.get('strokeColor')||DEFAULT_COLOR);
+  const stroke=c.get('strokeWeight')||DEFAULT_STROKE_WEIGHT;
+  const fillO =Number(c.get('fillOpacity')??DEFAULT_FILL_OPACITY);
+  const useMarker = !!meta.useMarker;
+  const markerColor = meta.markerColor || DEFAULT_MARKER_COLOR;
+  const markerScale = Number.isFinite(meta.markerScale) ? meta.markerScale : DEFAULT_MARKER_SCALE;
+  const markerKind  = meta.markerKind || DEFAULT_MARKER_KIND;
+  const optionsHtml = MARKER_KINDS.map(k=>`<option value="${k.id}" ${k.id===markerKind?'selected':''}>${k.label}</option>`).join('');
+  
+  const showEditTools = !shareMode && editMode;
+  
+  return `
+  <div id="iw-root" dir="rtl" style="min-width:360px;max-width:520px">
+    <div style="background:rgba(255,255,255,0.93); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+                border:1px solid rgba(0,0,0,0.06); border-radius:18px; padding:14px; color:#111; box-shadow:0 16px 36px rgba(0,0,0,.22)">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+        <img src="img/diriyah-logo.png" alt="Diriyah" style="width:50px;height:50px;object-fit:contain;">
+        <div style="flex:1 1 auto; min-width:0">
+          ${showEditTools ? `
+            <input id="ctl-name" value="${escapeHtml(meta.name||'')}" placeholder="اسم الموقع"
+              style="width:100%;border:1px solid #ddd;border-radius:10px;padding:6px 8px;font-weight:700;font-size:16px;">
+          ` : `
+            <div style="font-weight:800;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(meta.name)}</div>
+          `}
+        </div>
+        ${showEditTools ? `<button id="btn-card-share" title="نسخ الرابط"
+            style="margin-inline-start:6px;border:1px solid #ddd;background:#fff;border-radius:10px;padding:4px 8px;cursor:pointer;">نسخ الرابط</button>` : ``}
+      </div>
+      <div style="font-size:12px;color:#666;margin-bottom:6px">
+        الإحداثيات: ${center.lat().toFixed(6)}, ${center.lng().toFixed(6)}
+      </div>
+      <div style="border-top:1px dashed #e7e7e7; padding-top:8px;">
+        <div style="font-weight:700; margin-bottom:4px;">المستلمون:</div>
+        ${namesHtml}
+      </div>
+      ${showEditTools ? `
+      <div style="margin-top:12px;border-top:1px dashed #e7e7e7;padding-top:10px;">
+        <div style="font-weight:700; margin-bottom:6px;">أدوات التمثيل:</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <label style="font-size:12px;color:#333;white-space:nowrap;">نوع التمثيل:</label>
+          <select id="ctl-shape" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:4px 6px;">
+            <option value="circle" ${useMarker?'':'selected'}>دائرة</option>
+            <option value="marker" ${useMarker?'selected':''}>أيقونة</option>
+          </select>
+        </div>
+        <div id="circle-tools" style="${useMarker?'display:none;':''}">
+          <div style="font-weight:700; margin-bottom:6px;">أدوات الدائرة:</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">نصف القطر (م):</label>
+              <input id="ctl-radius" type="range" min="5" max="300" step="1" value="${radius}" style="width:100%;">
+              <span id="lbl-radius" style="font-size:12px;color:#666">${radius}</span></div>
+            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">اللون:</label>
+              <input id="ctl-color" type="color" value="${color}" style="width:38px;height:28px;border:none;background:transparent;padding:0"></div>
+            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">حدّ الدائرة:</label>
+              <input id="ctl-stroke" type="number" min="0" max="8" step="1" value="${stroke}" style="width:70px;"></div>
+            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">شفافية التعبئة:</label>
+              <input id="ctl-fill" type="range" min="0" max="0.95" step="0.02" value="${fillO}" style="width:100%;">
+              <span id="lbl-fill" style="font-size:12px;color:#666">${fillO.toFixed(2)}</span></div>
+          </div>
+        </div>
+        <div id="marker-tools" style="margin-top:10px;${useMarker?'':'display:none;'}">
+          <div style="font-weight:700; margin-bottom:6px;">أدوات الأيقونة:</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">نوع الأيقونة:</label>
+              <select id="ctl-marker-kind" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:4px 6px;">
+                ${optionsHtml}
+              </select>
+            </div>
+            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">لون الأيقونة:</label>
+              <input id="ctl-marker-color" type="color" value="${markerColor}"
+                     style="width:38px;height:28px;border:none;background:transparent;padding:0"></div>
+            <div class="field"><label style="font-size:12px;color:#333;white-space:nowrap;">حجم الأيقونة:</label>
+              <input id="ctl-marker-scale" type="range" min="0.6" max="2.4" step="0.1" value="${markerScale}" style="width:100%;">
+              <span id="lbl-marker-scale" style="font-size:12px;color:#666">${markerScale.toFixed(1)}</span></div>
+          </div>
+        </div>
+        <div style="margin-top:8px;">
+          <label style="font-size:12px;color:#666">أسماء المستلمين (سطر لكل اسم):</label>
+          <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;">${escapeHtml(names.join("\n"))}</textarea>
+          <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+            <button id="btn-save"  style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حفظ</button>
+            <button id="btn-clear" style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الأسماء</button>
+            <button id="btn-del"   style="border:1px solid #f33; color:#f33; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الموقع</button>
+          </div>
+        </div>
+      </div>` : ``}
+    </div>
+  </div>`;
+}
+
+function attachCardEvents(item){
+  if(shareMode) return;
+  
+  const nameEl = document.getElementById('ctl-name');
+  const shapeEl = document.getElementById('ctl-shape');
+  const radiusEl = document.getElementById('ctl-radius');
+  const radiusLbl = document.getElementById('lbl-radius');
+  const colorEl = document.getElementById('ctl-color');
+  const strokeEl = document.getElementById('ctl-stroke');
+  const fillEl = document.getElementById('ctl-fill');
+  const fillLbl = document.getElementById('lbl-fill');
+  const namesEl = document.getElementById('ctl-names');
+  const saveBtn = document.getElementById('btn-save');
+  const clearBtn = document.getElementById('btn-clear');
+  const delBtn = document.getElementById('btn-del');
+  const markerKindEl = document.getElementById('ctl-marker-kind');
+  const markerColorEl = document.getElementById('ctl-marker-color');
+  const markerScaleEl = document.getElementById('ctl-marker-scale');
+  const markerScaleLbl = document.getElementById('lbl-marker-scale');
+  const cardShareBtn = document.getElementById('btn-card-share');
+  
+  if(nameEl) nameEl.addEventListener('input', ()=>{ item.meta.name = nameEl.value; persist(); });
+  if(shapeEl) shapeEl.addEventListener('change', ()=>{ 
+    item.meta.useMarker = shapeEl.value === 'marker'; 
+    applyShapeVisibility(item); 
+    persist(); 
+  });
+  if(radiusEl && radiusLbl) {
+    radiusEl.addEventListener('input', ()=>{ 
+      item.circle.setRadius(+radiusEl.value); 
+      radiusLbl.textContent = radiusEl.value; 
+      persist(); 
+    });
+  }
+  if(colorEl) colorEl.addEventListener('input', ()=>{ 
+    item.circle.setOptions({ strokeColor: colorEl.value, fillColor: colorEl.value }); 
+    persist(); 
+  });
+  if(strokeEl) strokeEl.addEventListener('input', ()=>{ 
+    item.circle.setOptions({ strokeWeight: +strokeEl.value }); 
+    persist(); 
+  });
+  if(fillEl && fillLbl) {
+    fillEl.addEventListener('input', ()=>{ 
+      item.circle.setOptions({ fillOpacity: +fillEl.value }); 
+      fillLbl.textContent = (+fillEl.value).toFixed(2); 
+      persist(); 
+    });
+  }
+  if(namesEl) namesEl.addEventListener('input', ()=>{ 
+    item.meta.recipients = parseRecipients(namesEl.value); 
+    persist(); 
+  });
+  if(saveBtn) saveBtn.addEventListener('click', ()=>{ 
+    flushPersist(); 
+    showToast('✓ تم حفظ التغييرات'); 
+  });
+  if(clearBtn) clearBtn.addEventListener('click', ()=>{ 
+    item.meta.recipients = []; 
+    if(namesEl) namesEl.value = ''; 
+    persist(); 
+    showToast('✓ تم حذف الأسماء'); 
+  });
+  if(delBtn) delBtn.addEventListener('click', ()=>{ 
+    item.circle.setMap(null); 
+    if(item.marker) item.marker.setMap(null); 
+    circles.splice(circles.indexOf(item), 1); 
+    if(infoWin) infoWin.close(); 
+    persist(); 
+    showToast('✓ تم حذف الموقع'); 
+  });
+  if(markerKindEl) markerKindEl.addEventListener('change', ()=>{ 
+    item.meta.markerKind = markerKindEl.value; 
+    applyShapeVisibility(item); 
+    persist(); 
+  });
+  if(markerColorEl) markerColorEl.addEventListener('input', ()=>{ 
+    item.meta.markerColor = markerColorEl.value; 
+    applyShapeVisibility(item); 
+    persist(); 
+  });
+  if(markerScaleEl && markerScaleLbl) {
+    markerScaleEl.addEventListener('input', ()=>{ 
+      item.meta.markerScale = +markerScaleEl.value; 
+      markerScaleLbl.textContent = (+markerScaleEl.value).toFixed(1); 
+      applyShapeVisibility(item); 
+      persist(); 
+    });
+  }
+  if(cardShareBtn) cardShareBtn.addEventListener('click', async ()=>{ 
+    flushPersist(); 
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('✓ تم نسخ رابط الموقع');
+    } catch {
+      showToast('فشل النسخ — حاول يدويًا');
+    }
+  });
+}
+
+/* ---------------- Helper Functions ---------------- */
+function setDraggableForAll(on){ circles.forEach(it=> it.circle.setDraggable(on)); }
+
+function showToast(msg){ 
+  if(!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.style.cssText = 'position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:white; padding:12px 20px; border-radius:8px; z-index:10000; font-family:Tajawal, sans-serif;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg; 
+  toast.classList.remove('hidden'); 
+  setTimeout(()=>toast.classList.add('hidden'), 2000); 
+}
+
+function genNewId(){ let id = -Date.now(); while(circles.some(x=>x.id===id)) id--; return id; }
+
+function nextTick(){ return new Promise(res=> requestAnimationFrame(()=> requestAnimationFrame(res))); }
+
+function ensureMarker(item){
+  if (item.meta && item.meta.useMarker) {
+    if (!item.marker) {
+      item.marker = new google.maps.Marker({
+        map,
+        position: item.circle.getCenter(),
+        icon: buildMarkerIcon(
+          item.meta.markerColor || DEFAULT_MARKER_COLOR,
+          item.meta.markerScale || DEFAULT_MARKER_SCALE,
+          item.meta.markerKind  || DEFAULT_MARKER_KIND
+        ),
+        zIndex: 10000
+      });
+    }
+  } else {
+    if (item.marker) {
+      item.marker.setMap(null);
+      item.marker = null;
+    }
+  }
+  return item.marker;
+}
+
+function applyShapeVisibility(item){
+  const useMarker = !!item.meta.useMarker;
+  item.circle.setVisible(!useMarker);
+  if (useMarker) {
+    const m = ensureMarker(item);
+    if (m) m.setMap(map);
+  } else {
+    if (item.marker) item.marker.setMap(null);
+  }
+}
+
+function updateMarkersScale(){
+  const zoom = map.getZoom ? map.getZoom() : BASE_ZOOM;
+  circles.forEach(it=>{
+    if(it.marker && it.meta && it.meta.useMarker){
+      it.marker.setIcon(
+        buildMarkerIcon(
+          it.meta.markerColor || DEFAULT_MARKER_COLOR,
+          it.meta.markerScale || DEFAULT_MARKER_SCALE,
+          it.meta.markerKind  || DEFAULT_MARKER_KIND
+        )
+      );
+    }
+  });
+}
 
 function buildState(){
   const center = map.getCenter();
@@ -1041,4 +1352,44 @@ function buildState(){
   };
 }
 
-// ... باقي الدوال المساعدة تبقى كما هي ...
+function updateUIForShareMode(){
+  const editButtons = [btnAdd, btnRoute, btnRouteClear];
+  
+  editButtons.forEach(btn => {
+    if(btn){
+      if(shareMode){
+        btn.style.display = 'none';
+      } else {
+        btn.style.display = 'flex';
+      }
+    }
+  });
+  
+  if(modeBadge) {
+    modeBadge.textContent = shareMode ? 'SHARE' : 'EDIT';
+  }
+  
+  if(mapTypeSelector){
+    const label = document.querySelector('label[for="mapTypeSelector"]');
+    if(shareMode){
+      mapTypeSelector.style.display = 'none';
+      if(label) label.style.display = 'none';
+    } else {
+      mapTypeSelector.style.display = 'block';
+      if(label) label.style.display = 'block';
+    }
+  }
+  
+  if(shareMode){
+    document.body.classList.remove('add-cursor');
+    addMode = false;
+    if(btnAdd) btnAdd.setAttribute('aria-pressed','false');
+    
+    if(infoWin) infoWin.close();
+    if(routeCardWin) routeCardWin.close();
+    cardPinned = false;
+    routeCardPinned = false;
+  }
+  
+  setDraggableForAll(!shareMode && editMode);
+}
