@@ -1,6 +1,6 @@
-/* Diriyah Security Map – v11.10 (live-preview route styling + Google-like marker icons) */
+```javascript
+/* Diriyah Security Map – v11.11 (with map type selector) */
 'use strict';
-
 /* ---------------- Robust init ---------------- */
 let __BOOTED__ = false;
 function tryBoot(){
@@ -12,17 +12,15 @@ window.initMap = function(){ tryBoot(); };
 document.addEventListener('DOMContentLoaded', ()=>{ let n=0, iv=setInterval(()=>{ if(tryBoot()||++n>60) clearInterval(iv); },250); }, {passive:true});
 window.addEventListener('load', tryBoot, {once:true, passive:true});
 document.addEventListener('visibilitychange', ()=>{ !document.hidden ? tryBoot() : flushPersist(); }, {passive:true});
-
 /* ---------------- Globals ---------------- */
 let map, trafficLayer, infoWin=null;
 let editMode=false, shareMode=false, cardPinned=false, addMode=false;
 let btnRoadmap, btnSatellite, btnTraffic, btnShare, btnEdit, modeBadge, toast, btnAdd;
-
+let mapTypeSelector; // <-- إضافة متغير جديد
 /* حالة الهوفر للكرت/الدائرة */
 let cardHovering = false;
 let circleHovering = false;
 let cardHideTimer = null;
-
 function scheduleCardHide(){
   clearTimeout(cardHideTimer);
   if(cardPinned) return; // لو الكرت مثبت لا نخفيه
@@ -32,20 +30,16 @@ function scheduleCardHide(){
     }
   }, 120); // تأخير بسيط للسماح بانتقال الماوس بين الدائرة والكرت
 }
-
 const DEFAULT_CENTER = { lat:24.7399, lng:46.5731 };
 const DEFAULT_RADIUS = 20;
 const DEFAULT_COLOR  = '#ff0000';
 const DEFAULT_FILL_OPACITY = 0.40;
 const DEFAULT_STROKE_WEIGHT = 2;
-
 // marker defaults
 const DEFAULT_MARKER_COLOR = '#ea4335';   // Google red
 const DEFAULT_MARKER_SCALE = 1;
 const DEFAULT_MARKER_KIND  = 'pin';
-
 const BASE_ZOOM = 15;
-
 const LOCATIONS = [
   { id:0,  name:"بوابة سمحان", lat:24.742132284177778, lng:46.569503913805825 },
   { id:1,  name:"منطقة سمحان", lat:24.74091335108621,  lng:46.571891407130025 },
@@ -67,7 +61,6 @@ const LOCATIONS = [
   { id:17, name:"دوار راس النعامة", lat:24.710329841152387, lng:46.572921959358204 },
   { id:18, name:"مزرعة الحبيب", lat:24.709445443672344, lng:46.593971867951346 },
 ];
-
 /* SVG icons (Google-like) */
 const MARKER_KINDS = [
   { id:'pin',    label:'دبوس عام',      svg:pinSvg('#ea4335') },
@@ -77,7 +70,6 @@ const MARKER_KINDS = [
   { id:'gate',   label:'بوابة',         svg:gateSvg('#9aa0a6') },
   { id:'meet',   label:'نقطة تجمع',     svg:meetSvg('#e94235') },
 ];
-
 function pinSvg(fill){ return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <path fill="${fill}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
@@ -102,7 +94,6 @@ function meetSvg(fill){ return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <path fill="${fill}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
 </svg>`; }
-
 /* utilities */
 const clamp=(x,min,max)=>Math.min(max,Math.max(min,x));
 const escapeHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -114,18 +105,16 @@ const toHex=(c)=>{
   const [r,g,b]=[+m[1],+m[2],+m[3]];
   return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
 };
-const parseRecipients=t=>String(t).split(/\r?\n/).map(s=>s.replace(/[،;,]+/g,' ').trim()).filter(Boolean);
-
+const parseRecipients=t=>String(t).split(/\r?
+/).map(s=>s.replace(/[،;,]+/g,' ').trim()).filter(Boolean);
 let persistTimer=null;
 const persist=()=>{ if(shareMode) return; clearTimeout(persistTimer); persistTimer=setTimeout(()=>writeShare(buildState()),180); };
 function flushPersist(){ if(shareMode) return; clearTimeout(persistTimer); writeShare(buildState()); }
-
 /* Base64URL */
 function b64uEncode(s){ const b=btoa(unescape(encodeURIComponent(s))); return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 function b64uDecode(t){
   try{ t=String(t||'').replace(/[^A-Za-z0-9\-_]/g,''); const pad=t.length%4 ? '='.repeat(4-(t.length%4)) : ''; return decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/')+pad))); }catch{return '';} }
 function readShare(){ const h=(location.hash||'').trim(); if(!/^#x=/.test(h)) return null; try{return JSON.parse(b64uDecode(h.slice(3)));}catch{return null;} }
-
 /* SVG icon builder */
 function buildMarkerIcon(color, userScale, kindId){
   const currentZoom = (typeof map !== 'undefined' && map && typeof map.getZoom === 'function') ? map.getZoom() : BASE_ZOOM;
@@ -138,10 +127,8 @@ function buildMarkerIcon(color, userScale, kindId){
   const encoded = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
   return { url: encoded, scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(Math.round(w/2), Math.round(h)) };
 }
-
 /* circles & markers arrays */
 const circles = [];
-
 /* ---------- Route (Directions) feature ---------- */
 let directionsService = null;
 let directionsRenderer = null;
@@ -152,16 +139,13 @@ let currentRouteOverview = null;
 let activeRoutePoly = null;         // Polyline مستخرج للتعديل الفوري
 let routeCardWin = null;
 let routeCardPinned = false;
-
 let btnRoute, btnRouteClear;
-
 /* نمط المسار المشترك بين الـ DirectionsRenderer والـ Polyline */
 let routeStyle = {
   color: '#3344ff',
   weight: 4,
   opacity: 0.95
 };
-
 function ensureDirections(){
   if(!directionsService) directionsService = new google.maps.DirectionsService();
   if(!directionsRenderer){
@@ -185,7 +169,6 @@ function ensureDirections(){
     });
   }
 }
-
 function createStopMarker(position, index){
   const m = new google.maps.Marker({
     position,
@@ -199,7 +182,6 @@ function createStopMarker(position, index){
   m.addListener('rightclick', ()=>{ removeRoutePoint(index); persist(); });
   return m;
 }
-
 function clearRouteVisuals(){
   routeStopMarkers.forEach(m=>m.setMap(null));
   routeStopMarkers = [];
@@ -207,7 +189,6 @@ function clearRouteVisuals(){
   if(activeRoutePoly) { activeRoutePoly.setMap(null); activeRoutePoly = null; }
   currentRouteOverview = null;
 }
-
 function addRoutePoint(latLng){
   routePoints.push(latLng);
   const idx = routePoints.length - 1;
@@ -216,7 +197,6 @@ function addRoutePoint(latLng){
   requestAndRenderRoute();
   persist();
 }
-
 function removeRoutePoint(idx){
   if(idx < 0 || idx >= routePoints.length) return;
   routePoints.splice(idx,1);
@@ -225,7 +205,6 @@ function removeRoutePoint(idx){
   routeStopMarkers.forEach((m,i)=>{ if(m.getLabel) m.setLabel({ text:String(i+1), color:'#3344ff', fontSize:'11px', fontWeight:'700' }); });
   requestAndRenderRoute();
 }
-
 function requestAndRenderRoute(){
   if(!map) return;
   ensureDirections();
@@ -257,7 +236,6 @@ function requestAndRenderRoute(){
     }
   });
 }
-
 function extractActivePolyline(){
   if(!directionsRenderer) return;
   const dir = directionsRenderer.getDirections();
@@ -265,7 +243,6 @@ function extractActivePolyline(){
   const path = dir.routes[0].overview_path;
   if(!path || !path.length) return;
   if(activeRoutePoly) activeRoutePoly.setMap(null);
-
   activeRoutePoly = new google.maps.Polyline({
     map,
     path,
@@ -274,10 +251,8 @@ function extractActivePolyline(){
     strokeOpacity: routeStyle.opacity,
     zIndex: 9997
   });
-
   activeRoutePoly.addListener('click', (e)=>{ openRouteCard(e.latLng); });
 }
-
 function restoreRouteFromOverview(polyStr){
   if(!polyStr) return;
   try{
@@ -295,25 +270,20 @@ function restoreRouteFromOverview(polyStr){
     activeRoutePoly.addListener('click', (e)=>{ openRouteCard(e.latLng); });
   }catch(e){ console.warn('restoreRouteFromOverview failed', e); }
 }
-
 /* ---------------- Route Card (live-preview) ---------------- */
 function openRouteCard(latLng){
   if(shareMode) return;
   if(routeCardWin) routeCardWin.close();
-
   routeCardWin = new google.maps.InfoWindow({
     content: renderRouteCard(),
     position: latLng,
     maxWidth: 380,
     pixelOffset: new google.maps.Size(0,-6)
   });
-
   routeCardWin.open({ map });
   routeCardPinned = true;
-
   google.maps.event.addListenerOnce(routeCardWin, 'domready', () => {
     attachRouteCardEvents();
-
     setTimeout(()=>{
       const root=document.getElementById('route-card-root');
       if(!root) return;
@@ -327,7 +297,6 @@ function openRouteCard(latLng){
     },0);
   });
 }
-
 function renderRouteCard(){
   const poly = activeRoutePoly;
   if(poly){
@@ -338,11 +307,9 @@ function renderRouteCard(){
     if(Number.isFinite(w)) routeStyle.weight = w;
     if(Number.isFinite(o)) routeStyle.opacity = o;
   }
-
   const color   = routeStyle.color   || '#3344ff';
   const weight  = Number.isFinite(routeStyle.weight)  ? routeStyle.weight  : 4;
   const opacity = Number.isFinite(routeStyle.opacity) ? routeStyle.opacity : 0.95;
-
   return `
   <div id="route-card-root" dir="rtl" style="min-width:320px">
     <div style="background:rgba(255,255,255,0.93); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
@@ -351,7 +318,6 @@ function renderRouteCard(){
         <img src="img/diriyah-logo.png" alt="Diriyah" style="width:40px;height:40px;object-fit:contain;">
         <div style="flex:1;font-weight:800;font-size:16px;">إعدادات المسار</div>
       </div>
-
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
         <div class="field"><label style="font-size:12px;color:#333;">اللون:</label>
           <input id="route-color" type="color" value="${color}" style="width:100%;height:28px;border:none;background:transparent;padding:0"></div>
@@ -362,7 +328,6 @@ function renderRouteCard(){
           <input id="route-opacity" type="range" min="0.1" max="1" step="0.05" value="${opacity}" style="width:100%;">
           <span id="route-opacity-lbl" style="font-size:12px;color:#666">${opacity.toFixed(2)}</span></div>
       </div>
-
       <div style="display:flex;gap:6px;margin-top:10px;">
         <button id="route-save"  style="flex:1;border:1px solid #ddd;background:#fff;border-radius:10px;padding:6px 8px;cursor:pointer;">حفظ</button>
         <button id="route-close" style="flex:1;border:1px solid #ddd;background:#fff;border-radius:10px;padding:6px 8px;cursor:pointer;">إغلاق</button>
@@ -370,7 +335,6 @@ function renderRouteCard(){
     </div>
   </div>`;
 }
-
 function attachRouteCardEvents(){
   const colorEl   = document.getElementById('route-color');
   const weightEl  = document.getElementById('route-weight');
@@ -379,25 +343,19 @@ function attachRouteCardEvents(){
   const opacityLbl= document.getElementById('route-opacity-lbl');
   const saveBtn   = document.getElementById('route-save');
   const closeBtn  = document.getElementById('route-close');
-
   function apply(){
     if(!colorEl || !weightEl || !opacityEl) return;
-
     const clr = colorEl.value || '#3344ff';
     const w   = +weightEl.value || 1;
     const o   = +opacityEl.value || 1;
-
     if(weightLbl) weightLbl.textContent = w;
     if(opacityLbl) opacityLbl.textContent = o.toFixed(2);
-
     routeStyle.color   = clr;
     routeStyle.weight  = w;
     routeStyle.opacity = o;
-
     if(activeRoutePoly){
       activeRoutePoly.setOptions({ strokeColor: clr, strokeWeight: w, strokeOpacity: o });
     }
-
     if(directionsRenderer){
       directionsRenderer.setOptions({
         polylineOptions: {
@@ -411,10 +369,8 @@ function attachRouteCardEvents(){
         directionsRenderer.setDirections(dir);
       }
     }
-
     persist();
   }
-
   if(colorEl){
     colorEl.addEventListener('input', apply, {passive:true});
     colorEl.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
@@ -427,7 +383,6 @@ function attachRouteCardEvents(){
     opacityEl.addEventListener('input', apply, {passive:true});
     opacityEl.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   }
-
   if(saveBtn){
     saveBtn.addEventListener('click', ()=>{
       flushPersist();
@@ -443,7 +398,6 @@ function attachRouteCardEvents(){
     }, {passive:true});
   }
 }
-
 /* ---------------- State write/read (hash) ---------------- */
 function writeShare(state){
   if(shareMode) return;
@@ -461,16 +415,28 @@ function applyState(s){
   if(Array.isArray(s.p) && s.p.length === 2){ map.setCenter({lat:s.p[1], lng:s.p[0]}); }
   if(Number.isFinite(s.z)){ map.setZoom(s.z); }
   if(typeof s.m === 'string'){
+    let mapTypeId = s.m;
+    // تحويل الرموز إلى نوع الخريطة الكامل
+    if (s.m === 'r') mapTypeId = 'roadmap';
+    else if (s.m === 's') mapTypeId = 'satellite';
+    else if (s.m === 'h') mapTypeId = 'hybrid';
+    else if (s.m === 't') mapTypeId = 'terrain';
+    // تأكد أن نوع الخريطة مدعوم
+    if(['roadmap', 'satellite', 'hybrid', 'terrain'].includes(mapTypeId)) {
+      map.setMapTypeId(mapTypeId);
+      // تحديث القائمة المنسدلة
+      if (mapTypeSelector) mapTypeSelector.value = mapTypeId;
+    }
+    // --- الحفاظ على التوافق مع الأزرار القديمة ---
     const isRoad = (s.m === 'r');
-    map.setMapTypeId(isRoad ? 'roadmap' : 'hybrid');
     if(btnRoadmap && btnSatellite){
       btnRoadmap.setAttribute('aria-pressed', isRoad ? 'true' : 'false');
       btnSatellite.setAttribute('aria-pressed', isRoad ? 'false' : 'true');
     }
+    // ---
   }
   if (s.t === 1){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
   else if (s.t === 0){ trafficLayer.setMap(null); btnTraffic.setAttribute('aria-pressed','false'); }
-
   if(Array.isArray(s.c)){
     s.c.forEach(row=>{
       const [id,r,sc,fo,sw,rec,name,useMarker,mc,ms,mk] = row;
@@ -529,7 +495,6 @@ function applyState(s){
   }
   if(s && s.r && s.r.ov){ restoreRouteFromOverview(s.r.ov); }
 }
-
 /* ---------------- Boot ---------------- */
 function boot(){
   btnRoadmap  = document.getElementById('btnRoadmap');
@@ -543,6 +508,32 @@ function boot(){
   modeBadge   = document.getElementById('modeBadge');
   toast       = document.getElementById('toast');
 
+  // --- إنشاء عنصر القائمة المنسدلة ---
+  const mapControlsDiv = document.createElement('div');
+  mapControlsDiv.id = 'mapControls';
+  mapControlsDiv.style.cssText = `
+    position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; padding: 8px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    display: flex; flex-direction: column; gap: 4px; max-width: 200px;
+  `;
+  const label = document.createElement('label');
+  label.htmlFor = 'mapTypeSelector';
+  label.textContent = 'نوع الخريطة:';
+  label.style.cssText = 'font-size: 12px; margin-bottom: 2px; color: #333;';
+  const select = document.createElement('select');
+  select.id = 'mapTypeSelector';
+  select.style.cssText = 'font-size: 14px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; background: white;';
+  select.innerHTML = `
+    <option value="roadmap"> roadmap - الطرق </option>
+    <option value="satellite"> satellite - الأقمار الصناعية </option>
+    <option value="hybrid"> hybrid - مختلط </option>
+    <option value="terrain"> terrain - التضاريس </option>
+  `;
+  mapControlsDiv.appendChild(label);
+  mapControlsDiv.appendChild(select);
+  document.body.appendChild(mapControlsDiv);
+  mapTypeSelector = select; // <-- ربط المتغير
+  // --- النهاية ---
+
   map = new google.maps.Map(document.getElementById('map'), {
     center:DEFAULT_CENTER,
     zoom:15,
@@ -551,31 +542,42 @@ function boot(){
     clickableIcons:false,
     gestureHandling:'greedy'
   });
+
+  // --- ربط الحدث بتغيير نوع الخريطة ---
+  mapTypeSelector.addEventListener('change', () => {
+    const selectedType = mapTypeSelector.value;
+    map.setMapTypeId(selectedType);
+    persist(); // <-- لحفظ التغيير في الرابط
+  }, {passive:true});
+
+  // --- تحديث القائمة عند تغيير نوع الخريطة من مصدر آخر (مثل الأزرار القديمة أو الرابط) ---
+  map.addListener('maptypeid_changed', () => {
+    const currentType = map.getMapTypeId();
+    if (['roadmap', 'satellite', 'hybrid', 'terrain'].includes(currentType)) {
+      mapTypeSelector.value = currentType;
+    }
+  });
+
   trafficLayer = new google.maps.TrafficLayer();
-
   map.addListener('zoom_changed', throttle(updateMarkersScale, 80));
-
   btnRoadmap.addEventListener('click', ()=>{
     map.setMapTypeId('roadmap');
     btnRoadmap.setAttribute('aria-pressed','true');
     btnSatellite.setAttribute('aria-pressed','false');
     persist();
   }, {passive:true});
-
   btnSatellite.addEventListener('click', ()=>{
     map.setMapTypeId('hybrid');
     btnSatellite.setAttribute('aria-pressed','true');
     btnRoadmap.setAttribute('aria-pressed','false');
     persist();
   }, {passive:true});
-
   btnTraffic.addEventListener('click', ()=>{
     const on=btnTraffic.getAttribute('aria-pressed')==='true';
     if(on) trafficLayer.setMap(null); else trafficLayer.setMap(map);
     btnTraffic.setAttribute('aria-pressed', String(!on));
     persist();
   }, {passive:true});
-
   if(btnRoute){
     btnRoute.addEventListener('click', ()=>{
       if(shareMode){ showToast('وضع المشاركة لا يسمح بالتحرير'); return; }
@@ -591,7 +593,6 @@ function boot(){
       }
     }, {passive:true});
   }
-
   if(btnRouteClear){
     btnRouteClear.addEventListener('click', ()=>{
       routePoints = [];
@@ -600,14 +601,12 @@ function boot(){
       showToast('تم مسح المسار');
     }, {passive:true});
   }
-
   btnShare.addEventListener('click', async ()=>{
     await nextTick();
     flushPersist();
     await nextTick();
     await copyShareLink();
   }, {passive:true});
-
   btnEdit.addEventListener('click', ()=>{
     if(shareMode) return;
     editMode=!editMode; cardPinned=false; if(infoWin) infoWin.close();
@@ -620,7 +619,6 @@ function boot(){
     }
     persist();
   }, {passive:true});
-
   btnAdd.addEventListener('click', ()=>{
     if(shareMode) return;
     if(!editMode){ showToast('فعّل وضع التحرير أولاً'); return; }
@@ -629,19 +627,15 @@ function boot(){
     document.body.classList.toggle('add-cursor', addMode);
     showToast(addMode?'انقر على الخريطة لإضافة موقع جديد':'تم إلغاء الإضافة');
   }, {passive:true});
-
   map.addListener('click', (e)=>{
     cardHovering = false;
     circleHovering = false;
-
     if (cardPinned && infoWin) { infoWin.close(); cardPinned = false; }
     if (routeCardPinned && routeCardWin) { routeCardWin.close(); routeCardPinned = false; }
-
     if(routeMode && editMode && !shareMode){
       addRoutePoint(e.latLng);
       return;
     }
-
     if(addMode && editMode && !shareMode){
       const id = genNewId();
       const circle = new google.maps.Circle({
@@ -672,7 +666,6 @@ function boot(){
       updateMarkersScale();
     }
   });
-
   const openCardThrottled = throttle((item, pin)=>openCard(item, pin), 120);
   LOCATIONS.forEach(loc=>{
     const circle = new google.maps.Circle({
@@ -693,7 +686,6 @@ function boot(){
     };
     const item = { id:loc.id, circle, marker:null, meta };
     circles.push(item);
-
     circle.addListener('mouseover', ()=>{
       circleHovering = true;
       if(!cardPinned) openCardThrottled(item, false); // كرت معاينة فقط
@@ -706,22 +698,18 @@ function boot(){
       openCard(item, true); // فتح مع تثبيت
     });
   });
-
   const S = readShare();
   shareMode = !!S;
   if(S){ applyState(S); setViewOnly(); }
   else { writeShare(buildState()); }
-
   updateMarkersScale();
   map.addListener('idle', persist);
   window.addEventListener('beforeunload', ()=>{ flushPersist(); });
 }
-
 /* helper to bind circle events */
 function bindCircleEvents(item){
   const openCardThrottled = throttle((it, pin)=>openCard(it, pin), 120);
   const c = item.circle;
-
   c.addListener('mouseover', ()=>{
     circleHovering = true;
     if(!cardPinned) openCardThrottled(item, false); // معاينة
@@ -733,13 +721,11 @@ function bindCircleEvents(item){
   c.addListener('click',     ()=>{
     openCard(item, true); // تثبيت
   });
-
   google.maps.event.addListener(c,'center_changed', ()=>{
     if(item.marker){ item.marker.setPosition(c.getCenter()); }
     persist();
   });
 }
-
 /* ---------------- Card (locations) ---------------- */
 function openCard(item, pin = true){
   if(!infoWin) infoWin = new google.maps.InfoWindow({ content:'', maxWidth:520, pixelOffset:new google.maps.Size(0,-6) });
@@ -747,7 +733,6 @@ function openCard(item, pin = true){
   infoWin.setPosition(item.circle.getCenter());
   infoWin.open({ map });
   cardPinned = !!pin; // لو pin=false: كرت معاينة فقط
-
   setTimeout(()=>{
     const root=document.getElementById('iw-root'); if(!root) return;
     const close=root.parentElement?.querySelector('.gm-ui-hover-effect'); if(close) close.style.display='none';
@@ -761,7 +746,6 @@ function openCard(item, pin = true){
     attachCardEvents(item);
   },0);
 }
-
 function renderCard(item){
   const c=item.circle, meta=item.meta;
   const names=Array.isArray(meta.recipients)?meta.recipients:[];
@@ -778,7 +762,6 @@ function renderCard(item){
   const markerScale = Number.isFinite(meta.markerScale) ? meta.markerScale : DEFAULT_MARKER_SCALE;
   const markerKind  = meta.markerKind || DEFAULT_MARKER_KIND;
   const optionsHtml = MARKER_KINDS.map(k=>`<option value="${k.id}" ${k.id===markerKind?'selected':''}>${k.label}</option>`).join('');
-
   return `
   <div id="iw-root" dir="rtl" style="min-width:360px;max-width:520px">
     <div style="background:rgba(255,255,255,0.93); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
@@ -796,20 +779,16 @@ function renderCard(item){
         ${(!shareMode && editMode) ? `<button id="btn-card-share" title="نسخ الرابط"
             style="margin-inline-start:6px;border:1px solid #ddd;background:#fff;border-radius:10px;padding:4px 8px;cursor:pointer;">نسخ الرابط</button>` : ``}
       </div>
-
       <div style="font-size:12px;color:#666;margin-bottom:6px">
         الإحداثيات: ${center.lat().toFixed(6)}, ${center.lng().toFixed(6)}
       </div>
-
       <div style="border-top:1px dashed #e7e7e7; padding-top:8px;">
         <div style="font-weight:700; margin-bottom:4px;">المستلمون:</div>
         ${namesHtml}
       </div>
-
       ${(!shareMode && editMode) ? `
       <div style="margin-top:12px;border-top:1px dashed #e7e7e7;padding-top:10px;">
         <div style="font-weight:700; margin-bottom:6px;">أدوات التمثيل:</div>
-
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
           <label style="font-size:12px;color:#333;white-space:nowrap;">نوع التمثيل:</label>
           <select id="ctl-shape" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:4px 6px;">
@@ -817,7 +796,6 @@ function renderCard(item){
             <option value="marker" ${useMarker?'selected':''}>أيقونة</option>
           </select>
         </div>
-
         <div id="circle-tools" style="${useMarker?'display:none;':''}">
           <div style="font-weight:700; margin-bottom:6px;">أدوات الدائرة:</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -833,7 +811,6 @@ function renderCard(item){
               <span id="lbl-fill" style="font-size:12px;color:#666">${fillO.toFixed(2)}</span></div>
           </div>
         </div>
-
         <div id="marker-tools" style="margin-top:10px;${useMarker?'':'display:none;'}">
           <div style="font-weight:700; margin-bottom:6px;">أدوات الأيقونة:</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -850,10 +827,10 @@ function renderCard(item){
               <span id="lbl-marker-scale" style="font-size:12px;color:#666">${markerScale.toFixed(1)}</span></div>
           </div>
         </div>
-
         <div style="margin-top:8px;">
           <label style="font-size:12px;color:#666">أسماء المستلمين (سطر لكل اسم):</label>
-          <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;">${escapeHtml(names.join("\n"))}</textarea>
+          <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;">${escapeHtml(names.join("
+"))}</textarea>
           <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
             <button id="btn-save"  style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حفظ</button>
             <button id="btn-clear" style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الأسماء</button>
@@ -865,11 +842,9 @@ function renderCard(item){
     </div>
   </div>`;
 }
-
 function attachCardEvents(item){
   if(shareMode || !editMode) return;
   const c=item.circle;
-
   const root = document.getElementById('iw-root');
   if(root){
     root.addEventListener('mouseenter', ()=>{
@@ -880,14 +855,12 @@ function attachCardEvents(item){
       scheduleCardHide();
     }, {passive:true});
   }
-
   const inShare=document.getElementById('btn-card-share');
   if(inShare) inShare.addEventListener('click', async ()=>{
     flushPersist();
     await nextTick();
     await copyShareLink();
   }, {passive:true});
-
   const nameEl=document.getElementById('ctl-name');
   const r=document.getElementById('ctl-radius');
   const lr=document.getElementById('lbl-radius');
@@ -899,7 +872,6 @@ function attachCardEvents(item){
   const save=document.getElementById('btn-save');
   const clr=document.getElementById('btn-clear');
   const del=document.getElementById('btn-del');
-
   const shapeSel=document.getElementById('ctl-shape');
   const circleTools=document.getElementById('circle-tools');
   const markerTools=document.getElementById('marker-tools');
@@ -907,9 +879,7 @@ function attachCardEvents(item){
   const markerScaleEl=document.getElementById('ctl-marker-scale');
   const markerScaleLbl=document.getElementById('lbl-marker-scale');
   const markerKindSel=document.getElementById('ctl-marker-kind');
-
   const persistBoth=(fn)=>(...a)=>{ fn(...a); persist(); };
-
   if(nameEl){
     const h=()=>{ item.meta.name = nameEl.value.trim(); };
     nameEl.addEventListener('input', persistBoth(h), {passive:true});
@@ -950,7 +920,6 @@ function attachCardEvents(item){
     }, {passive:true});
     fo.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   }
-
   if(shapeSel){
     shapeSel.addEventListener('change', ()=>{
       const useMarker = (shapeSel.value === 'marker');
@@ -999,7 +968,6 @@ function attachCardEvents(item){
     }, {passive:true});
     markerScaleEl.addEventListener('change', ()=>{ flushPersist(); }, {passive:true});
   }
-
   if(save){
     save.addEventListener('click', ()=>{
       item.meta.recipients = parseRecipients(names.value);
@@ -1031,7 +999,6 @@ function attachCardEvents(item){
     });
   }
 }
-
 /* ---------------- View-only ---------------- */
 function setViewOnly(){
   editMode=false;
@@ -1039,7 +1006,6 @@ function setViewOnly(){
   modeBadge.textContent='Share';
   setDraggableForAll(false);
 }
-
 /* ---------------- Share ---------------- */
 async function copyShareLink(){
   try{
@@ -1050,7 +1016,6 @@ async function copyShareLink(){
     tmp.select(); document.execCommand('copy'); tmp.remove(); showToast('تم النسخ');
   }
 }
-
 /* ---------------- Helpers ---------------- */
 function showToast(msg){ if(!toast) return; toast.textContent=msg; toast.classList.remove('hidden'); setTimeout(()=>toast.classList.add('hidden'),1600); }
 function throttle(fn,ms){
@@ -1072,7 +1037,6 @@ function throttle(fn,ms){
 function setDraggableForAll(on){ circles.forEach(it=> it.circle.setDraggable(on)); }
 function genNewId(){ let id = -Date.now(); while(circles.some(x=>x.id===id)) id--; return id; }
 function nextTick(){ return new Promise(res=> requestAnimationFrame(()=> requestAnimationFrame(res))); }
-
 /* ---------------- Marker & state helpers ---------------- */
 function ensureMarker(item){
   if (item.meta && item.meta.useMarker) {
@@ -1096,7 +1060,6 @@ function ensureMarker(item){
   }
   return item.marker;
 }
-
 function applyShapeVisibility(item){
   const useMarker = !!item.meta.useMarker;
   item.circle.setVisible(true); // الدائرة تبقى مرئية دائماً (يمكنك تغيير هذا لو أردت)
@@ -1107,7 +1070,6 @@ function applyShapeVisibility(item){
     if (item.marker) item.marker.setMap(null);
   }
 }
-
 function updateMarkersScale(){
   const zoom = map.getZoom ? map.getZoom() : BASE_ZOOM;
   circles.forEach(it=>{
@@ -1122,14 +1084,11 @@ function updateMarkersScale(){
     }
   });
 }
-
 function buildState(){
   const center = map.getCenter();
   const zoom   = map.getZoom();
-
   const cRows = [];
   const nRows = [];
-
   circles.forEach(it=>{
     const ctr = it.circle.getCenter();
     const r  = Math.round(it.circle.getRadius());
@@ -1142,20 +1101,21 @@ function buildState(){
     const mc = (it.meta.markerColor || '').replace('#','');
     const ms = it.meta.markerScale || DEFAULT_MARKER_SCALE;
     const mk = it.meta.markerKind || DEFAULT_MARKER_KIND;
-
     if(it.meta.isNew){
       nRows.push([it.id, ctr.lat(), ctr.lng(), name, r, sc, fo, sw, rec, useMarker, mc, ms, mk]);
     }else{
       cRows.push([it.id, r, sc, fo, sw, rec, name, useMarker, mc, ms, mk]);
     }
   });
-
   const typ = map.getMapTypeId && map.getMapTypeId();
-  const m = (typ === 'roadmap') ? 'r' : 'h';
+  // تحويل نوع الخريطة إلى رمز مختصر
+  let m = 'r'; // افتراضي
+  if(typ === 'roadmap') m = 'r';
+  else if(typ === 'satellite') m = 's';
+  else if(typ === 'hybrid') m = 'h';
+  else if(typ === 'terrain') m = 't';
   const t = (trafficLayer && trafficLayer.getMap && trafficLayer.getMap()) ? 1 : 0;
-
   const r = currentRouteOverview ? { ov: currentRouteOverview } : null;
-
   return {
     p:[center.lng(), center.lat()],
     z:zoom,
@@ -1166,3 +1126,4 @@ function buildState(){
     r
   };
 }
+```
