@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v11.12 (final fix for syntax errors) */
+/* Diriyah Security Map – v11.13 (with map type selector, syntax errors fixed) */
 'use strict';
 /* ---------------- Robust init ---------------- */
 let __BOOTED__ = false;
@@ -15,18 +15,19 @@ document.addEventListener('visibilitychange', ()=>{ !document.hidden ? tryBoot()
 let map, trafficLayer, infoWin=null;
 let editMode=false, shareMode=false, cardPinned=false, addMode=false;
 let btnRoadmap, btnSatellite, btnTraffic, btnShare, btnEdit, modeBadge, toast, btnAdd;
+let mapTypeSelector; // <-- متغير جديد للقائمة
 /* حالة الهوفر للكرت/الدائرة */
 let cardHovering = false;
 let circleHovering = false;
 let cardHideTimer = null;
 function scheduleCardHide(){
   clearTimeout(cardHideTimer);
-  if(cardPinned) return; // لو الكرت مثبت لا نخفيه
+  if(cardPinned) return;
   cardHideTimer = setTimeout(()=>{
     if(!cardPinned && !cardHovering && !circleHovering && infoWin){
       infoWin.close();
     }
-  }, 120); // تأخير بسيط للسماح بانتقال الماوس بين الدائرة والكرت
+  }, 120);
 }
 const DEFAULT_CENTER = { lat:24.7399, lng:46.5731 };
 const DEFAULT_RADIUS = 20;
@@ -34,7 +35,7 @@ const DEFAULT_COLOR  = '#ff0000';
 const DEFAULT_FILL_OPACITY = 0.40;
 const DEFAULT_STROKE_WEIGHT = 2;
 // marker defaults
-const DEFAULT_MARKER_COLOR = '#ea4335';   // Google red
+const DEFAULT_MARKER_COLOR = '#ea4335';
 const DEFAULT_MARKER_SCALE = 1;
 const DEFAULT_MARKER_KIND  = 'pin';
 const BASE_ZOOM = 15;
@@ -59,7 +60,7 @@ const LOCATIONS = [
   { id:17, name:"دوار راس النعامة", lat:24.710329841152387, lng:46.572921959358204 },
   { id:18, name:"مزرعة الحبيب", lat:24.709445443672344, lng:46.593971867951346 },
 ];
-/* SVG icons (Google-like) */
+/* SVG icons */
 const MARKER_KINDS = [
   { id:'pin',    label:'دبوس عام',      svg:pinSvg('#ea4335') },
   { id:'guard',  label:'رجل أمن',       svg:guardSvg('#4285f4') },
@@ -115,11 +116,10 @@ let routeMode = false;
 let routePoints = [];
 let routeStopMarkers = [];
 let currentRouteOverview = null;
-let activeRoutePoly = null;         // Polyline مستخرج للتعديل الفوري
+let activeRoutePoly = null;
 let routeCardWin = null;
 let routeCardPinned = false;
 let btnRoute, btnRouteClear;
-/* نمط المسار المشترك بين الـ DirectionsRenderer والـ Polyline */
 let routeStyle = {
   color: '#3344ff',
   weight: 4,
@@ -343,10 +343,6 @@ function attachRouteCardEvents(){
           strokeOpacity: o
         }
       });
-      const dir = directionsRenderer.getDirections && directionsRenderer.getDirections();
-      if(dir){
-        directionsRenderer.setDirections(dir);
-      }
     }
     persist();
   }
@@ -394,8 +390,16 @@ function applyState(s){
   if(Array.isArray(s.p) && s.p.length === 2){ map.setCenter({lat:s.p[1], lng:s.p[0]}); }
   if(Number.isFinite(s.z)){ map.setZoom(s.z); }
   if(typeof s.m === 'string'){
+    let mapTypeId = s.m;
+    if (s.m === 'r') mapTypeId = 'roadmap';
+    else if (s.m === 's') mapTypeId = 'satellite';
+    else if (s.m === 'h') mapTypeId = 'hybrid';
+    else if (s.m === 't') mapTypeId = 'terrain';
+    if(['roadmap','satellite','hybrid','terrain'].includes(mapTypeId)){
+      map.setMapTypeId(mapTypeId);
+      if(mapTypeSelector) mapTypeSelector.value = mapTypeId;
+    }
     const isRoad = (s.m === 'r');
-    map.setMapTypeId(isRoad ? 'roadmap' : 'hybrid');
     if(btnRoadmap && btnSatellite){
       btnRoadmap.setAttribute('aria-pressed', isRoad ? 'true' : 'false');
       btnSatellite.setAttribute('aria-pressed', isRoad ? 'false' : 'true');
@@ -473,6 +477,38 @@ function boot(){
   btnRouteClear = document.getElementById('btnRouteClear');
   modeBadge   = document.getElementById('modeBadge');
   toast       = document.getElementById('toast');
+
+  // --- إنشاء القائمة المنسدلة ---
+  const mapControlsDiv = document.createElement('div');
+  mapControlsDiv.id = 'mapControls';
+  mapControlsDiv.style.cssText = `
+    position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; padding: 8px; 
+    border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); font-family: Tajawal, sans-serif;
+    display: flex; flex-direction: column; gap: 4px; max-width: 200px;
+  `;
+  const label = document.createElement('label');
+  label.htmlFor = 'mapTypeSelector';
+  label.textContent = 'نوع الخريطة:';
+  label.style.cssText = 'font-size: 12px; margin-bottom: 2px; color: #333;';
+  mapTypeSelector = document.createElement('select');
+  mapTypeSelector.id = 'mapTypeSelector';
+  mapTypeSelector.style.cssText = 'font-size: 14px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; background: white;';
+  mapTypeSelector.innerHTML = `
+    <option value="roadmap">الطرق</option>
+    <option value="satellite">الأقمار الصناعية</option>
+    <option value="hybrid">مختلط</option>
+    <option value="terrain">التضاريس</option>
+  `;
+  mapControlsDiv.appendChild(label);
+  mapControlsDiv.appendChild(mapTypeSelector);
+  document.body.appendChild(mapControlsDiv);
+
+  mapTypeSelector.addEventListener('change', () => {
+    const type = mapTypeSelector.value;
+    map.setMapTypeId(type);
+    persist();
+  }, {passive:true});
+
   map = new google.maps.Map(document.getElementById('map'), {
     center:DEFAULT_CENTER,
     zoom:15,
@@ -481,18 +517,29 @@ function boot(){
     clickableIcons:false,
     gestureHandling:'greedy'
   });
+
+  map.addListener('maptypeid_changed', () => {
+    const type = map.getMapTypeId();
+    if(mapTypeSelector && ['roadmap','satellite','hybrid','terrain'].includes(type)) {
+      mapTypeSelector.value = type;
+    }
+  });
+
   trafficLayer = new google.maps.TrafficLayer();
   map.addListener('zoom_changed', throttle(updateMarkersScale, 80));
+
   btnRoadmap.addEventListener('click', ()=>{
     map.setMapTypeId('roadmap');
     btnRoadmap.setAttribute('aria-pressed','true');
     btnSatellite.setAttribute('aria-pressed','false');
+    mapTypeSelector.value = 'roadmap';
     persist();
   }, {passive:true});
   btnSatellite.addEventListener('click', ()=>{
     map.setMapTypeId('hybrid');
     btnSatellite.setAttribute('aria-pressed','true');
     btnRoadmap.setAttribute('aria-pressed','false');
+    mapTypeSelector.value = 'hybrid';
     persist();
   }, {passive:true});
   btnTraffic.addEventListener('click', ()=>{
@@ -501,45 +548,32 @@ function boot(){
     btnTraffic.setAttribute('aria-pressed', String(!on));
     persist();
   }, {passive:true});
+
   if(btnRoute){
     btnRoute.addEventListener('click', ()=>{
       if(shareMode){ showToast('وضع المشاركة لا يسمح بالتحرير'); return; }
       routeMode = !routeMode;
       btnRoute.setAttribute('aria-pressed', String(routeMode));
       if(routeMode){
-        showToast('وضع المسار مفعل — انقر على الخريطة لإضافة نقاط المسار. سحب نقطة يمكّنك من إعادة تموضعها. كليك يمين لحذف نقطة.');
-        addMode = false;
-        btnAdd.setAttribute('aria-pressed','false');
-        document.body.classList.remove('add-cursor');
-      } else {
-        showToast('تم إيقاف وضع المسار');
-      }
+        showToast('وضع المسار مفعل — انقر على الخريطة لإضافة نقاط.');
+        addMode = false; btnAdd.setAttribute('aria-pressed','false'); document.body.classList.remove('add-cursor');
+      } else { showToast('تم إيقاف وضع المسار'); }
     }, {passive:true});
   }
   if(btnRouteClear){
     btnRouteClear.addEventListener('click', ()=>{
-      routePoints = [];
-      clearRouteVisuals();
-      persist();
-      showToast('تم مسح المسار');
+      routePoints = []; clearRouteVisuals(); persist(); showToast('تم مسح المسار');
     }, {passive:true});
   }
   btnShare.addEventListener('click', async ()=>{
-    await nextTick();
-    flushPersist();
-    await nextTick();
-    await copyShareLink();
+    await nextTick(); flushPersist(); await nextTick(); await copyShareLink();
   }, {passive:true});
   btnEdit.addEventListener('click', ()=>{
     if(shareMode) return;
     editMode=!editMode; cardPinned=false; if(infoWin) infoWin.close();
     modeBadge.textContent=editMode?'Edit':'Share';
     setDraggableForAll(editMode);
-    if(!editMode){
-      addMode=false;
-      btnAdd.setAttribute('aria-pressed','false');
-      document.body.classList.remove('add-cursor');
-    }
+    if(!editMode){ addMode=false; btnAdd.setAttribute('aria-pressed','false'); document.body.classList.remove('add-cursor'); }
     persist();
   }, {passive:true});
   btnAdd.addEventListener('click', ()=>{
@@ -550,9 +584,9 @@ function boot(){
     document.body.classList.toggle('add-cursor', addMode);
     showToast(addMode?'انقر على الخريطة لإضافة موقع جديد':'تم إلغاء الإضافة');
   }, {passive:true});
+
   map.addListener('click', (e)=>{
-    cardHovering = false;
-    circleHovering = false;
+    cardHovering = false; circleHovering = false;
     if (cardPinned && infoWin) { infoWin.close(); cardPinned = false; }
     if (routeCardPinned && routeCardWin) { routeCardWin.close(); routeCardPinned = false; }
     if(routeMode && editMode && !shareMode){
@@ -568,14 +602,8 @@ function boot(){
         clickable:true, draggable:true, editable:false, zIndex:9999
       });
       const meta = {
-        name:'موقع جديد',
-        origName:'موقع جديد',
-        recipients:[],
-        isNew:true,
-        useMarker:false,
-        markerColor:undefined,
-        markerScale:undefined,
-        markerKind:DEFAULT_MARKER_KIND
+        name:'موقع جديد', origName:'موقع جديد', recipients:[], isNew:true,
+        useMarker:false, markerColor:undefined, markerScale:undefined, markerKind:DEFAULT_MARKER_KIND
       };
       const item = { id, circle, marker:null, meta };
       circles.push(item);
@@ -583,12 +611,11 @@ function boot(){
       openCard(item, true);
       cardPinned=true;
       persist();
-      addMode=false;
-      btnAdd.setAttribute('aria-pressed','false');
-      document.body.classList.remove('add-cursor');
+      addMode=false; btnAdd.setAttribute('aria-pressed','false'); document.body.classList.remove('add-cursor');
       updateMarkersScale();
     }
   });
+
   const openCardThrottled = throttle((item, pin)=>openCard(item, pin), 120);
   LOCATIONS.forEach(loc=>{
     const circle = new google.maps.Circle({
@@ -597,30 +624,14 @@ function boot(){
       fillColor:DEFAULT_COLOR, fillOpacity:DEFAULT_FILL_OPACITY,
       clickable:true, draggable:false, editable:false, zIndex:9999
     });
-    const meta = {
-      name:loc.name,
-      origName:loc.name,
-      recipients:[],
-      isNew:false,
-      useMarker:false,
-      markerColor:undefined,
-      markerScale:undefined,
-      markerKind:DEFAULT_MARKER_KIND
-    };
+    const meta = { name:loc.name, origName:loc.name, recipients:[], isNew:false, useMarker:false };
     const item = { id:loc.id, circle, marker:null, meta };
     circles.push(item);
-    circle.addListener('mouseover', ()=>{
-      circleHovering = true;
-      if(!cardPinned) openCardThrottled(item, false); // كرت معاينة فقط
-    });
-    circle.addListener('mouseout',  ()=>{
-      circleHovering = false;
-      scheduleCardHide();
-    });
-    circle.addListener('click',     ()=>{
-      openCard(item, true); // فتح مع تثبيت
-    });
+    circle.addListener('mouseover', ()=>{ circleHovering = true; if(!cardPinned) openCardThrottled(item, false); });
+    circle.addListener('mouseout',  ()=>{ circleHovering = false; scheduleCardHide(); });
+    circle.addListener('click',     ()=>{ openCard(item, true); });
   });
+
   const S = readShare();
   shareMode = !!S;
   if(S){ applyState(S); setViewOnly(); }
@@ -633,17 +644,9 @@ function boot(){
 function bindCircleEvents(item){
   const openCardThrottled = throttle((it, pin)=>openCard(it, pin), 120);
   const c = item.circle;
-  c.addListener('mouseover', ()=>{
-    circleHovering = true;
-    if(!cardPinned) openCardThrottled(item, false); // معاينة
-  });
-  c.addEventListener('mouseout',  ()=>{
-    circleHovering = false;
-    scheduleCardHide();
-  });
-  c.addListener('click',     ()=>{
-    openCard(item, true); // تثبيت
-  });
+  c.addListener('mouseover', ()=>{ circleHovering = true; if(!cardPinned) openCardThrottled(item, false); });
+  c.addListener('mouseout',  ()=>{ circleHovering = false; scheduleCardHide(); });
+  c.addListener('click',     ()=>{ openCard(item, true); });
   google.maps.event.addListener(c,'center_changed', ()=>{
     if(item.marker){ item.marker.setPosition(c.getCenter()); }
     persist();
@@ -655,7 +658,7 @@ function openCard(item, pin = true){
   infoWin.setContent(renderCard(item));
   infoWin.setPosition(item.circle.getCenter());
   infoWin.open({ map });
-  cardPinned = !!pin; // لو pin=false: كرت معاينة فقط
+  cardPinned = !!pin;
   setTimeout(()=>{
     const root=document.getElementById('iw-root'); if(!root) return;
     const close=root.parentElement?.querySelector('.gm-ui-hover-effect'); if(close) close.style.display='none';
@@ -769,19 +772,12 @@ function attachCardEvents(item){
   const c=item.circle;
   const root = document.getElementById('iw-root');
   if(root){
-    root.addEventListener('mouseenter', ()=>{
-      cardHovering = true;
-    }, {passive:true});
-    root.addEventListener('mouseleave', ()=>{
-      cardHovering = false;
-      scheduleCardHide();
-    }, {passive:true});
+    root.addEventListener('mouseenter', ()=>{ cardHovering = true; }, {passive:true});
+    root.addEventListener('mouseleave', ()=>{ cardHovering = false; scheduleCardHide(); }, {passive:true});
   }
   const inShare=document.getElementById('btn-card-share');
   if(inShare) inShare.addEventListener('click', async ()=>{
-    flushPersist();
-    await nextTick();
-    await copyShareLink();
+    flushPersist(); await nextTick(); await copyShareLink();
   }, {passive:true});
   const nameEl=document.getElementById('ctl-name');
   const r=document.getElementById('ctl-radius');
@@ -895,7 +891,7 @@ function attachCardEvents(item){
       item.meta.recipients = parseRecipients(names.value);
       flushPersist();
       if(infoWin){ infoWin.close(); cardPinned = false; }
-      showToast('تم الحفظ وتم إغلاق الكرت. الرابط الآن يعكس كل التعديلات');
+      showToast('تم الحفظ ✅');
     });
   }
   if(clr){
@@ -916,7 +912,7 @@ function attachCardEvents(item){
         if(infoWin) infoWin.close();
         cardPinned=false;
         flushPersist();
-        showToast('تم حذف الموقع');
+        showToast('تم الحذف');
       }
     });
   }
@@ -932,7 +928,7 @@ function setViewOnly(){
 async function copyShareLink(){
   try{
     await navigator.clipboard.writeText(location.href);
-    showToast('تم نسخ رابط المشاركة ✅');
+    showToast('تم نسخ الرابط ✅');
   }catch{
     const tmp=document.createElement('input'); tmp.value=location.href; document.body.appendChild(tmp);
     tmp.select(); document.execCommand('copy'); tmp.remove(); showToast('تم النسخ');
@@ -984,7 +980,7 @@ function ensureMarker(item){
 }
 function applyShapeVisibility(item){
   const useMarker = !!item.meta.useMarker;
-  item.circle.setVisible(true); // الدائرة تبقى مرئية دائماً (يمكنك تغيير هذا لو أردت)
+  item.circle.setVisible(true);
   if (useMarker) {
     const m = ensureMarker(item);
     if (m) m.setMap(map);
@@ -1030,8 +1026,7 @@ function buildState(){
     }
   });
   const typ = map.getMapTypeId && map.getMapTypeId();
-  // تحويل نوع الخريطة إلى رمز مختصر
-  let m = 'r'; // افتراضي
+  let m = 'r';
   if(typ === 'roadmap') m = 'r';
   else if(typ === 'satellite') m = 's';
   else if(typ === 'hybrid') m = 'h';
