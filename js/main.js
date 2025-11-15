@@ -1,4 +1,3 @@
-
 ```javascript
 /* Diriyah Security Map – v12.8 (✅ fixed: complete code with all helper functions) */
 'use strict';
@@ -1424,4 +1423,5 @@ function attachCardEvents(item){
   });
   if(markerKindEl) markerKindEl.addEventListener('change', ()=>{ 
     item.meta.markerKind = markerKindEl.value;
+
 
