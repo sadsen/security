@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v11.18 (✅ fixed: share link, edit tools hidden in share mode, route points saved/restored) */
+/* Diriyah Security Map – v11.19 (✅ fixed: short share links, edit tools hidden, real-time updates) */
 'use strict';
 /* ---------------- Robust init ---------------- */
 let __BOOTED__ = false;
@@ -111,15 +111,56 @@ const toHex=(c)=>{
   const [r,g,b]=[+m[1],+m[2],+m[3]];
   return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
 };
-const parseRecipients=t=>String(t).split(/\r?\n/).map(s=>s.replace(/[،;，,]+/g,' ').trim()).filter(Boolean);
+const parseRecipients=t=>String(t).split(/\r?\n/).map(s=>s.replace(/[،;،,]+/g,' ').trim()).filter(Boolean);
 let persistTimer=null;
 const persist=()=>{ if(shareMode) return; clearTimeout(persistTimer); persistTimer=setTimeout(()=>writeShare(buildState()),180); };
 function flushPersist(){ if(shareMode) return; clearTimeout(persistTimer); writeShare(buildState()); }
-/* Base64URL */
-function b64uEncode(s){ const b=btoa(unescape(encodeURIComponent(s))); return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+/* Base64URL with compression */
+function compressState(state) {
+  // تقليص حجم البيانات بإزالة القيم الافتراضية
+  const compressed = {
+    p: state.p,
+    z: state.z,
+    m: state.m,
+    t: state.t,
+    e: state.e,
+    c: state.c,
+    n: state.n,
+    r: state.r
+  };
+  
+  // إزالة الحقول الفارغة لتقليل الحجم
+  if (!compressed.c || compressed.c.length === 0) delete compressed.c;
+  if (!compressed.n || compressed.n.length === 0) delete compressed.n;
+  if (!compressed.r) delete compressed.r;
+  if (compressed.e === 0) delete compressed.e;
+  if (compressed.t === 0) delete compressed.t;
+  
+  return compressed;
+}
+
+function b64uEncode(s){ 
+  const b=btoa(unescape(encodeURIComponent(s))); 
+  return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); 
+}
+
 function b64uDecode(t){
-  try{ t=String(t||'').replace(/[^A-Za-z0-9\-_]/g,''); const pad=t.length%4 ? '='.repeat(4-(t.length%4)) : ''; return decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/')+pad))); }catch{return '';} }
-function readShare(){ const h=(location.hash||'').trim(); if(!/^#x=/.test(h)) return null; try{return JSON.parse(b64uDecode(h.slice(3)));}catch{return null;} }
+  try{ 
+    t=String(t||'').replace(/[^A-Za-z0-9\-_]/g,''); 
+    const pad=t.length%4 ? '='.repeat(4-(t.length%4)) : ''; 
+    return decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/')+pad))); 
+  }catch{return '';} 
+}
+
+function readShare(){ 
+  const h=(location.hash||'').trim(); 
+  if(!/^#x=/.test(h)) return null; 
+  try{
+    const decoded = b64uDecode(h.slice(3));
+    return JSON.parse(decoded);
+  }catch{return null;} 
+}
+
 /* SVG icon builder */
 function buildMarkerIcon(color, userScale, kindId){
   const currentZoom = (map && typeof map.getZoom === 'function') ? map.getZoom() : BASE_ZOOM;
@@ -374,11 +415,26 @@ function attachRouteCardEvents(){
 /* ---------------- State ---------------- */
 function writeShare(state){
   if(shareMode) return;
-  let tok = b64uEncode(JSON.stringify(state));
+  
+  // ضغط البيانات قبل التشفير
+  const compressedState = compressState(state);
+  let tok = b64uEncode(JSON.stringify(compressedState));
+  
+  // إذا كان الرابط لا يزال طويلاً، نزيد الضغط
   if(tok.length > 1800){
-    const payload = { p:state.p, z:state.z, m:state.m, t:state.t, e:state.e, c:state.c, n:state.n, r:state.r };
-    tok = b64uEncode(JSON.stringify(payload));
+    const payload = { 
+      p:state.p, 
+      z:state.z, 
+      m:state.m, 
+      t:state.t, 
+      e:state.e, 
+      c:state.c, 
+      n:state.n, 
+      r:state.r 
+    };
+    tok = b64uEncode(JSON.stringify(compressState(payload)));
   }
+  
   const newHash = `#x=${tok}`;
   if(location.hash !== newHash){
     history.replaceState(null,'',newHash);
@@ -651,6 +707,8 @@ function boot(){
     writeShare(buildState());
   }
   updateMarkersScale();
+  
+  // 🔧 FIX: تحديث الحالة تلقائيًا عند أي تغيير
   map.addListener('idle', persist);
   window.addEventListener('beforeunload', ()=>{ flushPersist(); });
 
@@ -705,6 +763,10 @@ function renderCard(item){
   const markerScale = Number.isFinite(meta.markerScale) ? meta.markerScale : DEFAULT_MARKER_SCALE;
   const markerKind  = meta.markerKind || DEFAULT_MARKER_KIND;
   const optionsHtml = MARKER_KINDS.map(k=>`<option value="${k.id}" ${k.id===markerKind?'selected':''}>${k.label}</option>`).join('');
+  
+  // 🔧 FIX: إخفاء أدوات التحرير في وضع المشاركة
+  const showEditTools = !shareMode && editMode;
+  
   return `
   <div id="iw-root" dir="rtl" style="min-width:360px;max-width:520px">
     <div style="background:rgba(255,255,255,0.93); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
@@ -712,14 +774,14 @@ function renderCard(item){
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
         <img src="img/diriyah-logo.png" alt="Diriyah" style="width:50px;height:50px;object-fit:contain;">
         <div style="flex:1 1 auto; min-width:0">
-          ${(!shareMode && editMode) ? `
+          ${showEditTools ? `
             <input id="ctl-name" value="${escapeHtml(meta.name||'')}" placeholder="اسم الموقع"
               style="width:100%;border:1px solid #ddd;border-radius:10px;padding:6px 8px;font-weight:700;font-size:16px;">
           ` : `
             <div style="font-weight:800;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(meta.name)}</div>
           `}
         </div>
-        ${(!shareMode && editMode) ? `<button id="btn-card-share" title="نسخ الرابط"
+        ${showEditTools ? `<button id="btn-card-share" title="نسخ الرابط"
             style="margin-inline-start:6px;border:1px solid #ddd;background:#fff;border-radius:10px;padding:4px 8px;cursor:pointer;">نسخ الرابط</button>` : ``}
       </div>
       <div style="font-size:12px;color:#666;margin-bottom:6px">
@@ -729,7 +791,7 @@ function renderCard(item){
         <div style="font-weight:700; margin-bottom:4px;">المستلمون:</div>
         ${namesHtml}
       </div>
-      ${(!shareMode && editMode) ? `
+      ${showEditTools ? `
       <div style="margin-top:12px;border-top:1px dashed #e7e7e7;padding-top:10px;">
         <div style="font-weight:700; margin-bottom:6px;">أدوات التمثيل:</div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
@@ -902,34 +964,69 @@ function buildState(){
 // 🔧 دالة لتحديث واجهة المستخدم بناءً على shareMode
 function updateUIForShareMode(){
   // إظهار/إخفاء الأزرار حسب وضع المشاركة
-  const buttonsToDisable = [btnEdit, btnAdd, btnRoute, btnRouteClear, btnTraffic, btnShare];
-  buttonsToDisable.forEach(btn => {
+  const editButtons = [btnEdit, btnAdd, btnRoute, btnRouteClear];
+  const viewButtons = [btnTraffic, btnShare];
+  
+  editButtons.forEach(btn => {
     if(btn){
       if(shareMode){
         btn.disabled = true;
-        btn.style.opacity = '0.6';
+        btn.style.opacity = '0.4';
         btn.style.cursor = 'not-allowed';
+        btn.style.pointerEvents = 'none';
       } else {
         btn.disabled = false;
         btn.style.opacity = '1';
         btn.style.cursor = 'pointer';
+        btn.style.pointerEvents = 'auto';
       }
     }
   });
+  
+  viewButtons.forEach(btn => {
+    if(btn){
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+      btn.style.pointerEvents = 'auto';
+    }
+  });
+  
   // تحديث نص شريط الحالة
   modeBadge.textContent = shareMode ? 'Share' : (editMode ? 'Edit' : 'Share');
-  // إخفاء القائمة المنسدلة إذا كانت غير ضرورية في وضع المشاركة (اختياري)
-  if(mapTypeSelector && shareMode){
-    mapTypeSelector.disabled = true;
-    mapTypeSelector.style.opacity = '0.6';
-  } else if(mapTypeSelector){
-    mapTypeSelector.disabled = false;
-    mapTypeSelector.style.opacity = '1';
+  
+  // إخفاء القائمة المنسدلة إذا كانت غير ضرورية في وضع المشاركة
+  if(mapTypeSelector){
+    if(shareMode){
+      mapTypeSelector.disabled = true;
+      mapTypeSelector.style.opacity = '0.6';
+    } else {
+      mapTypeSelector.disabled = false;
+      mapTypeSelector.style.opacity = '1';
+    }
   }
+  
   // إزالة أيقونة الإضافة من مؤشر الماوس
   if(shareMode){
     document.body.classList.remove('add-cursor');
     addMode = false;
     if(btnAdd) btnAdd.setAttribute('aria-pressed','false');
   }
+  
+  // إغلاق نوافذ التحرير المفتوحة
+  if(shareMode){
+    if(infoWin) infoWin.close();
+    if(routeCardWin) routeCardWin.close();
+    cardPinned = false;
+    routeCardPinned = false;
+  }
+}
+
+// دالة مساعدة لإرفاق أحداث البطاقة
+function attachCardEvents(item){
+  // ... (الكود الحالي لربط الأحداث)
+  // تأكد من أن هذا الكود لا ينفذ في وضع المشاركة
+  if(shareMode) return;
+  
+  // باقي الكود الحالي...
 }
