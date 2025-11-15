@@ -808,19 +808,15 @@ function renderCard(item){
           </div>
         </div>
         <div style="margin-top:8px;">
-          <label style="font-size:12px;color:#666">أسماء المستلمين (سطر لكل اسم):</label>
-          <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;">${escapeHtml(names.join("
-"))}</textarea>
-          <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
-            <button id="btn-save"  style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حفظ</button>
-            <button id="btn-clear" style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الأسماء</button>
-            <button id="btn-del"   style="border:1px solid #f33; color:#f33; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الموقع</button>
-          </div>
-          <div style="margin-top:6px;font-size:12px;color:#666">يمكن سحب الدائرة لتغيير الموقع، والأيقونة تتحرك تلقائيًا.</div>
-        </div>
-      </div>` : ``}
-    </div>
-  </div>`;
+  <label style="font-size:12px;color:#666">أسماء المستلمين (سطر لكل اسم):</label>
+  <textarea id="ctl-names" rows="4" style="width:100%; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; white-space:pre;">${escapeHtml(names.join("\n"))}</textarea>
+  <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+    <button id="btn-save"  style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حفظ</button>
+    <button id="btn-clear" style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الأسماء</button>
+    <button id="btn-del"   style="border:1px solid #f33; color:#f33; background:#fff; border-radius:10px; padding:6px 10px; cursor:pointer;">حذف الموقع</button>
+  </div>
+  <div style="margin-top:6px;font-size:12px;color:#666">يمكن سحب الدائرة لتغيير الموقع، والأيقونة تتحرك تلقائيًا.</div>
+</div>
 }
 function attachCardEvents(item){
   if(shareMode || !editMode) return;
@@ -1106,3 +1102,4 @@ function buildState(){
     r
   };
 }
+
