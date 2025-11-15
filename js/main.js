@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v11.17 (✅ fixed: share button, route styling init, black line on load) */
+/* Diriyah Security Map – v11.18 (✅ fixed: share link, edit tools hidden in share mode, route points saved/restored) */
 'use strict';
 /* ---------------- Robust init ---------------- */
 let __BOOTED__ = false;
@@ -97,7 +97,7 @@ const MARKER_KINDS = [
 function pinSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`; }
 function guardSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.29L19 6.3v4.61c-1.11 4.16-3.72 7.55-7 8.94-3.28-1.39-5.89-4.78-7-8.94V6.3L12 3.29z"/></svg>`; }
 function patrolSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`; }
-function cameraSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 15.2c-1.8 0-3.2-1.4-3.2-3.2s1.4-3.2 3.2-3.2 3.2 1.4 3.2 3.2-1.4 3.2-3.2 3.2zm0-4.8c-1.3 0-2.3 1-2.3 2.3s1 2.3 2.3 2.3 2.3-1 2.3-2.3zm7-4.7l-2.8-2.8c-.4-.4-1-.4-1.4 0L12 5.2 9.2 2.4c-.4-.4-1-.4-1.4 0L5 5.2c-.4.4-.4 1 0 1.4L7.8 9H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2 2h-2.8L17 6.7c.4-.4.4-1 0-1.4z"/></svg>`; }
+function cameraSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 15.2c-1.8 0-3.2-1.4-3.2-3.2s1.4-3.2 3.2-3.2 3.2 1.4 3.2 3.2-1.4 3.2-3.2 3.2zm0-4.8c-1.3 0-2.3 1-2.3 2.3s1 2.3 2.3 2.3 2.3-1 2.3-2.3zm7-4.7l-2.8-2.8c-.4-.4-1-.4-1.4 0L12 5.2 9.2 2.4c-.4-.4-1-.4-1.4 0L5 5.2c-.4.4-.4 1 0 1.4L7.8 9H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V11c0-1.1-.9-2-2-2h-2.8L17 6.7c.4-.4.4-1 0-1.4z"/></svg>`; }
 function gateSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-2 10H5V8h14v8z"/></svg>`; }
 function meetSvg(fill){ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`; }
 /* utilities */
@@ -129,7 +129,7 @@ function buildMarkerIcon(color, userScale, kindId){
   const h = w;
   const kind = MARKER_KINDS.find(k=>k.id===kindId)||MARKER_KINDS[0];
   const svg = kind.svg.replace(/fill="([^"]*)"/,`fill="${color||DEFAULT_MARKER_COLOR}"`);
-  const encoded = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+  const encoded = 'image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
   return { url: encoded, scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(Math.round(w/2), Math.round(h)) };
 }
 const circles = [];
@@ -223,22 +223,29 @@ function extractActivePolyline(){
   });
   activeRoutePoly.addListener('click', (e)=>{ openRouteCard(e.latLng); });
 }
-// 🔧 FIX: قراءة routeStyle من polyStr metadata (إذا وُجدت)
-function restoreRouteFromOverview(polyStr, styleFromState = null){
+// 🔧 FIX: استعادة المسار ونقاط التوقف من overview + routePoints
+function restoreRouteFromOverview(polyStr, routePointsArray = null){
   if(!polyStr) return;
   try{
     const path = google.maps.geometry.encoding.decodePath(polyStr);
     clearRouteVisuals();
-    // 🔧 تطبيق styleFromState إن وُجد، وإلا استخدم routeStyle الحالية
-    const opts = {
+    // استعادة النقاط إن وُجدت
+    if(Array.isArray(routePointsArray) && routePointsArray.length > 0){
+      routePoints = routePointsArray.map(p => new google.maps.LatLng(p.lat, p.lng));
+    }
+    // إنشاء خط المسار
+    activeRoutePoly = new google.maps.Polyline({
       map,
       path,
-      zIndex: 9997,
-      ...(styleFromState || routeStyle)
-    };
-    activeRoutePoly = new google.maps.Polyline(opts);
+      ...routeStyle,
+      zIndex: 9997
+    });
     currentRouteOverview = polyStr;
     activeRoutePoly.addListener('click', (e)=>{ openRouteCard(e.latLng); });
+    // 🔧 إنشاء علامات التوقف بناءً على routePoints
+    if(routePoints.length > 0){
+      routeStopMarkers = routePoints.map((pos, i) => createStopMarker(pos, i));
+    }
   }catch(e){ console.warn('restoreRouteFromOverview failed', e); }
 }
 
@@ -306,37 +313,6 @@ function attachRouteCardEvents(){
   const opacityLbl= document.getElementById('route-opacity-lbl');
   const saveBtn   = document.getElementById('route-save');
   const closeBtn  = document.getElementById('route-close');
-
-  // 🔧 FIX: تطبيق القيم الحالية فوراً عند فتح البطاقة
-  function applyCurrentStyle(){
-    const clr = routeStyle.color   || '#3344ff';
-    const w   = routeStyle.weight  || 4;
-    const o   = routeStyle.opacity || 0.95;
-    if(colorEl)   colorEl.value = clr;
-    if(weightEl){ weightEl.value = w; weightLbl.textContent = w; }
-    if(opacityEl){ opacityEl.value = o; opacityLbl.textContent = o.toFixed(2); }
-    // ثم نُطبّقها فوراً على الخط وعلامات التوقف
-    if(activeRoutePoly){
-      activeRoutePoly.setOptions({ strokeColor: clr, strokeWeight: w, strokeOpacity: o });
-    }
-    routeStopMarkers.forEach(m => {
-      if(m.setIcon){
-        m.setIcon({
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 6,
-          fillColor: '#ffffff',
-          fillOpacity: 1,
-          strokeColor: clr,
-          strokeWeight: 2
-        });
-      }
-      if(m.setLabel){
-        m.setLabel({ text: m.getLabel()?.text || '1', color: clr, fontSize: '11px', fontWeight: '700' });
-      }
-    });
-  }
-  applyCurrentStyle(); // ✅ تطبيق فوري
-
   function apply(){
     const clr = colorEl?.value || routeStyle.color;
     const w   = +weightEl?.value || routeStyle.weight;
@@ -400,7 +376,7 @@ function writeShare(state){
   if(shareMode) return;
   let tok = b64uEncode(JSON.stringify(state));
   if(tok.length > 1800){
-    const payload = { p:state.p, z:state.z, m:state.m, t:state.t, e:state.e, rs:state.rs };
+    const payload = { p:state.p, z:state.z, m:state.m, t:state.t, e:state.e, c:state.c, n:state.n, r:state.r };
     tok = b64uEncode(JSON.stringify(payload));
   }
   const newHash = `#x=${tok}`;
@@ -409,7 +385,6 @@ function writeShare(state){
   }
 }
 
-// 🔧 FIX: إضافة قراءة routeStyle من الحالة (مفتاح `rs`)
 function applyState(s){
   if(!s) return;
   if(Array.isArray(s.p) && s.p.length === 2){ map.setCenter({lat:s.p[1], lng:s.p[0]}); }
@@ -428,15 +403,6 @@ function applyState(s){
   }
   // --- ✅ حالة التحرير ---
   if(Number.isFinite(s.e)){ editMode = !!s.e; }
-  // --- ✅ routeStyle من الرابط (جديد) ---
-  if(s.rs && typeof s.rs === 'object'){
-    const rs = s.rs;
-    routeStyle = {
-      color:   rs.c || '#3344ff',
-      weight:  Number.isFinite(rs.w) ? rs.w : 4,
-      opacity: Number.isFinite(rs.o) ? rs.o : 0.95
-    };
-  }
   // --- حركة المرور ---
   if (s.t === 1){ trafficLayer.setMap(map); btnTraffic.setAttribute('aria-pressed','true'); }
   else if (s.t === 0){ trafficLayer.setMap(null); btnTraffic.setAttribute('aria-pressed','false'); }
@@ -499,12 +465,9 @@ function applyState(s){
   }
   // --- المسار ---
   if(s && s.r && s.r.ov){
-    // 🔧 نمرّر routeStyle المُحدّث عند الاسترجاع
-    restoreRouteFromOverview(s.r.ov, s.rs ? {
-      strokeColor: s.rs.c || routeStyle.color,
-      strokeWeight: Number.isFinite(s.rs.w) ? s.rs.w : routeStyle.weight,
-      strokeOpacity: Number.isFinite(s.rs.o) ? s.rs.o : routeStyle.opacity
-    } : null);
+    // 🔧 استعادة routePoints إن وُجدت
+    const rp = Array.isArray(s.r.points) ? s.r.points : null;
+    restoreRouteFromOverview(s.r.ov, rp);
   }
 }
 
@@ -618,6 +581,7 @@ function boot(){
       document.body.classList.remove('add-cursor');
     }
     persist();
+    updateUIForShareMode(); // 🔧 تحديث واجهة المستخدم
   }, {passive:true});
 
   btnAdd?.addEventListener('click', ()=>{
@@ -676,6 +640,7 @@ function boot(){
     circle.addListener('click',     ()=>{ openCard(item, true); });
   });
 
+  // --- ✅ تحميل الحالة من الرابط ---
   const S = readShare();
   shareMode = !!S;
   if(S){
@@ -688,6 +653,9 @@ function boot(){
   updateMarkersScale();
   map.addListener('idle', persist);
   window.addEventListener('beforeunload', ()=>{ flushPersist(); });
+
+  // 🔧 تطبيق وضع المشاركة على واجهة المستخدم
+  updateUIForShareMode();
 }
 
 /* Circle/Marker helpers */
@@ -914,13 +882,11 @@ function buildState(){
   else if(typ === 'hybrid') m = 'h';
   else if(typ === 'terrain') m = 't';
   const t = (trafficLayer && trafficLayer.getMap && trafficLayer.getMap()) ? 1 : 0;
-  const r = currentRouteOverview ? { ov: currentRouteOverview } : null;
-  // 🔧 FIX: حفظ routeStyle في الحالة (مفتاح `rs`)
-  const rs = {
-    c: routeStyle.color,
-    w: routeStyle.weight,
-    o: routeStyle.opacity
-  };
+  const r = currentRouteOverview ? {
+    ov: currentRouteOverview,
+    // 🔧 حفظ routePoints كمصفوفة من lat/lng
+    points: routePoints.map(p => ({ lat: p.lat(), lng: p.lng() }))
+  } : null;
   return {
     p:[center.lng(), center.lat()],
     z:zoom,
@@ -929,7 +895,41 @@ function buildState(){
     e: editMode ? 1 : 0,
     c:cRows,
     n:nRows,
-    r,
-    rs  // ✅ محفوظ الآن
+    r
   };
+}
+
+// 🔧 دالة لتحديث واجهة المستخدم بناءً على shareMode
+function updateUIForShareMode(){
+  // إظهار/إخفاء الأزرار حسب وضع المشاركة
+  const buttonsToDisable = [btnEdit, btnAdd, btnRoute, btnRouteClear, btnTraffic, btnShare];
+  buttonsToDisable.forEach(btn => {
+    if(btn){
+      if(shareMode){
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'not-allowed';
+      } else {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+      }
+    }
+  });
+  // تحديث نص شريط الحالة
+  modeBadge.textContent = shareMode ? 'Share' : (editMode ? 'Edit' : 'Share');
+  // إخفاء القائمة المنسدلة إذا كانت غير ضرورية في وضع المشاركة (اختياري)
+  if(mapTypeSelector && shareMode){
+    mapTypeSelector.disabled = true;
+    mapTypeSelector.style.opacity = '0.6';
+  } else if(mapTypeSelector){
+    mapTypeSelector.disabled = false;
+    mapTypeSelector.style.opacity = '1';
+  }
+  // إزالة أيقونة الإضافة من مؤشر الماوس
+  if(shareMode){
+    document.body.classList.remove('add-cursor');
+    addMode = false;
+    if(btnAdd) btnAdd.setAttribute('aria-pressed','false');
+  }
 }
