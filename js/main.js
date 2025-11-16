@@ -1435,7 +1435,7 @@ function boot(){
   btnAdd = document.getElementById('btn-add-marker');
   btnRoute = document.getElementById('btn-route');
   btnRouteClear = document.getElementById('btn-route-clear');
-s  modeBadge = document.getElementById('mode-badge');
+  modeBadge = document.getElementById('mode-badge');
   mapTypeSelector = document.getElementById('map-type-selector');
   
   if(btnTraffic) btnTraffic.addEventListener('click', ()=>{
@@ -1526,4 +1526,5 @@ function setMode(mode){
   if(infoWin) infoWin.close();
   cardPinned = false;
 }
+
 
