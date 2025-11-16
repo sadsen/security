@@ -52,10 +52,19 @@
       color: #fff;
       font-size: 13px;
       white-space: nowrap;
+      display: flex; /* لمركزة الأيقونة والنص إن وجد */
+      align-items: center;
+      gap: 6px;
     }
 
     .btn[aria-pressed="true"] {
-      background: rgba(255, 255, 255, .22);
+      background: rgba(66, 133, 244, 0.8); /* لون أزرق عند التفعيل */
+      border-color: rgba(66, 133, 244, 0.9);
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .badge {
@@ -64,6 +73,12 @@
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, .18);
       background: rgba(255, 255, 255, .08);
+    }
+    
+    /* شارة وضع العرض */
+    .badge.view {
+      background: rgba(234, 67, 53, 0.7);
+      border-color: rgba(234, 67, 53, 0.9);
     }
 
     /* إخفاء زر إغلاق الـ InfoWindow الافتراضي */
@@ -75,13 +90,26 @@
       overflow: visible !important;
     }
 
-    /* وضع المشاركة: إخفاء أزرار التحرير */
-    body.share-mode #btnShare,
-    body.share-mode #btnAdd,
-    body.share-mode #btnEdit,
-    body.share-mode #btnRoute,
-    body.share-mode #btnRouteClear {
-      display: none !important;
+    /* عنصر التنبيه (Toast) لرسائل التأكيد */
+    #toast {
+      position: fixed;
+      bottom: -100px; /* يبدأ مخفيًا */
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      background-color: rgba(30, 30, 30, 0.9);
+      backdrop-filter: blur(10px);
+      color: white;
+      border-radius: 10px;
+      z-index: 100000;
+      font-size: 14px;
+      transition: bottom 0.3s ease-in-out;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    #toast.show {
+      bottom: 30px; /* يظهر عند إضافة الكلاس */
     }
   </style>
 </head>
@@ -90,24 +118,26 @@
   <div id="map"></div>
 
   <div class="toolbar" id="toolbar">
-    <span id="modeBadge" class="badge">وضع التحرير</span>
+    <span id="mode-badge" class="badge" style="display:none;">وضع التحرير</span>
 
-    <button id="btnRoadmap"  class="btn" aria-pressed="true">طرق</button>
+    <button id="btnRoadmap"   class="btn" aria-pressed="true">طرق</button>
     <button id="btnSatellite" class="btn" aria-pressed="false">قمر صناعي</button>
     <button id="btnTraffic"   class="btn" aria-pressed="false">حركة المرور</button>
 
-    <button id="btnShare"     class="btn">مشاركة</button>
-    <button id="btnEdit"      class="btn">وضع العرض</button>
+    <button id="btnShare"     class="btn">
+      <span class="label">مشاركة</span>
+    </button>
+    
     <button id="btnAdd"       class="btn" aria-pressed="false">إضافة موقع</button>
-
-    <button id="btnRoute"      class="btn" aria-pressed="false">مسار</button>
-    <button id="btnRouteClear" class="btn" style="display:none;">مسح المسار</button>
+    <button id="btnRoute"     class="btn" aria-pressed="false">مسار</button>
+    
+    <button id="btnRouteClear" class="btn">مسح المسار</button>
   </div>
 
-  <!-- Main JS -->
+  <div id="toast"></div>
+
   <script src="/js/main.js"></script>
 
-  <!-- Google Maps Loader (المفتاح يستبدل من السيرفر تلقائياً) -->
   <script
       src="https://maps.googleapis.com/maps/api/js?key=%GOOGLE_MAP_KEY%&v=weekly&libraries=geometry&callback=initMap"
       async>
