@@ -1,0 +1,12 @@
+{
+  "name": "diriyah-security-map",
+  "version": "1.0.0",
+  "description": "Diriyah Security & Traffic Interactive Map",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
