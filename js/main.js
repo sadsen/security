@@ -971,6 +971,10 @@ function applyState(s){
   }
 }
 
+/* ---------------- State Management ---------------- */
+
+// ... (باقي الدوال كما هي) ...
+
 function buildState(){
   const center = map.getCenter();
   const s = {
@@ -987,10 +991,11 @@ function buildState(){
     if(!it.visible) return;
     
     const meta = it.meta;
-    const circleOptions = it.circle.getOptions();
+    
+    // 🛑 التعديل الجذري هنا: نستخدم الطرق الصحيحة للوصول إلى خيارات الدائرة
     const circleCenter = it.circle.getCenter();
     const radius = Math.round(it.circle.getRadius());
-    const color = toHex(circleOptions.strokeColor);
+    const color = toHex(it.circle.get('strokeColor')); // ✅ استخدام get('propertyName')
     const name = meta.name || '';
     
     if(it.fixed){
@@ -1044,8 +1049,6 @@ function buildState(){
   
   return s;
 }
-
-
 /* ---------------- Map Logic ---------------- */
 
 function createCircle(opts){
@@ -1615,3 +1618,4 @@ function boot(){
   // Log for debugging
   console.log('Map booted successfully. Share mode:', shareMode);
 }
+
