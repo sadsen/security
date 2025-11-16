@@ -105,12 +105,11 @@
   </div>
 
   <!-- ملف الجافاسكربت الرئيسي -->
-  <!-- لاحظ: مسار مطلق يبدأ بـ / حتى لو دخلت برابط مشاركة -->
   <script src="/js/main.js" defer></script>
 
-  <!-- خريطة قوقل: المفتاح يستبدل من السيرفر عن طريق %GOOGLE_MAP_KEY% -->
+  <!-- خريطة قوقل: المفتاح يستبدل من السيرفر -->
   <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&v=weekly&libraries=geometry&callback=initMap">
+    src="https://maps.googleapis.com/maps/api/js?key=%GOOGLE_MAP_KEY%&v=weekly&libraries=geometry&callback=initMap">
   </script>
 </body>
 </html>
