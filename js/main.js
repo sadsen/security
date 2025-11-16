@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v13.1 (✅ fixed: route sharing, recipients, and toast) */
+/* Diriyah Security Map – v13.1 (✅ fixed: share btn logic, circle edit mode) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
@@ -118,7 +118,7 @@ const LOCATIONS = [
   { id:12, name:"مدخل مواقف البجيري (كار بارك)", lat:24.73826438056506, lng:46.57789576275729 },
   { id:13, name:"مواقف الامن", lat:24.73808736962705, lng:46.57771858346317 },
   { id:14, name:"دوار الروقية", lat:24.741985907266145, lng:46.56269186990043 },
-  { id:15, name:"بيت مبارك", lat:24.732609768937607, lng:46.57827089439368 },
+  { id:15, name:"بيت مبارك", lat:24.732609768937607, lng:46.57827089439368 },
   { id:16, name:"دوار وادي صفار", lat:24.72491458984474, lng:46.57345489743978 },
   { id:17, name:"دوار راس النعامة", lat:24.710329841152387, lng:46.572921959358204 },
   { id:18, name:"مزرعة الحبيب", lat:24.709445443672344, lng:46.593971867951346 },
@@ -161,10 +161,11 @@ const persist=()=>{ 
     writeShare(buildState());
   },300); 
 };
+// 🔧 تعديل: دالة flushPersist الآن تُرجع الرابط لضمان عمل زر المشاركة
 function flushPersist(){ 
-  if(shareMode) return; 
+  if(shareMode) return location.href; 
   clearTimeout(persistTimer); 
-  writeShare(buildState());
+  return writeShare(buildState()); // إرجاع الرابط المحدث
 }
 
 // 🔧 جديد: دالة لتحويل المسافة إلى نص مقروء
@@ -816,24 +817,24 @@ function attachRouteCardEvents(){
 /* ---------------- State Management ---------------- */
 
 /* ------------------------------------------------------------------ */
-/* --- 🔧 تعديل: كتابة بيانات المشاركة إلى ?x= بدلاً من #x= --- */
+/* --- 🔧 تعديل: دالة writeShare الآن تُرجع الرابط --- */
 /* ------------------------------------------------------------------ */
 function writeShare(state){
-  if(shareMode) return;
+  if(shareMode) return location.href; // لا تحفظ في وضع المشاركة
   
   const compressedState = compressState(state);
   const jsonString = JSON.stringify(compressedState);
   const tok = b64uEncode(jsonString);
   
   const newSearch = `?x=${tok}`;
-  // إنشاء رابط URL كامل يتضمن المسار الحالي ومتغير البحث الجديد
-  const newUrl = `${location.pathname}${newSearch}`; 
+  const newUrlPath = `${location.pathname}${newSearch}`; 
   
-  // 🔧 تعديل: المقارنة مع .search بدلاً من .hash
   if(location.search !== newSearch){
-    // استخدام replaceState لتحديث الرابط في شريط العناوين دون إعادة تحميل الصفحة
-    history.replaceState(null, '', newUrl); 
+    history.replaceState(null, '', newUrlPath); 
   }
+  
+  // إرجاع الرابط الكامل
+  return `${location.origin}${newUrlPath}`;
 }
 
 
@@ -843,11 +844,7 @@ function applyState(s){
   console.log('🔄 Applying state:', s);
   
   if(Array.isArray(s.p) && s.p.length === 2){ 
-    // 🔧 تعديل: الفهرس الصحيح لـ lat/lng
-    // إذا كان p[0] هو lng و p[1] هو lat
     map.setCenter({lat:s.p[1], lng:s.p[0]}); 
-    // إذا كان p[0] هو lat و p[1] هو lng
-    // map.setCenter({lat:s.p[0], lng:s.p[1]}); 
   }
   if(Number.isFinite(s.z)){ map.setZoom(s.z); }
   
@@ -889,14 +886,13 @@ function applyState(s){
       });
       
       if(name) it.meta.name = name;
-      // 🔧 الإصلاح: استعادة أسماء المستلمين
       if(recipients) {
         it.meta.recipients = recipients.split('~').filter(Boolean);
       }
       
       applyShapeVisibility(it);
       it.circle.setDraggable(editMode && !it.fixed);
-      it.circle.setEditable(editMode && !it.fixed);
+      it.circle.setEditable(false); // 🔧 تعديل: إيقاف التحرير عند التحميل
     });
   }
   
@@ -918,7 +914,6 @@ function applyState(s){
       });
       
       if(name) it.meta.name = name;
-      // 🔧 الإصلاح: استعادة أسماء المستلمين
       if(recipients) {
         it.meta.recipients = recipients.split('~').filter(Boolean);
       }
@@ -926,13 +921,12 @@ function applyState(s){
       applyShapeVisibility(it);
       it.marker.setDraggable(editMode && !it.fixed);
       it.circle.setDraggable(editMode && !it.fixed);
-      it.circle.setEditable(editMode && !it.fixed);
+      it.circle.setEditable(false); // 🔧 تعديل: إيقاف التحرير عند التحميل
     });
   }
   
   // 🔧 إصلاح: استعادة المسار مع النمط والبيانات
   if(s.r && (s.r.ov || s.r.points)){
-    // تحويل النقاط (إذا كانت موجودة) إلى كائنات LatLng
     const points = s.r.points ? s.r.points.map(p => ({ lat: p.lat, lng: p.lng })) : [];
     restoreRouteFromOverview(s.r.ov, points, s.r.style, s.r.distance, s.r.duration);
   } else {
@@ -954,7 +948,6 @@ function applyState(s){
 function buildState(){
   const center = map.getCenter();
   const s = {
-    // 🔧 تعديل: الفهرس الصحيح لـ lat/lng (lng, lat)
     p: [Number(center.lng().toFixed(6)), Number(center.lat().toFixed(6))],
     z: map.getZoom(),
     m: (map.getMapTypeId()||'roadmap').slice(0,1),
@@ -971,12 +964,10 @@ function buildState(){
     const clr = toHex(c.get('fillColor'));
     
     if(it.fixed){
-      // fixed
       if(m.name !== it.defaultName || r !== DEFAULT_RADIUS || clr !== DEFAULT_COLOR){
         s.c.push([ it.id, r, clr.slice(1), m.name ]);
       }
     } else {
-      // new
       const pos = it.marker.getPosition();
       s.n.push([
         it.id,
@@ -1017,12 +1008,19 @@ function openCard(item){
   infoWin.open({ map, anchor: item.marker });
   cardPinned = true;
   
+  // 🔧 تعديل: تفعيل التحرير عند فتح الكرت (فقط للدوائر غير الثابتة)
+  if(editMode && !item.fixed) {
+    item.circle.setEditable(true);
+  }
+  
   google.maps.event.addListenerOnce(infoWin, 'domready', () => {
     attachCardEvents(item);
   });
   
   google.maps.event.addListenerOnce(infoWin, 'closeclick', ()=>{
     cardPinned = false;
+    // 🔧 تعديل: إلغاء تفعيل التحرير عند إغلاق الكرت
+    item.circle.setEditable(false);
     scheduleCardHide();
   });
 }
@@ -1056,7 +1054,6 @@ function renderCard(item, isHover = false){
   const isNew = !item.fixed;
   const kind = m.kind || DEFAULT_MARKER_KIND;
   const scale = m.scale || DEFAULT_MARKER_SCALE;
-  // 🔧 إصلاح: عرض المستلمين
   const recipients = m.recipients.join('\n');
   
   if(isHover && !editMode){
@@ -1104,7 +1101,7 @@ function renderCard(item, isHover = false){
         <select id="card-kind" style="width:100%;border:1px solid #ddd;border-radius:6px;padding:4px 6px;box-sizing:border-box;">${markerKindOptions}</select>
       </div>` : ''}
       
-            <div class="field" style="margin-bottom:10px;"><label>المستلمون (اكتب كل اسم في سطر):</label>
+      <div class="field" style="margin-bottom:10px;"><label>المستلمون (اكتب كل اسم في سطر):</label>
         <textarea id="card-recipients" rows="2" style="width:100%;border:1px solid #ddd;border-radius:6px;padding:4px 6px;box-sizing:border-box;font-size:12px;">${escapeHtml(recipients)}</textarea>
       </div>
       
@@ -1127,7 +1124,7 @@ function attachCardEvents(item){
   const scaleEl   = document.getElementById('card-scale');
   const scaleLbl  = document.getElementById('card-scale-lbl');
   const kindEl    = document.getElementById('card-kind');
-  const recipEl   = document.getElementById('card-recipients'); // 🔧 جديد
+  const recipEl   = document.getElementById('card-recipients');
   const saveBtn   = document.getElementById('card-save');
   const delBtn    = document.getElementById('card-del');
   const closeBtn  = document.getElementById('card-close');
@@ -1144,7 +1141,6 @@ function attachCardEvents(item){
     if(nameEl && !nameEl.disabled) item.meta.name = nameEl.value.trim();
     item.meta.kind = k;
     item.meta.scale = s;
-    // 🔧 إصلاح: حفظ المستلمين
     item.meta.recipients = parseRecipients(recipEl.value);
     
     applyShapeVisibility(item);
@@ -1157,8 +1153,21 @@ function attachCardEvents(item){
   if(kindEl) kindEl.addEventListener('input', apply, {passive:true});
   if(radiusEl && radiusLbl) radiusEl.addEventListener('input', ()=>{ radiusLbl.textContent = (+radiusEl.value).toFixed(0) + 'م'; });
   if(scaleEl && scaleLbl) scaleEl.addEventListener('input', ()=>{ scaleLbl.textContent = (+scaleEl.value).toFixed(1) + 'x'; });
-  if(saveBtn) saveBtn.addEventListener('click', ()=>{ apply(); showToast('✓ تم حفظ التعديلات'); if(infoWin){ infoWin.close(); infoWin = null; } cardPinned = false; }, {passive:true});
-  if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(infoWin){ infoWin.close(); infoWin = null; } cardPinned = false; }, {passive:true});
+  
+  if(saveBtn) saveBtn.addEventListener('click', ()=>{ 
+    apply(); 
+    showToast('✓ تم حفظ التعديلات'); 
+    if(infoWin){ infoWin.close(); infoWin = null; } 
+    cardPinned = false; 
+    item.circle.setEditable(false); // 🔧 تعديل: إيقاف التحرير
+  }, {passive:true});
+  
+  if(closeBtn) closeBtn.addEventListener('click', ()=>{ 
+    if(infoWin){ infoWin.close(); infoWin = null; } 
+    cardPinned = false; 
+    item.circle.setEditable(false); // 🔧 تعديل: إيقاف التحرير
+  }, {passive:true});
+  
   if(delBtn) delBtn.addEventListener('click', ()=>{
     if(confirm(`هل أنت متأكد من حذف "${item.meta.name || item.defaultName}"؟`)){
       deleteItem(item);
@@ -1208,7 +1217,7 @@ function createCircle(item){
     fillColor: DEFAULT_COLOR,
     fillOpacity: DEFAULT_FILL_OPACITY,
     draggable: editMode && !item.fixed,
-    editable: editMode && !item.fixed,
+    editable: false, // 🔧 تعديل: إيقاف التحرير عند الإنشاء
     clickable: true
   });
   return c;
@@ -1245,7 +1254,6 @@ function attachListeners(item){
   const clickHandler = ()=>{
     if(addMode || routeMode) return;
     if(editMode) openCard(item);
-    // 🔧 جديد: عرض كرت المعلومات البسيط في وضع المشاركة
     else showHoverCard(item);
   };
   marker.addListener('click', clickHandler);
@@ -1291,7 +1299,7 @@ function addNewMarker(latLng){
   
   attachListeners(item);
   circles.push(item);
-  openCard(item);
+  openCard(item); // 🔧 سيقوم هذا بتفعيل التحرير
   persist();
 }
 
@@ -1336,7 +1344,6 @@ function showToast(message, duration = 3000){
 function boot(){
   console.log('Booting Diriyah Map v13.1...');
   
-  // 🔧 تعديل: قراءة الحالة من ?x=
   const sharedState = readShare();
   if(sharedState){
     console.log('🛰️ Share mode detected');
@@ -1381,14 +1388,9 @@ function boot(){
     circles.push(item);
   });
   
-  // Apply state (from share link OR local save)
   if(sharedState){
     applyState(sharedState);
-  } else {
-    // 💡 يمكنك هنا إضافة كود لقراءة حالة محفوظة محلياً إذا أردت
-    // const savedState = readLocalStorage();
-    // if(savedState) applyState(savedState);
-  }
+  } 
   
   map.addListener('zoom_changed', throttle(()=>{
     circles.forEach(it => {
@@ -1412,7 +1414,6 @@ function boot(){
     } else if(routeMode){
       addRoutePoint(e.latLng);
     } else {
-      // 🔧 جديد: عرض معلومات المسار عند النقر عليه في وضع العرض
       if(!editMode && activeRoutePoly && google.maps.geometry.poly.isLocationOnEdge(e.latLng, activeRoutePoly, 1e-3)) {
         openRouteInfoCard(e.latLng, true);
       }
@@ -1435,7 +1436,7 @@ function boot(){
   btnAdd = document.getElementById('btn-add-marker');
   btnRoute = document.getElementById('btn-route');
   btnRouteClear = document.getElementById('btn-route-clear');
-  modeBadge = document.getElementById('mode-badge');
+  modeBadge = document.getElementById('mode-badge');
   mapTypeSelector = document.getElementById('map-type-selector');
   
   if(btnTraffic) btnTraffic.addEventListener('click', ()=>{
@@ -1450,9 +1451,9 @@ function boot(){
     persist();
   });
   
+  // 🔧 تعديل: زر المشاركة يستخدم الآن الرابط المُرجع من flushPersist
   if(btnShare) btnShare.addEventListener('click', ()=>{
-    flushPersist(); // Ensure URL is up to date
-    const url = location.href; // 🔧 سيحتوي الآن على ?x=
+    const url = flushPersist(); // الحصول على الرابط المحدث مباشرة
     const recipients = circles.flatMap(c => c.meta.recipients).filter((v,i,a) => a.indexOf(v) === i);
     const shareTitle = 'خريطة الدرعية الأمنية';
     const shareText = `خريطة محدثة. المستلمون: ${recipients.join(', ')}\n${url}`;
@@ -1488,7 +1489,6 @@ function boot(){
     }
   });
   
-  // 🔧 تعديل: إخفاء أدوات التحرير إذا كنا في وضع المشاركة
   if(shareMode){
     document.body.classList.add('share-mode');
     if(modeBadge) modeBadge.style.display = 'none';
@@ -1526,5 +1526,3 @@ function setMode(mode){
   if(infoWin) infoWin.close();
   cardPinned = false;
 }
-
-
