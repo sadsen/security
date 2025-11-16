@@ -6,10 +6,7 @@
   <title>Diriyah Security Map</title>
 
   <!-- Tajawal font -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap"
-    rel="stylesheet"
-  />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 
   <style>
     html, body {
@@ -28,7 +25,7 @@
       z-index: 1;
     }
 
-    /* Toolbar */
+    /* الشريط العلوي */
     .toolbar {
       position: fixed;
       top: calc(env(safe-area-inset-top, 0px) + 12px);
@@ -70,6 +67,7 @@
       background: rgba(255, 255, 255, .08);
     }
 
+    /* إخفاء زر إغلاق الـ InfoWindow الافتراضي */
     .gm-style-iw button.gm-ui-hover-effect {
       display: none !important;
     }
@@ -78,6 +76,7 @@
       overflow: visible !important;
     }
 
+    /* وضع المشاركة: إخفاء أزرار التحرير */
     body.share-mode #btnShare,
     body.share-mode #btnAdd,
     body.share-mode #btnEdit,
@@ -87,7 +86,6 @@
     }
   </style>
 </head>
-
 <body>
   <div id="map"></div>
 
@@ -100,17 +98,18 @@
 
     <button id="btnShare"     class="btn">مشاركة</button>
     <button id="btnEdit"      class="btn">وضع العرض</button>
-    <button id="btnAdd"       class="btn" aria-pressed="false">إضافة موقع</button>
+    <button id="btnAdd"       class="btn" aria-pressed="false" title="إضافة موقع جديد">إضافة موقع</button>
 
-    <button id="btnRoute"      class="btn" aria-pressed="false">مسار</button>
-    <button id="btnRouteClear" class="btn" style="display:none;">مسح المسار</button>
+    <button id="btnRoute"      class="btn" aria-pressed="false" title="وضع إنشاء مسار">مسار</button>
+    <button id="btnRouteClear" class="btn" title="مسح المسار" style="display:none;">مسح المسار</button>
   </div>
 
-  <!-- تحميل main.js من المسار الصحيح -->
-  <script src="/js/main.js"></script>
+  <!-- ملف الجافاسكربت الرئيسي -->
+  <!-- لاحظ: مسار مطلق يبدأ بـ / حتى لو دخلت برابط مشاركة -->
+  <script src="/js/main.js" defer></script>
 
-  <!-- Google Maps بدون defer ولا async (ضروري لكي يعمل callback initMap) -->
-  <script
+  <!-- خريطة قوقل: المفتاح يستبدل من السيرفر عن طريق %GOOGLE_MAP_KEY% -->
+  <script async defer
     src="https://maps.googleapis.com/maps/api/js?key=%GOOGLE_MAP_KEY%&v=weekly&libraries=geometry&callback=initMap">
   </script>
 </body>
