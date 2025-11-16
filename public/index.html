@@ -24,7 +24,6 @@
       z-index: 1;
     }
 
-    /* الشريط العلوي */
     .toolbar {
       position: fixed;
       top: calc(env(safe-area-inset-top, 0px) + 12px);
@@ -52,13 +51,13 @@
       color: #fff;
       font-size: 13px;
       white-space: nowrap;
-      display: flex; /* لمركزة الأيقونة والنص إن وجد */
+      display: flex;
       align-items: center;
       gap: 6px;
     }
 
     .btn[aria-pressed="true"] {
-      background: rgba(66, 133, 244, 0.8); /* لون أزرق عند التفعيل */
+      background: rgba(66, 133, 244, 0.8);
       border-color: rgba(66, 133, 244, 0.9);
     }
     
@@ -75,13 +74,11 @@
       background: rgba(255, 255, 255, .08);
     }
     
-    /* شارة وضع العرض */
     .badge.view {
       background: rgba(234, 67, 53, 0.7);
       border-color: rgba(234, 67, 53, 0.9);
     }
 
-    /* إخفاء زر إغلاق الـ InfoWindow الافتراضي */
     .gm-style-iw button.gm-ui-hover-effect {
       display: none !important;
     }
@@ -90,10 +87,9 @@
       overflow: visible !important;
     }
 
-    /* عنصر التنبيه (Toast) لرسائل التأكيد */
     #toast {
       position: fixed;
-      bottom: -100px; /* يبدأ مخفيًا */
+      bottom: -100px;
       left: 50%;
       transform: translateX(-50%);
       padding: 12px 24px;
@@ -109,7 +105,7 @@
     }
 
     #toast.show {
-      bottom: 30px; /* يظهر عند إضافة الكلاس */
+      bottom: 30px;
     }
   </style>
 </head>
@@ -124,14 +120,14 @@
     <button id="btnSatellite" class="btn" aria-pressed="false">قمر صناعي</button>
     <button id="btnTraffic"   class="btn" aria-pressed="false">حركة المرور</button>
 
-    <button id="btnShare"     class="btn">
+    <button id="btn-share"     class="btn">
       <span class="label">مشاركة</span>
     </button>
     
-    <button id="btnAdd"       class="btn" aria-pressed="false">إضافة موقع</button>
-    <button id="btnRoute"     class="btn" aria-pressed="false">مسار</button>
+    <button id="btn-add"       class="btn" aria-pressed="false">إضافة موقع</button>
+    <button id="btn-route"     class="btn" aria-pressed="false">مسار</button>
     
-    <button id="btnRouteClear" class="btn">مسح المسار</button>
+    <button id="btn-route-clear" class="btn">مسح المسار</button>
   </div>
 
   <div id="toast"></div>
@@ -139,9 +135,8 @@
   <script src="/js/main.js"></script>
 
   <script
-      src="https://maps.googleapis.com/maps/api/js?key=%GOOGLE_MAP_KEY%&v=weekly&libraries=geometry&callback=initMap"
-      async>
+    src="https://maps.googleapis.com/maps/api/js?key=%GOOGLE_MAP_KEY%&v=weekly&libraries=geometry&callback=initMap"
+    async>
   </script>
-
 </body>
 </html>
