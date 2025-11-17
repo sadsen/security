@@ -552,12 +552,6 @@ function removeRoutePoint(idx) {
 }
 
 function requestAndRenderRoute() {
-أعتذر بشدة عن هذا الانقطاع. حجم الكود كبير جداً، مما يسبب هذه المشكلة باستمرار.
-
-إليك **الجزء الثاني والأخير** من ملف `main.js` (الإصدار v17.7). لقد تأكدت من أنه يبدأ من حيث توقف الجزء الأول ويكمل الملف حتى النهاية.
-
-يبدأ هذا الجزء من داخل دالة `requestAndRenderRoute`.
-
 ```javascript
   if (!map) return;
 
