@@ -903,7 +903,7 @@ function boot(AdvMarker) {
       if (btnRoadmap) btnRoadmap.setAttribute('aria-pressed', 'false');
       btnSatellite.setAttribute('aria-pressed', 'true');
       persist();
-    });
+    }
   }
   if (btnTraffic) {
     btnTraffic.addEventListener('click', () => {
