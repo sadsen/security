@@ -884,11 +884,14 @@ function boot() {
   if (btnTraffic) { btnTraffic.addEventListener('click', () => { const isPressed = btnTraffic.getAttribute('aria-pressed') === 'true'; trafficLayer.setMap(isPressed ? null : map); btnTraffic.setAttribute('aria-pressed', String(!isPressed)); persist(); }); }
   if (btnShare) btnShare.addEventListener('click', copyShareLink);
   if (btnEdit && !shareMode) {
+  btnEdit.setAttribute('aria-pressed', String(editMode));
+  btnEdit.addEventListener('click', () => {
+    editMode = !editMode;
     btnEdit.setAttribute('aria-pressed', String(editMode));
-    btnEdit.addEventListener('click', () => { editMode = !editMode; btnEdit.setAttribute('aria-pressed', String(editMode)); applyEditModeUI(); showToast(editMode ? 'تم
-      showToast(editMode ? 'تم تفعيل وضع التحرير' : 'تم تفعيل وضع العرض');
-    });
-  }
+    applyEditModeUI();
+    showToast(editMode ? 'تم تفعيل وضع التحرير' : 'تم تفعيل وضع العرض');
+  });
+}
 
   if (btnAdd) {
     btnAdd.addEventListener('click', () => {
