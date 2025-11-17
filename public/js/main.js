@@ -1,4 +1,4 @@
-/* Diriyah Security Map – v17.1 (Express backend + is.gd + interactive share + clean + glass cards + fixes) */
+/* Diriyah Security Map – v17.2 (Traffic/Satellite Fix + Light Glass Route Card + Recipient Formatting) */
 'use strict';
 
 /* ---------------- Robust init ---------------- */
@@ -269,7 +269,7 @@ function buildState() {
   const center = map.getCenter();
   const zoom = map.getZoom();
   const typeId = map.getMapTypeId();
-  const trafficOn = btnTraffic && btnTraffic.getAttribute('aria-pressed') === 'true';
+  const trafficOn = trafficLayer && trafficLayer.getMap() != null;
 
   const st = {
     v: 2, /* version */
@@ -342,7 +342,11 @@ function applyState(st) {
       map.setCenter({ lat: st.c[0], lng: st.c[1] });
     }
     if (typeof st.z === 'number') map.setZoom(st.z);
-    if (st.t) map.setMapTypeId(st.t);
+    if (st.t) {
+        map.setMapTypeId(st.t);
+        if (btnRoadmap) btnRoadmap.setAttribute('aria-pressed', st.t === 'roadmap');
+        if (btnSatellite) btnSatellite.setAttribute('aria-pressed', st.t === 'hybrid');
+    }
 
     if (st.tr && btnTraffic) {
       trafficLayer.setMap(map);
@@ -618,7 +622,8 @@ function requestAndRenderRoute() {
       const r = result.routes?.[0];
 
       /* distance + duration */
-      if (r?.legs && r.legs.length > 0) {
+      if (r?.legs && r.
+legs.length > 0) {
         routeDistance = r.legs.reduce((t, leg) => t + (leg.distance?.value || 0), 0);
         routeDuration = r.legs.reduce((t, leg) => t + (leg.duration?.value || 0), 0);
       }
@@ -670,8 +675,8 @@ function extractActivePolyline() {
   activeRoutePoly.addListener('mouseover', e => {
     routeHovering = true;
     clearTimeout(routeInfoHideTimer);
-    if (!editMode && !routeCardPinned) {
-        openRouteInfoCard(e.latLng, false); // Show on hover in view mode
+    if (!routeCardPinned) {
+        openRouteInfoCard(e.latLng, false); // Show on hover
     }
     document.body.style.cursor = 'pointer';
   });
@@ -706,7 +711,6 @@ function restoreRouteFromOverview(polyStr, routePointsArray = null, routeStyleDa
 
   let path = null;
 
-  // نحاول استخدام geometry، وإذا لم تتوفر نستخدم نقاط المسار كـ fallback
   if (
     polyStr &&
     typeof google !== 'undefined' &&
@@ -983,7 +987,7 @@ function attachRouteCardEvents() {
   });
 }
 
-/* ---------------- Route info card (view mode) ---------------- */
+/* ---------------- Route info card (view mode) - NEW LIGHT GLASS DESIGN ---------------- */
 
 function openRouteInfoCard(latLng, pinned = false) {
   if (!routeInfoWin) {
@@ -1003,43 +1007,42 @@ function openRouteInfoCard(latLng, pinned = false) {
 
   const distanceText = formatDistance(routeDistance);
   const durationText = formatDuration(routeDuration);
-
   const pointCount = routePoints.length;
 
   const content = `
-  <div id="route-info-root" dir="rtl" style="min-width:280px">
-    <div style="background:rgba(30,30,30,0.85);
-                backdrop-filter:blur(18px);
-                -webkit-backdrop-filter:blur(18px);
-                border:1px solid rgba(255,255,255,0.1);
+  <div id="route-info-root" dir="rtl" style="min-width:290px;">
+    <div style="background:rgba(255,255,255,0.9);
+                backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+                border:1px solid rgba(0,0,0,0.08);
                 border-radius:18px;
                 padding:16px;
-                color:#fff;">
+                color:#111;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
       
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-        <div style="width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.1);">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <div style="width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.05);">
           <img src="img/diriyah-logo.png" style="width:32px;height:32px;">
         </div>
 
         <div style="flex:1;">
           <div style="font-weight:800;font-size:16px;">معلومات المسار</div>
-          <div style="font-size:12px;color:#bbb;">${pointCount} نقطة</div>
+          <div style="font-size:12px;color:#555;">${pointCount} نقطة على المسار</div>
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(0,0,0,0.08);">
         <div style="text-align:center;">
-          <div style="font-size:12px;color:#bbb;">المسافة</div>
+          <div style="font-size:12px;color:#666;">المسافة</div>
           <div style="font-weight:700;font-size:14px;">${distanceText}</div>
         </div>
         <div style="text-align:center;">
-          <div style="font-size:12px;color:#bbb;">الوقت المتوقع</div>
+          <div style="font-size:12px;color:#666;">الوقت المتوقع</div>
           <div style="font-weight:700;font-size:14px;">${durationText}</div>
         </div>
       </div>
 
       ${(!shareMode && editMode) ? `
-        <div style="text-align:center;font-size:11px;color:#999;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);">
+        <div style="text-align:center;font-size:11px;color:#777;margin-top:14px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.08);">
           انقر على الخط لتعديل الإعدادات
         </div>` : ''}
     </div>
@@ -1117,9 +1120,11 @@ function renderCard(item) {
   const scale = m.scale || DEFAULT_MARKER_SCALE;
   const recips = Array.isArray(m.recipients) ? m.recipients : [];
 
+  // NEW: Format recipients with line breaks
   const recipientsHtml = recips.length > 0
     ? `<div style="font-size:13px;color:#333;margin-top:8px;padding:8px;background:rgba(0,0,0,0.03);border-radius:8px;">
-         <strong>المستلمون:</strong> ${escapeHtml(recips.join('، '))}
+         <strong style="display:block; margin-bottom: 4px;">المستلمون:</strong>
+         <div style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(recips.join('\n'))}</div>
        </div>`
     : '';
 
@@ -1131,8 +1136,8 @@ function renderCard(item) {
     </div>
     
     <div style="margin-top:8px;">
-      <label style="font-size:12px;display:block;margin-bottom:2px;">المستلمون (افصل بينهم بـ , أو سطر جديد):</label>
-      <textarea id="info-recipients" rows="2"
+      <label style="font-size:12px;display:block;margin-bottom:2px;">المستلمون (افصل بينهم بسطر جديد):</label>
+      <textarea id="info-recipients" rows="3"
                 style="width:100%;box-sizing:border-box;padding:6px;border-radius:6px;border:1px solid #ccc;">${escapeHtml(recips.join('\n'))}</textarea>
     </div>
     
@@ -1216,7 +1221,6 @@ function attachCardEvents(item) {
     });
   }
 
-  // في وضع العرض أو وضع المشاركة: لا تحكم تحرير
   if (shareMode || !editMode) return;
 
   const saveBtn = document.getElementById('info-save');
@@ -1363,7 +1367,7 @@ function createMapItem(data) {
 }
 
 /**
- * Toast helper – ينشئ Toast تلقائياً إذا لم يوجد في الـ HTML
+ * Toast helper
  */
 function showToast(message) {
   if (!toast) {
@@ -1437,7 +1441,8 @@ async function copyShareLink() {
     try {
       await navigator.clipboard.writeText(longUrl);
       showToast('! تعذر الاختصار، تم نسخ الرابط الطويل');
-    } catch (e) {
+    } catch (
+e) {
       showToast('تعذر نسخ الرابط إلى الحافظة');
     }
   } finally {
@@ -1462,6 +1467,10 @@ function applyEditModeUI() {
     item.marker.setDraggable(editMode && !item.fixed && !shareMode);
   });
 
+  routeStopMarkers.forEach(m => {
+      m.setDraggable(editMode && !shareMode);
+  });
+
   if (!editMode) {
     addMode = false;
     routeMode = false;
@@ -1474,7 +1483,7 @@ function applyEditModeUI() {
 // --- MAIN BOOT FUNCTION ---
 
 function boot() {
-  console.log('Booting Diriyah Map v17.1');
+  console.log('Booting Diriyah Map v17.2');
 
   const mapEl = document.getElementById('map');
   if (!mapEl || !window.google || !google.maps) {
@@ -1499,10 +1508,10 @@ function boot() {
   
   trafficLayer = new google.maps.TrafficLayer();
 
-  // تحديد وضع المشاركة بناءً على وجود ?x= حتى لو كانت الحالة تالفة
   const params = new URLSearchParams(location.search);
   const hasShareParam = params.has('x');
   shareMode = !!hasShareParam;
+
   const st = readShare();
   if (st) {
     try {
@@ -1531,7 +1540,7 @@ function boot() {
   btnSatellite = document.getElementById('btn-satellite');
   btnEdit = document.getElementById('btn-edit');
 
-  // --- Hide tools in Share Mode (link view-only) ---
+  // --- Hide tools in Share Mode ---
   if (shareMode) {
     if (btnShare) btnShare.style.display = 'none';
     if (btnAdd) btnAdd.style.display = 'none';
@@ -1574,7 +1583,7 @@ function boot() {
   // --- Traffic button ---
   if (btnTraffic) {
     btnTraffic.addEventListener('click', () => {
-      if (btnTraffic.getAttribute('aria-pressed') === 'true') {
+      if (trafficLayer.getMap() != null) {
         trafficLayer.setMap(null);
         btnTraffic.setAttribute('aria-pressed', 'false');
       } else {
@@ -1590,7 +1599,7 @@ function boot() {
     btnShare.addEventListener('click', copyShareLink);
   }
 
-  // --- Edit button (تبديل وضع التحرير/العرض في الوضع العادي فقط) ---
+  // --- Edit button ---
   if (btnEdit && !shareMode) {
     btnEdit.setAttribute('aria-pressed', editMode ? 'true' : 'false');
     btnEdit.addEventListener('click', () => {
@@ -1669,13 +1678,13 @@ function boot() {
 
   // --- Map Listeners ---
   map.addListener('click', (e) => {
-    // Close any pinned info window when clicking on the map
     if (cardPinned && infoWin) {
         infoWin.close();
         cardPinned = false;
     }
-    if (routeCardPinned && routeInfoWin) {
-        routeInfoWin.close();
+    if (routeCardPinned && (routeInfoWin || routeCardWin)) {
+        if(routeInfoWin) routeInfoWin.close();
+        if(routeCardWin) routeCardWin.close();
         routeCardPinned = false;
     }
       
@@ -1690,7 +1699,7 @@ function boot() {
         fixed: false
       };
       const item = createMapItem(data);
-      openCard(item); // This will open the card and pin it
+      openCard(item);
       
       addMode = false;
       if (btnAdd) btnAdd.setAttribute('aria-pressed', 'false');
