@@ -1,6 +1,6 @@
 /*
- * Diriyah Security Map – v17.8 (Final Syntax Fix)
- * This version fixes a missing curly brace in the renderCard function.
+ * Diriyah Security Map – v17.9 (Final Syntax Fix)
+ * This version fixes a syntax error in the Polyline creation.
  * It uses a self-contained dynamic script loader for the Google Maps API.
  * Author: Manus
  */
@@ -442,7 +442,20 @@ function extractActivePolyline() {
   const path = dir.routes[0].overview_path;
   if (!path?.length) return;
   if (activeRoutePoly) { activeRoutePoly.setMap(null); }
-  activeRoutePoly = new google.maps.Polyline({ map, path, ...routeStyle, zIndex: 9997, clickable: true });
+  
+  // *** THIS IS THE FIX ***
+  // The spread operator (...) was used incorrectly.
+  // We need to pass individual properties.
+  activeRoutePoly = new google.maps.Polyline({
+    map: map,
+    path: path,
+    strokeColor: routeStyle.color,
+    strokeWeight: routeStyle.weight,
+    strokeOpacity: routeStyle.opacity,
+    zIndex: 9997,
+    clickable: true
+  });
+
   activeRoutePoly.addListener('click', e => {
     if (editMode) {
         if (!routeMode) { setRouteMode(true); showToast('وضع المسار مفعل. يمكنك الآن تعديل المسار.'); }
@@ -455,6 +468,7 @@ function extractActivePolyline() {
     if (!routeCardPinned) { openRouteInfoCard(e.latLng, false); }
     document.body.style.cursor = 'pointer';
   });
+  active
   activeRoutePoly.addListener('mouseout', () => {
     routeHovering = false;
     scheduleRouteInfoHide();
@@ -462,11 +476,11 @@ function extractActivePolyline() {
   });
   flushPersist();
 }
+
 function restoreRouteFromOverview(polyStr, routePointsArray = null, routeStyleData = null, dist = 0, dur = 0, name = 'مسار', notes = '') {
   clearRouteVisuals(false);
   if (routeStyleData) {
     routeStyle = {
-      color: routeStyleData.
       color: routeStyleData.color || routeStyleData.c || routeStyle.color,
       weight: routeStyleData.weight || routeStyleData.w || routeStyle.weight,
       opacity: routeStyleData.opacity || routeStyleData.o || routeStyle.opacity
@@ -500,7 +514,15 @@ function restoreRouteFromOverview(polyStr, routePointsArray = null, routeStyleDa
 
   if (path && path.length) {
     if (activeRoutePoly) activeRoutePoly.setMap(null);
-    activeRoutePoly = new google.maps.Polyline({ map, path, ...routeStyle, zIndex: 9997, clickable: true });
+    activeRoutePoly = new google.maps.Polyline({
+        map: map,
+        path: path,
+        strokeColor: routeStyle.color,
+        strokeWeight: routeStyle.weight,
+        strokeOpacity: routeStyle.opacity,
+        zIndex: 9997,
+        clickable: true
+    });
 
     activeRoutePoly.addListener('click', e => {
         if (editMode) {
@@ -824,7 +846,7 @@ function setRouteMode(isActive) {
 
 // --- MAIN BOOT FUNCTION ---
 function boot() {
-  console.log('Booting Diriyah Security Map v17.8');
+  console.log('Booting Diriyah Security Map v17.9');
   const mapEl = document.getElementById('map');
   if (!mapEl || !window.google || !google.maps) { console.error('Google Maps not available'); return; }
   map = new google.maps.Map(mapEl, {
@@ -863,14 +885,28 @@ function boot() {
   if (btnShare) btnShare.addEventListener('click', copyShareLink);
   if (btnEdit && !shareMode) {
     btnEdit.setAttribute('aria-pressed', String(editMode));
-    btnEdit.addEventListener('click', () => { editMode = !editMode; btnEdit.setAttribute('aria-pressed', String(editMode)); applyEditModeUI(); showToast(editMode ? 'تم تفعيل وضع التحرير' : 'تم تفعيل وضع العرض'); });
+    btnEdit.addEventListener('click', () => { editMode = !editMode; btnEdit.setAttribute('aria-pressed', String(editMode)); applyEditModeUI(); showToast(editMode ? 'تم
+      showToast(editMode ? 'تم تفعيل وضع التحرير' : 'تم تفعيل وضع العرض');
+    });
   }
-  if (btnAdd) { btnAdd.addEventListener('click', () => { if (shareMode || !editMode) { showToast('لتعديل الخريطة، فعّل وضع التحرير أولاً'); return; } setAddMode(!addMode); }); }
+
+  if (btnAdd) {
+    btnAdd.addEventListener('click', () => {
+      if (shareMode || !editMode) {
+        showToast('لتعديل الخريطة، فعّل وضع التحرير أولاً');
+        return;
+      }
+      setAddMode(!addMode);
+    });
+  }
+
   if (btnRoute) {
     btnRoute.addEventListener('click', () => {
-      if (shareMode || !editMode) { showToast('لتعديل المسار، فعّل وضع التحرير أولاً'); return; }
+      if (shareMode || !editMode) {
+        showToast('لتعديل المسار، فعّل وضع التحرير أولاً');
+        return;
+      }
       const willBeActive = !routeMode;
-      if (!willBeActive && routePoints.length > 0) { clear
       if (!willBeActive && routePoints.length > 0) {
           clearRouteVisuals(true);
           showToast('تم مسح المسار الحالي.');
@@ -881,8 +917,14 @@ function boot() {
 
   if (btnRouteClear) {
     btnRouteClear.addEventListener('click', () => {
-      if (shareMode || !editMode) { showToast('لا يمكن تعديل المسار في وضع العرض'); return; }
-      if (routePoints.length === 0) { showToast('لا يوجد مسار لحذفه'); return; }
+      if (shareMode || !editMode) {
+        showToast('لا يمكن تعديل المسار في وضع العرض');
+        return;
+      }
+      if (routePoints.length === 0) {
+        showToast('لا يوجد مسار لحذفه');
+        return;
+      }
       if (confirm('هل أنت متأكد من حذف المسار الحالي؟')) {
         clearRouteVisuals(true);
         showToast('تم حذف المسار');
@@ -891,7 +933,10 @@ function boot() {
   }
 
   map.addListener('click', (e) => {
-    if (cardPinned && infoWin) { infoWin.close(); cardPinned = false; }
+    if (cardPinned && infoWin) {
+      infoWin.close();
+      cardPinned = false;
+    }
     if (routeCardPinned && (routeInfoWin || routeCardWin)) {
         if(routeInfoWin) routeInfoWin.close();
         if(routeCardWin) routeCardWin.close();
@@ -902,8 +947,11 @@ function boot() {
     
     if (addMode) {
       const item = createMapItem({
-        id: 'c' + Date.now(), name: 'نقطة جديدة',
-        lat: e.latLng.lat(), lng: e.latLng.lng(), fixed: false
+        id: 'c' + Date.now(),
+        name: 'نقطة جديدة',
+        lat: e.latLng.lat(),
+        lng: e.latLng.lng(),
+        fixed: false
       });
       openCard(item);
       setAddMode(false);
