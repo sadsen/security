@@ -7,11 +7,11 @@
 
 // --- Step 1: Dynamic Google Maps API Loader ---
 function loadGoogleMapsScript() {
-  // !!! --- ضع مفتاحك هنا بين علامتي التنصيص --- !!!
-  const apiKey = AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8; 
+  // Correct API key (fixed: added quotation marks)
+  const apiKey = 'AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8';
 
   // --- Safety Check ---
-  if (!apiKey || apiKey === AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8) {
+  if (!apiKey || apiKey.length < 30) {
     console.error('!!! Google Maps API key is missing. Please add it to main.js file.');
     const mapDiv = document.getElementById('map');
     if (mapDiv) {
@@ -25,13 +25,15 @@ function loadGoogleMapsScript() {
   script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,marker&callback=initMap&v=weekly&language=ar`;
   script.async = true;
   script.defer = true;
-  script.onerror = ( ) => {
+
+  script.onerror = () => {
     console.error("Google Maps script failed to load.");
     const mapDiv = document.getElementById('map');
     if (mapDiv) {
         mapDiv.innerHTML = '<div style="text-align:center; padding: 50px; color: white; font-size: 16px;">فشل تحميل سكربت خرائط جوجل.</div>';
     }
   };
+
   document.head.appendChild(script);
 }
 
@@ -39,23 +41,22 @@ function loadGoogleMapsScript() {
 window.initMap = async function () {
   if (window.__BOOTED__) return;
   window.__BOOTED__ = true;
-  
-  // Import AdvancedMarkerElement library
+
+  // Import AdvancedMarkerElement
   const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
-  
-  // Pass it to the boot function
+
+  // Pass it to boot()
   boot(AdvancedMarkerElement);
 };
 
-// --- Step 3: Start the loading process ---
+// --- Step 3: Start loader ---
 document.addEventListener('DOMContentLoaded', () => {
   loadGoogleMapsScript();
 });
 
-
-/* 
+/*
 ================================================================
-  The main application logic starts here.
+  Main APP LOGIC
 ================================================================
 */
 
@@ -86,7 +87,7 @@ let btnTraffic, btnShare, btnAdd, btnRoute, btnRouteClear;
 let btnRoadmap, btnSatellite, btnEdit;
 let modeBadge, toast;
 let toastTimer = null;
-let AdvancedMarkerElement; // To hold the imported class
+let AdvancedMarkerElement;
 
 /* Route globals */
 let directionsService = null;
@@ -124,13 +125,13 @@ function scheduleCardHide() {
 }
 
 function scheduleRouteInfoHide() {
-    clearTimeout(routeInfoHideTimer);
-    if (routeCardPinned) return;
-    routeInfoHideTimer = setTimeout(() => {
-        if (!routeCardPinned && !routeHovering && routeInfoWin) {
-            routeInfoWin.close();
-        }
-    }, 120);
+  clearTimeout(routeInfoHideTimer);
+  if (routeCardPinned) return;
+  routeInfoHideTimer = setTimeout(() => {
+    if (!routeCardPinned && !routeHovering && routeInfoWin) {
+      routeInfoWin.close();
+    }
+  }, 120);
 }
 
 /* Defaults */
@@ -173,7 +174,6 @@ const LOCATIONS = [
   { id: 17, name: "دوار راس النعامة", lat: 24.710329, lng: 46.572921 },
   { id: 18, name: "مزرعة الحبيب", lat: 24.709445, lng: 46.593971 },
 ];
-
 /* SVG icons */
 const MARKER_KINDS = [
   { id: 'pin',    label: 'دبوس عام',        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#ea4335" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>` },
@@ -185,8 +185,13 @@ const MARKER_KINDS = [
 ];
 
 /* utilities */
-const clamp = (x, min, max  ) => Math.min(max, Math.max(min, x));
-const escapeHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const clamp = (x, min, max) => Math.min(max, Math.max(min, x));
+const escapeHtml = s =>
+  String(s).replace(/&/g, '&amp;')
+           .replace(/</g, '&lt;')
+           .replace(/>/g, '&gt;')
+           .replace(/"/g, '&quot;');
+
 const toHex = (c) => {
   if (!c) return DEFAULT_COLOR;
   if (/^#/.test(c)) return c;
@@ -195,28 +200,42 @@ const toHex = (c) => {
   const [r, g, b] = [+m[1], +m[2], +m[3]];
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 };
-const parseRecipients = t => String(t).split(/\r?\n|[،;,]+/).map(s => s.trim()).filter(Boolean);
+
+const parseRecipients = t =>
+  String(t)
+    .split(/\r?\n|[،;,]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
 
 /* ---------------- Share state (short) ---------------- */
 let persistTimer = null;
+
 const persist = () => {
   if (shareMode) return;
   clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => { writeShare(buildState()); }, 300);
+  persistTimer = setTimeout(() => {
+    writeShare(buildState());
+  }, 300);
 };
+
 function flushPersist() {
   if (shareMode) return;
   clearTimeout(persistTimer);
   writeShare(buildState());
 }
+
 function b64uEncode(s) {
   try {
     const bytes = new TextEncoder().encode(s);
     const binary = String.fromCharCode.apply(null, bytes);
     const b = btoa(binary);
     return b.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  } catch (e) { console.error('Base64 encoding error:', e); return ''; }
+  } catch (e) {
+    console.error('Base64 encoding error:', e);
+    return '';
+  }
 }
+
 function b64uDecode(t) {
   try {
     t = String(t || '').replace(/[^A-Za-z0-9\-_]/g, '');
@@ -225,8 +244,12 @@ function b64uDecode(t) {
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     return new TextDecoder().decode(bytes);
-  } catch (e) { console.error('Base64 decoding error:', e); return ''; }
+  } catch (e) {
+    console.error('Base64 decoding error:', e);
+    return '';
+  }
 }
+
 function readShare() {
   const params = new URLSearchParams(location.search);
   const h = params.get('x');
@@ -235,37 +258,71 @@ function readShare() {
     const decoded = b64uDecode(h);
     if (!decoded) return null;
     return JSON.parse(decoded);
-  } catch (e) { console.error('Share state parse error:', e); return null; }
+  } catch (e) {
+    console.error('Share state parse error:', e);
+    return null;
+  }
 }
+
 const circles = [];
+
 function buildState() {
   if (!map) return null;
   const center = map.getCenter();
   const zoom = map.getZoom();
   const typeId = map.getMapTypeId();
   const trafficOn = trafficLayer && trafficLayer.getMap() != null;
+
   const st = {
-    v: 4, c: [ +center.lat().toFixed(6), +center.lng().toFixed(6) ], z: zoom, t: typeId, tr: trafficOn ? 1 : 0, loc: [], r: null
+    v: 4,
+    c: [+center.lat().toFixed(6), +center.lng().toFixed(6)],
+    z: zoom,
+    t: typeId,
+    tr: trafficOn ? 1 : 0,
+    loc: [],
+    r: null
   };
+
   circles.forEach((it) => {
     const pos = it.marker.position;
     const circle = it.circle;
     const m = it.meta;
+
     st.loc.push([
-      +pos.lat.toFixed(6), +pos.lng.toFixed(6), Math.round(circle.getRadius()), toHex(circle.get('fillColor')),
-      m.name || it.defaultName || '', m.kind || DEFAULT_MARKER_KIND, +(m.scale || DEFAULT_MARKER_SCALE),
-      it.fixed ? 1 : 0, m.recipients || []
+      +pos.lat.toFixed(6),
+      +pos.lng.toFixed(6),
+      Math.round(circle.getRadius()),
+      toHex(circle.get('fillColor')),
+      m.name || it.defaultName || '',
+      m.kind || DEFAULT_MARKER_KIND,
+      +(m.scale || DEFAULT_MARKER_SCALE),
+      it.fixed ? 1 : 0,
+      m.recipients || []
     ]);
   });
+
   if (currentRouteOverview || routePoints.length) {
     st.r = {
-      o: currentRouteOverview || null, p: routePoints.map(p => ({ lat: +p.lat().toFixed(6), lng: +p.lng().toFixed(6) })),
-      s: { c: routeStyle.color, w: routeStyle.weight, o: routeStyle.opacity },
-      d: routeDistance, u: routeDuration, n: routeName, m: routeNotes
+      o: currentRouteOverview || null,
+      p: routePoints.map(p => ({
+        lat: +p.lat().toFixed(6),
+        lng: +p.lng().toFixed(6)
+      })),
+      s: {
+        c: routeStyle.color,
+        w: routeStyle.weight,
+        o: routeStyle.opacity
+      },
+      d: routeDistance,
+      u: routeDuration,
+      n: routeName,
+      m: routeNotes
     };
   }
+
   return st;
 }
+
 function writeShare(st) {
   if (!st) return;
   try {
@@ -273,171 +330,299 @@ function writeShare(st) {
     const encoded = b64uEncode(json);
     const url = `${location.origin}${location.pathname}?x=${encoded}`;
     history.replaceState(null, '', url);
-  } catch (e) { console.error('writeShare error:', e); }
+  } catch (e) {
+    console.error('writeShare error:', e);
+  }
 }
 function applyState(st) {
   if (!map || !st) return;
   try {
-    if (Array.isArray(st.c) && st.c.length === 2) map.setCenter({ lat: st.c[0], lng: st.c[1] });
-    if (typeof st.z === 'number') map.setZoom(st.z);
+    if (Array.isArray(st.c) && st.c.length === 2)
+      map.setCenter({ lat: st.c[0], lng: st.c[1] });
+
+    if (typeof st.z === 'number')
+      map.setZoom(st.z);
+
     if (st.t) {
-        map.setMapTypeId(st.t);
-        if (btnRoadmap) btnRoadmap.setAttribute('aria-pressed', st.t === 'roadmap');
-        if (btnSatellite) btnSatellite.setAttribute('aria-pressed', st.t === 'hybrid');
+      map.setMapTypeId(st.t);
+      if (btnRoadmap)
+        btnRoadmap.setAttribute('aria-pressed', st.t === 'roadmap');
+      if (btnSatellite)
+        btnSatellite.setAttribute('aria-pressed', st.t === 'hybrid');
     }
+
     if (st.tr && btnTraffic) {
       trafficLayer.setMap(map);
       btnTraffic.setAttribute('aria-pressed', 'true');
     }
+
     if (Array.isArray(st.loc)) {
       st.loc.forEach((entry, idx) => {
         const [lat, lng, radius, color, name, kind, scale, fixedFlag, recips] = entry;
+
         let item;
         if (idx < circles.length) {
           item = circles[idx];
           item.marker.position = { lat, lng };
           item.circle.setCenter({ lat, lng });
         } else {
-          const data = { id: `sx${Date.now()}_${idx}`, name: name || 'نقطة', lat, lng, fixed: !!fixedFlag };
+          const data = {
+            id: `sx${Date.now()}_${idx}`,
+            name: name || 'نقطة',
+            lat,
+            lng,
+            fixed: !!fixedFlag
+          };
           const marker = createMarker(data);
           const circle = createCircle(data);
+
           item = {
-            id: data.id, marker, circle, fixed: !!fixedFlag, defaultName: name || data.name,
-            meta: { name: name || data.name, kind: kind || DEFAULT_MARKER_KIND, scale: scale || DEFAULT_MARKER_SCALE, recipients: Array.isArray(recips) ? recips : [] }
+            id: data.id,
+            marker,
+            circle,
+            fixed: !!fixedFlag,
+            defaultName: name || data.name,
+            meta: {
+              name: name || data.name,
+              kind: kind || DEFAULT_MARKER_KIND,
+              scale: scale || DEFAULT_MARKER_SCALE,
+              recipients: Array.isArray(recips) ? recips : []
+            }
           };
+
           attachListeners(item);
           circles.push(item);
         }
-        item.circle.setOptions({ radius: radius || DEFAULT_RADIUS, strokeColor: color || DEFAULT_COLOR, fillColor: color || DEFAULT_COLOR, fillOpacity: DEFAULT_FILL_OPACITY });
+
+        item.circle.setOptions({
+          radius: radius || DEFAULT_RADIUS,
+          strokeColor: color || DEFAULT_COLOR,
+          fillColor: color || DEFAULT_COLOR,
+          fillOpacity: DEFAULT_FILL_OPACITY
+        });
+
         item.meta.name = name || item.meta.name;
         item.meta.kind = kind || item.meta.kind;
         item.meta.scale = scale || item.meta.scale;
         item.meta.recipients = Array.isArray(recips) ? recips : [];
-        updateMarkerContent(item.marker, color || DEFAULT_MARKER_COLOR, item.meta.scale, item.meta.kind);
+
+        updateMarkerContent(
+          item.marker,
+          color || DEFAULT_MARKER_COLOR,
+          item.meta.scale,
+          item.meta.kind
+        );
       });
     }
+
     if (st.r) {
       const rs = st.r;
-      const style = rs.s ? { color: rs.s.c || routeStyle.color, weight: rs.s.w || routeStyle.weight, opacity: rs.s.o || routeStyle.opacity } : null;
-      restoreRouteFromOverview(rs.o || null, Array.isArray(rs.p) ? rs.p : null, style, rs.d || 0, rs.u || 0, rs.n || 'مسار', rs.m || '');
+      const style = rs.s
+        ? {
+            color: rs.s.c || routeStyle.color,
+            weight: rs.s.w || routeStyle.weight,
+            opacity: rs.s.o || routeStyle.opacity
+          }
+        : null;
+
+      restoreRouteFromOverview(
+        rs.o || null,
+        Array.isArray(rs.p) ? rs.p : null,
+        style,
+        rs.d || 0,
+        rs.u || 0,
+        rs.n || 'مسار',
+        rs.m || ''
+      );
     }
-  } catch (e) { console.error('applyState error:', e); }
-}
-function formatDistance(meters) {
-  if (meters < 1000) return `${Math.round(meters)} متر`;
-  return `${(meters / 1000).toFixed(1)} كم`;
-}
-function formatDuration(seconds) {
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} دقيقة`;
-  const hours = Math.floor(minutes / 60);
-  const rem = minutes % 60;
-  return rem === 0 ? `${hours} ساعة` : `${hours} ساعة و ${rem} دقيقة`;
-}
-function updateMarkerContent(marker, color, userScale, kindId) {
-    const currentZoom = map.getZoom() || BASE_ZOOM;
-    const zoomScale = Math.pow(1.6, (currentZoom - BASE_ZOOM) / 1.0);
-    const base = 28;
-    const w = Math.max(12, Math.round(base * (userScale || DEFAULT_MARKER_SCALE) * zoomScale));
-    
-    const kind = MARKER_KINDS.find(k => k.id === kindId) || MARKER_KINDS[0];
-    const svg = kind.svg.replace(/fill="([^"]*)"/, `fill="${color || DEFAULT_MARKER_COLOR}"`);
-
-    const iconDiv = document.createElement('div');
-    iconDiv.innerHTML = svg;
-    iconDiv.style.width = `${w}px`;
-    iconDiv.style.height = `${w}px`;
-    
-    marker.content = iconDiv;
-}
-
-/* ---------------- Route helpers ---------------- */
-function ensureDirections() {
-  if (!directionsService) directionsService = new google.maps.DirectionsService();
-  if (!directionsRenderer) {
-    directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: true, preserveViewport: true, polylineOptions: { ...routeStyle }, map });
+  } catch (e) {
+    console.error('applyState error:', e);
   }
 }
+
+/* Route visualization helpers */
+
+function ensureDirections() {
+  if (!directionsService)
+    directionsService = new google.maps.DirectionsService();
+
+  if (!directionsRenderer) {
+    directionsRenderer = new google.maps.DirectionsRenderer({
+      suppressMarkers: true,
+      preserveViewport: true,
+      polylineOptions: { ...routeStyle },
+      map
+    });
+  }
+}
+
 function createStopMarker(position, index) {
   const m = new AdvancedMarkerElement({
-    position, map,
+    position,
+    map,
     content: buildStopMarkerContent(routeStyle.color, index + 1),
     gmpDraggable: !shareMode && editMode,
     zIndex: 1001
   });
+
   m.addListener('dragend', (e) => {
     routePoints[index] = e.target.position;
     requestAndRenderRoute();
     persist();
   });
+
   m.content.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      if (shareMode || !editMode) return;
-      removeRoutePoint(index);
+    e.preventDefault();
+    if (shareMode || !editMode) return;
+    removeRoutePoint(index);
   });
+
   return m;
 }
+
 function buildStopMarkerContent(color, text) {
-    const el = document.createElement('div');
-    el.style.cssText = `width: 18px; height: 18px; border: 2px solid ${color}; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: ${color};`;
-    el.textContent = text;
-    return el;
+  const el = document.createElement('div');
+  el.style.cssText =
+    `width:18px;height:18px;border:2px solid ${color};background:#fff;` +
+    `border-radius:50%;display:flex;align-items:center;justify-content:center;` +
+    `font-size:11px;font-weight:700;color:${color};`;
+  el.textContent = text;
+  return el;
 }
+
 function clearRouteVisuals(clearData = true) {
-  routeStopMarkers.forEach(m => { m.map = null; });
+  routeStopMarkers.forEach(m => m.map = null);
   routeStopMarkers = [];
-  if (directionsRenderer) directionsRenderer.setDirections({ routes: [] });
-  if (activeRoutePoly) { activeRoutePoly.setMap(null); activeRoutePoly = null; }
-  if (routeInfoWin) { routeInfoWin.close(); routeInfoWin = null; }
-  if (routeCardWin) { routeCardWin.close(); routeCardWin = null; }
-  if (clearData) {
-    currentRouteOverview = null; routePoints = []; routeDistance = 0; routeDuration = 0; routeName = 'مسار جديد'; routeNotes = '';
+
+  if (directionsRenderer)
+    directionsRenderer.setDirections({ routes: [] });
+
+  if (activeRoutePoly) {
+    activeRoutePoly.setMap(null);
+    activeRoutePoly = null;
   }
+
+  if (routeInfoWin) {
+    routeInfoWin.close();
+    routeInfoWin = null;
+  }
+
+  if (routeCardWin) {
+    routeCardWin.close();
+    routeCardWin = null;
+  }
+
+  if (clearData) {
+    currentRouteOverview = null;
+    routePoints = [];
+    routeDistance = 0;
+    routeDuration = 0;
+    routeName = 'مسار جديد';
+    routeNotes = '';
+  }
+
   persist();
 }
+
 function addRoutePoint(latLng) {
   routePoints.push(latLng);
   const idx = routePoints.length - 1;
   const m = createStopMarker(latLng, idx);
   routeStopMarkers.push(m);
-  if (routePoints.length >= 2) { requestAndRenderRoute(); } else { persist(); }
+
+  if (routePoints.length >= 2)
+    requestAndRenderRoute();
+  else
+    persist();
 }
+
 function removeRoutePoint(idx) {
   if (idx < 0 || idx >= routePoints.length) return;
+
   routePoints.splice(idx, 1);
-  if (routeStopMarkers[idx]) { routeStopMarkers[idx].map = null; }
+
+  if (routeStopMarkers[idx])
+    routeStopMarkers[idx].map = null;
+
   routeStopMarkers.splice(idx, 1);
+
   routeStopMarkers.forEach((m, i) => {
     m.content = buildStopMarkerContent(routeStyle.color, i + 1);
   });
-  if (routePoints.length >= 2) { requestAndRenderRoute(); } else { clearRouteVisuals(); }
+
+  if (routePoints.length >= 2)
+    requestAndRenderRoute();
+  else
+    clearRouteVisuals();
 }
+
 function requestAndRenderRoute() {
   if (!map) return;
+
   ensureDirections();
+
   if (routePoints.length < 2) {
-    if (directionsRenderer) directionsRenderer.setDirections({ routes: [] });
-    if (activeRoutePoly) { activeRoutePoly.setMap(null); activeRoutePoly = null; }
-    if (routeInfoWin) { routeInfoWin.close(); routeInfoWin = null; }
-    currentRouteOverview = null; routeDistance = 0; routeDuration = 0;
+    if (directionsRenderer)
+      directionsRenderer.setDirections({ routes: [] });
+
+    if (activeRoutePoly) {
+      activeRoutePoly.setMap(null);
+      activeRoutePoly = null;
+    }
+
+    if (routeInfoWin) {
+      routeInfoWin.close();
+      routeInfoWin = null;
+    }
+
+    currentRouteOverview = null;
+    routeDistance = 0;
+    routeDuration = 0;
+
     persist();
     return;
   }
+
   const origin = routePoints[0];
   const destination = routePoints[routePoints.length - 1];
-  const waypoints = routePoints.slice(1, -1).map(p => ({ location: p, stopover: true }));
-  const req = { origin, destination, waypoints, travelMode: google.maps.TravelMode.DRIVING, optimizeWaypoints: false };
+
+  const waypoints = routePoints
+    .slice(1, -1)
+    .map(p => ({ location: p, stopover: true }));
+
+  const req = {
+    origin,
+    destination,
+    waypoints,
+    travelMode: google.maps.TravelMode.DRIVING,
+    optimizeWaypoints: false
+  };
+
   directionsService.route(req, (result, status) => {
     if (status === 'OK' && result) {
-      if (directionsRenderer) { directionsRenderer.setDirections({routes: []}); }
+      if (directionsRenderer)
+        directionsRenderer.setDirections({ routes: [] });
+
       directionsRenderer.setDirections(result);
+
       const r = result.routes?.[0];
+
       if (r?.legs && r.legs.length > 0) {
-        routeDistance = r.legs.reduce((t, leg) => t + (leg.distance?.value || 0), 0);
-        routeDuration = r.legs.reduce((t, leg) => t + (leg.duration?.value || 0), 0);
+        routeDistance = r.legs.reduce(
+          (t, leg) => t + (leg.distance?.value || 0),
+          0
+        );
+
+        routeDuration = r.legs.reduce(
+          (t, leg) => t + (leg.duration?.value || 0),
+          0
+        );
       }
+
       currentRouteOverview = r?.overview_polyline || null;
-      setTimeout(() => { extractActivePolyline(); }, 50);
+
+      setTimeout(() => extractActivePolyline(), 50);
+
       flushPersist();
     } else {
       showToast('تعذر حساب المسار: ' + status);
@@ -445,17 +630,22 @@ function requestAndRenderRoute() {
     }
   });
 }
+
 function extractActivePolyline() {
-    if (!directionsRenderer) return;
+  if (!directionsRenderer) return;
+
   const dir = directionsRenderer.getDirections();
   if (!dir?.routes?.[0]) return;
+
   const path = dir.routes[0].overview_path;
   if (!path?.length) return;
-  if (activeRoutePoly) { activeRoutePoly.setMap(null); }
-  
+
+  if (activeRoutePoly)
+    activeRoutePoly.setMap(null);
+
   activeRoutePoly = new google.maps.Polyline({
-    map: map,
-    path: path,
+    map,
+    path,
     strokeColor: routeStyle.color,
     strokeWeight: routeStyle.weight,
     strokeOpacity: routeStyle.opacity,
@@ -463,28 +653,48 @@ function extractActivePolyline() {
     clickable: true
   });
 
-  activeRoutePoly.addListener('click', e => {
+  activeRoutePoly.addListener('click', (e) => {
     if (editMode) {
-        if (!routeMode) { setRouteMode(true); showToast('وضع المسار مفعل. يمكنك الآن تعديل المسار.'); }
-        openRouteCard(e.latLng);
-    } else { openRouteInfoCard(e.latLng, true); }
+      if (!routeMode) {
+        setRouteMode(true);
+        showToast('وضع المسار مفعل. يمكنك الآن تعديل المسار.');
+      }
+      openRouteCard(e.latLng);
+    } else {
+      openRouteInfoCard(e.latLng, true);
+    }
   });
-  activeRoutePoly.addListener('mouseover', e => {
+
+  activeRoutePoly.addListener('mouseover', (e) => {
     routeHovering = true;
     clearTimeout(routeInfoHideTimer);
-    if (!routeCardPinned) { openRouteInfoCard(e.latLng, false); }
+    if (!routeCardPinned)
+      openRouteInfoCard(e.latLng, false);
     document.body.style.cursor = 'pointer';
   });
+
   activeRoutePoly.addListener('mouseout', () => {
     routeHovering = false;
     scheduleRouteInfoHide();
     document.body.style.cursor = '';
   });
+
   flushPersist();
 }
 
-function restoreRouteFromOverview(polyStr, routePointsArray = null, routeStyleData = null, dist = 0, dur = 0, name = 'مسار', notes = '') {
+/* Restore route from state */
+
+function restoreRouteFromOverview(
+  polyStr,
+  routePointsArray = null,
+  routeStyleData = null,
+  dist = 0,
+  dur = 0,
+  name = 'مسار',
+  notes = ''
+) {
   clearRouteVisuals(false);
+
   if (routeStyleData) {
     routeStyle = {
       color: routeStyleData.color || routeStyleData.c || routeStyle.color,
@@ -492,13 +702,16 @@ function restoreRouteFromOverview(polyStr, routePointsArray = null, routeStyleDa
       opacity: routeStyleData.opacity || routeStyleData.o || routeStyle.opacity
     };
   }
+
   routeDistance = dist || 0;
   routeDuration = dur || 0;
   routeName = name || 'مسار';
   routeNotes = notes || '';
 
   if (Array.isArray(routePointsArray) && routePointsArray.length > 0) {
-    routePoints = routePointsArray.map(p => new google.maps.LatLng(p.lat, p.lng));
+    routePoints = routePointsArray.map(
+      p => new google.maps.LatLng(p.lat, p.lng)
+    );
   }
 
   let path = null;
@@ -519,205 +732,478 @@ function restoreRouteFromOverview(polyStr, routePointsArray = null, routeStyleDa
   }
 
   if (path && path.length) {
-    if (activeRoutePoly) activeRoutePoly.setMap(null);
+    if (activeRoutePoly)
+      activeRoutePoly.setMap(null);
+
     activeRoutePoly = new google.maps.Polyline({
-        map: map,
-        path: path,
-        strokeColor: routeStyle.color,
-        strokeWeight: routeStyle.weight,
-        strokeOpacity: routeStyle.opacity,
-        zIndex: 9997,
-        clickable: true
+      map,
+      path,
+      strokeColor: routeStyle.color,
+      strokeWeight: routeStyle.weight,
+      strokeOpacity: routeStyle.opacity,
+      zIndex: 9997,
+      clickable: true
     });
 
-    activeRoutePoly.addListener('click', e => {
-        if (editMode) {
-            if (!routeMode) { setRouteMode(true); showToast('وضع المسار مفعل. يمكنك الآن تعديل المسار.'); }
-            openRouteCard(e.latLng);
-        } else { openRouteInfoCard(e.latLng, true); }
+    activeRoutePoly.addListener('click', (e) => {
+      if (editMode) {
+        if (!routeMode) {
+          setRouteMode(true);
+          showToast('وضع المسار مفعل. يمكنك الآن تعديل المسار.');
+        }
+        openRouteCard(e.latLng);
+      } else {
+        openRouteInfoCard(e.latLng, true);
+      }
     });
 
-    activeRoutePoly.addListener('mouseover', e => {
-        routeHovering = true;
-        clearTimeout(routeInfoHideTimer);
-        if (!routeCardPinned) { openRouteInfoCard(e.latLng, false); }
-        document.body.style.cursor = 'pointer';
+    activeRoutePoly.addListener('mouseover', (e) => {
+      routeHovering = true;
+      clearTimeout(routeInfoHideTimer);
+
+      if (!routeCardPinned)
+        openRouteInfoCard(e.latLng, false);
+
+      document.body.style.cursor = 'pointer';
     });
 
     activeRoutePoly.addListener('mouseout', () => {
-        routeHovering = false;
-        scheduleRouteInfoHide();
-        document.body.style.cursor = '';
+      routeHovering = false;
+      scheduleRouteInfoHide();
+      document.body.style.cursor = '';
     });
   }
 
   if (routePoints.length > 0) {
-    routeStopMarkers = routePoints.map((pos, i) => createStopMarker(pos, i));
+    routeStopMarkers = routePoints.map(
+      (pos, i) => createStopMarker(pos, i)
+    );
   }
 
   if (directionsRenderer) {
-    directionsRenderer.setOptions({ polylineOptions: { ...routeStyle } });
+    directionsRenderer.setOptions({
+      polylineOptions: { ...routeStyle }
+    });
   }
 }
 
-/* ---------------- Route Card UI (Edit Mode) ---------------- */
+/* ------- Route CARD (Edit Mode) ------- */
+
 function openRouteCard(latLng) {
   if (shareMode || !editMode) return;
-  if (routeCardWin) routeCardWin.close();
-  routeCardWin = new google.maps.InfoWindow({ content: renderRouteCard(), position: latLng, maxWidth: 380, pixelOffset: new google.maps.Size(0, -6) });
+
+  if (routeCardWin)
+    routeCardWin.close();
+
+  routeCardWin = new google.maps.InfoWindow({
+    content: renderRouteCard(),
+    position: latLng,
+    maxWidth: 380,
+    pixelOffset: new google.maps.Size(0, -6)
+  });
+
   routeCardWin.open({ map });
+
   routeCardPinned = true;
-  google.maps.event.addListenerOnce(routeCardWin, 'domready', () => { attachRouteCardEvents(); });
-  google.maps.event.addListenerOnce(routeCardWin, 'closeclick', () => { routeCardPinned = false; });
+
+  google.maps.event.addListenerOnce(routeCardWin, 'domready', () => {
+    attachRouteCardEvents();
+  });
+
+  google.maps.event.addListenerOnce(routeCardWin, 'closeclick', () => {
+    routeCardPinned = false;
+  });
 }
 
 function renderRouteCard() {
   const { color, weight, opacity } = routeStyle;
   const distanceText = formatDistance(routeDistance);
   const durationText = formatDuration(routeDuration);
+
   return `
   <div id="route-card-root" dir="rtl" style="min-width:340px">
-    <div style="background:rgba(255,255,255,0.93); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(0,0,0,0.06); border-radius:18px; padding:16px; color:#111;">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-        <img src="/img/diriyah-logo.png" style="width:40px; height:40px;">
-        <div style="font-weight:800; font-size:16px;">إعدادات المسار</div>
+    <div style="background:rgba(255,255,255,0.93); backdrop-filter:blur(16px);
+    border:1px solid rgba(0,0,0,0.06); border-radius:18px; padding:16px;">
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <img src="/img/diriyah-logo.png" style="width:40px;height:40px;">
+        <div style="font-weight:800;font-size:16px;">إعدادات المسار</div>
       </div>
-      <div style="margin-bottom: 12px;">
-        <label style="font-size:12px; display:block; margin-bottom:4px;">اسم المسار:</label>
-        <input id="route-name" type="text" value="${escapeHtml(routeName)}" style="width:100%; box-sizing:border-box; padding:8px; border-radius:8px; border:1px solid #ccc;">
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:12px;display:block;margin-bottom:4px;">اسم المسار:</label>
+        <input id="route-name" type="text" value="${escapeHtml(routeName)}"
+        style="width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;">
       </div>
-      <div style="margin-bottom: 12px;">
-        <label style="font-size:12px; display:block; margin-bottom:4px;">ملاحظات:</label>
-        <textarea id="route-notes" rows="2" style="width:100%; box-sizing:border-box; padding:8px; border-radius:8px; border:1px solid #ccc;">${escapeHtml(routeNotes)}</textarea>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:12px;display:block;margin-bottom:4px;">ملاحظات:</label>
+        <textarea id="route-notes" rows="2"
+        style="width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;">${escapeHtml(routeNotes)}</textarea>
       </div>
-      <div style="background:rgba(0,0,0,0.03); border-radius:12px; padding:12px; margin-bottom:12px;">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; text-align:center;">
-          <div><div style="font-size:11px; color:#666; margin-bottom:2px;">المسافة</div><div style="font-weight:700; font-size:13px;">${distanceText}</div></div>
-          <div><div style="font-size:11px; color:#666; margin-bottom:2px;">الوقت المتوقع</div><div style="font-weight:700; font-size:13px;">${durationText}</div></div>
+
+      <div style="background:rgba(0,0,0,0.03);border-radius:12px;padding:12px;margin-bottom:12px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;">
+          <div>
+            <div style="font-size:11px;color:#666;">المسافة</div>
+            <div style="font-weight:700;font-size:13px;">${distanceText}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#666;">الوقت المتوقع</div>
+            <div style="font-weight:700;font-size:13px;">${durationText}</div>
+          </div>
         </div>
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-        <div><label style="font-size:12px;">اللون:</label><input id="route-color" type="color" value="${color}" style="width:100%; height:28px; border:none; background:transparent; padding:0; border-radius:4px;"></div>
-        <div><label style="font-size:12px;">السماكة:</label><input id="route-weight" type="range" min="1" max="12" step="1" value="${weight}" style="width:100%;"><span id="route-weight-lbl" style="font-size:12px; color:#666">${weight}</span></div>
-        <div><label style="font-size:12px;">الشفافية:</label><input id="route-opacity" type="range" min="0.1" max="1" step="0.05" value="${opacity}" style="width:100%;"><span id="route-opacity-lbl" style="font-size:12px; color:#666">${opacity.toFixed(2)}</span></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div>
+          <label style="font-size:12px;">اللون:</label>
+          <input id="route-color" type="color" value="${color}"
+          style="width:100%;height:28px;border:none;background:transparent;">
+        </div>
+
+        <div>
+          <label style="font-size:12px;">السماكة:</label>
+          <input id="route-weight" type="range" min="1" max="12" step="1" value="${weight}"
+          style="width:100%;">
+          <span id="route-weight-lbl" style="font-size:12px;color:#666">${weight}</span>
+        </div>
+
+        <div>
+          <label style="font-size:12px;">الشفافية:</label>
+          <input id="route-opacity" type="range" min="0.1" max="1" step="0.05" value="${opacity}"
+          style="width:100%;">
+          <span id="route-opacity-lbl" style="font-size:12px;color:#666">${opacity.toFixed(2)}</span>
+        </div>
       </div>
-      <div style="display:flex; gap:6px; margin-top:14px;">
-        <button id="route-save" style="flex:1; border:none; border-radius:10px; padding:8px; background:#4285f4; color:white; cursor:pointer;">حفظ</button>
-        <button id="route-close" style="flex:1; border:1px solid #ccc; border-radius:10px; padding:8px; background:white; cursor:pointer;">إغلاق</button>
+
+      <div style="display:flex;gap:6px;margin-top:14px;">
+        <button id="route-save" style="flex:1;background:#4285f4;color:white;border:none;
+        border-radius:10px;padding:8px;">حفظ</button>
+
+        <button id="route-close" style="flex:1;background:white;border:1px solid #ccc;
+        border-radius:10px;padding:8px;">إغلاق</button>
       </div>
+
     </div>
-  </div>`;
+  </div>
+  `;
 }
 
 function attachRouteCardEvents() {
-  const nameEl = document.getElementById('route-name'), notesEl = document.getElementById('route-notes'), colorEl = document.getElementById('route-color');
-  const weightEl = document.getElementById('route-weight'), weightLbl = document.getElementById('route-weight-lbl'), opacityEl = document.getElementById('route-opacity');
-  const opacityLbl = document.getElementById('route-opacity-lbl'), saveBtn = document.getElementById('route-save'), closeBtn = document.getElementById('route-close');
+  const nameEl = document.getElementById('route-name');
+  const notesEl = document.getElementById('route-notes');
+  const colorEl = document.getElementById('route-color');
+  const weightEl = document.getElementById('route-weight');
+  const weightLbl = document.getElementById('route-weight-lbl');
+  const opacityEl = document.getElementById('route-opacity');
+  const opacityLbl = document.getElementById('route-opacity-lbl');
+  const saveBtn = document.getElementById('route-save');
+  const closeBtn = document.getElementById('route-close');
+
   function applyStyling() {
-    const clr = colorEl.value, w = +weightEl.value, o = +opacityEl.value;
+    const clr = colorEl.value;
+    const w = +weightEl.value;
+    const o = +opacityEl.value;
+
     routeStyle = { color: clr, weight: w, opacity: o };
-    if (activeRoutePoly) { activeRoutePoly.setOptions({ strokeColor: clr, strokeWeight: w, strokeOpacity: o }); }
+
+    if (activeRoutePoly) {
+      activeRoutePoly.setOptions({
+        strokeColor: clr,
+        strokeWeight: w,
+        strokeOpacity: o
+      });
+    }
+
     routeStopMarkers.forEach((m, i) => {
       m.content = buildStopMarkerContent(clr, i + 1);
     });
-    if (directionsRenderer) { directionsRenderer.setOptions({ polylineOptions: { ...routeStyle } }); }
+
+    if (directionsRenderer) {
+      directionsRenderer.setOptions({ polylineOptions: { ...routeStyle } });
+    }
   }
-  function saveData() { routeName = nameEl.value.trim() || 'مسار'; routeNotes = notesEl.value.trim(); applyStyling(); persist(); }
+
+  function saveData() {
+    routeName = nameEl.value.trim() || 'مسار';
+    routeNotes = notesEl.value.trim();
+    applyStyling();
+    persist();
+  }
+
   colorEl.addEventListener('input', applyStyling);
-  weightEl.addEventListener('input', () => { weightLbl.textContent = weightEl.value; applyStyling(); });
-  opacityEl.addEventListener('input', () => { opacityLbl.textContent = (+opacityEl.value).toFixed(2); applyStyling(); });
-  saveBtn.addEventListener('click', () => { saveData(); if (routeCardWin) routeCardWin.close(); routeCardPinned = false; showToast('✓ تم حفظ إعدادات المسار'); });
-  closeBtn.addEventListener('click', () => { if (routeCardWin) routeCardWin.close(); routeCardPinned = false; });
+
+  weightEl.addEventListener('input', () => {
+    weightLbl.textContent = weightEl.value;
+    applyStyling();
+  });
+
+  opacityEl.addEventListener('input', () => {
+    opacityLbl.textContent = (+opacityEl.value).toFixed(2);
+    applyStyling();
+  });
+
+  saveBtn.addEventListener('click', () => {
+    saveData();
+    if (routeCardWin)
+      routeCardWin.close();
+    routeCardPinned = false;
+    showToast('✓ تم حفظ إعدادات المسار');
+  });
+
+  closeBtn.addEventListener('click', () => {
+    if (routeCardWin)
+      routeCardWin.close();
+    routeCardPinned = false;
+  });
 }
 
-/* ---------------- Route info card (view mode) ---------------- */
+/* ------- Route Info (View Mode) ------- */
+
 function openRouteInfoCard(latLng, pinned = false) {
   if (!routeInfoWin) {
-    routeInfoWin = new google.maps.InfoWindow({ maxWidth: 340, pixelOffset: new google.maps.Size(0, -6) });
+    routeInfoWin = new google.maps.InfoWindow({
+      maxWidth: 340,
+      pixelOffset: new google.maps.Size(0, -6)
+    });
+
     google.maps.event.addListener(routeInfoWin, 'domready', () => {
-        const root = document.querySelector('#route-info-root');
-        if (root) {
-            root.addEventListener('mouseenter', () => { routeHovering = true; });
-            root.addEventListener('mouseleave', () => { routeHovering = false; scheduleRouteInfoHide(); });
-        }
+      const root = document.querySelector('#route-info-root');
+      if (root) {
+        root.addEventListener('mouseenter', () => {
+          routeHovering = true;
+        });
+        root.addEventListener('mouseleave', () => {
+          routeHovering = false;
+          scheduleRouteInfoHide();
+        });
+      }
     });
   }
-  const distanceText = formatDistance(routeDistance), durationText = formatDuration(routeDuration);
-  const notesHtml = routeNotes ? `<div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.08);"><strong style="font-size:13px; color:#333; display:block; margin-bottom:4px;">ملاحظات:</strong><p style="font-size:12px; color:#555; white-space:pre-wrap; line-height:1.6; margin:0;">${escapeHtml(routeNotes)}</p></div>` : '';
+
+  const distanceText = formatDistance(routeDistance);
+  const durationText = formatDuration(routeDuration);
+
+  const notesHtml = routeNotes
+    ? `
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(0,0,0,0.08);">
+        <strong style="font-size:13px;color:#333;margin-bottom:4px;display:block;">ملاحظات:</strong>
+        <p style="font-size:12px;color:#555;white-space:pre-wrap;line-height:1.6;margin:0;">
+          ${escapeHtml(routeNotes)}
+        </p>
+      </div>`
+    : '';
+
   const content = `
   <div id="route-info-root" dir="rtl" style="min-width:300px;">
-    <div style="background:rgba(255,255,255,0.9); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border:1px solid rgba(0,0,0,0.08); border-radius:18px; padding:16px; color:#111; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-        <div style="width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.05);"><img src="/img/diriyah-logo.png" style="width:32px; height:32px;"></div>
-        <div style="flex:1;"><div style="font-weight:800; font-size:16px;">${escapeHtml(routeName)}</div><div style="font-size:12px; color:#555;">${routePoints.length} نقطة على المسار</div></div>
+    <div style="background:rgba(255,255,255,0.9);backdrop-filter:blur(18px);
+    border-radius:18px;padding:16px;border:1px solid rgba(0,0,0,0.08);">
+
+      <div style="display:flex;gap:12px;margin-bottom:12px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:rgba(0,0,0,0.05);
+        display:flex;align-items:center;justify-content:center;">
+          <img src="/img/diriyah-logo.png" style="width:32px;height:32px;">
+        </div>
+
+        <div style="flex:1;">
+          <div style="font-weight:800;font-size:16px;">${escapeHtml(routeName)}</div>
+          <div style="font-size:12px;color:#555;">${routePoints.length} نقطة على المسار</div>
+        </div>
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:10px 0; border-top:1px solid rgba(0,0,0,0.08); border-bottom:1px solid rgba(0,0,0,0.08);">
-        <div style="text-align:center;"><div style="font-size:12px; color:#666;">المسافة</div><div style="font-weight:700; font-size:14px;">${distanceText}</div></div>
-        <div style="text-align:center;"><div style="font-size:12px; color:#666;">الوقت المتوقع</div><div style="font-weight:700; font-size:14px;">${durationText}</div></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:10px 0;
+      border-top:1px solid rgba(0,0,0,0.08);border-bottom:1px solid rgba(0,0,0,0.08);">
+        <div style="text-align:center;">
+          <div style="font-size:12px;color:#666;">المسافة</div>
+          <div style="font-weight:700;font-size:14px;">${distanceText}</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:12px;color:#666;">الوقت المتوقع</div>
+          <div style="font-weight:700;font-size:14px;">${durationText}</div>
+        </div>
       </div>
+
       ${notesHtml}
-      ${(!shareMode && editMode) ? `<div style="text-align:center; font-size:11px; color:#777; margin-top:14px; padding-top:10px; border-top:1px solid rgba(0,0,0,0.08);">انقر على الخط لتعديل الإعدادات</div>` : ''}
+
+      ${(!shareMode && editMode)
+        ? `<div style="text-align:center;font-size:11px;color:#777;margin-top:14px;
+           padding-top:10px;border-top:1px solid rgba(0,0,0,0.08);">
+            انقر على الخط لتعديل الإعدادات
+          </div>`
+        : ''}
     </div>
   </div>`;
+
   routeInfoWin.setContent(content);
   routeInfoWin.setPosition(latLng);
   routeInfoWin.open({ map });
+
   routeCardPinned = pinned;
-  if (pinned) { google.maps.event.addListenerOnce(routeInfoWin, 'closeclick', () => { routeCardPinned = false; }); }
+
+  if (pinned) {
+    google.maps.event.addListenerOnce(routeInfoWin, 'closeclick', () => {
+      routeCardPinned = false;
+    });
+  }
 }
 
-/* ---------------- InfoWindow Card (Markers & Circles) ---------------- */
+/* ------- InfoWindow for markers & circles ------- */
+
 function openCard(item) {
-  if (infoWin) infoWin.close();
-  infoWin = new google.maps.InfoWindow({ content: renderCard(item), position: item.marker.position, maxWidth: 380 });
+  if (infoWin)
+    infoWin.close();
+
+  infoWin = new google.maps.InfoWindow({
+    content: renderCard(item),
+    position: item.marker.position,
+    maxWidth: 380
+  });
+
   infoWin.open({ map, anchor: item.marker });
+
   cardPinned = true;
-  google.maps.event.addListenerOnce(infoWin, 'domready', () => { attachCardEvents(item); });
-  google.maps.event.addListenerOnce(infoWin, 'closeclick', () => { cardPinned = false; scheduleCardHide(); });
+
+  google.maps.event.addListenerOnce(infoWin, 'domready', () => {
+    attachCardEvents(item);
+  });
+
+  google.maps.event.addListenerOnce(infoWin, 'closeclick', () => {
+    cardPinned = false;
+    scheduleCardHide();
+  });
 }
+
 function showHoverCard(item) {
   if (cardPinned) return;
   circleHovering = true;
+
   clearTimeout(cardHideTimer);
-  if (!infoWin) { infoWin = new google.maps.InfoWindow({ maxWidth: 380 }); }
+
+  if (!infoWin)
+    infoWin = new google.maps.InfoWindow({ maxWidth: 380 });
+
   infoWin.setContent(renderCard(item));
   infoWin.setPosition(item.marker.position);
   infoWin.open({ map, anchor: item.marker });
-  google.maps.event.addListenerOnce(infoWin, 'domready', () => { attachCardEvents(item); });
+
+  google.maps.event.addListenerOnce(infoWin, 'domready', () => {
+    attachCardEvents(item);
+  });
 }
 
 function renderCard(item) {
   const m = item.meta;
   const r = item.circle.getRadius();
   const c = toHex(item.circle.get('fillColor'));
+
   const name = m.name || item.defaultName || 'نقطة';
   const kind = MARKER_KINDS.find(k => k.id === m.kind) || MARKER_KINDS[0];
   const scale = m.scale || DEFAULT_MARKER_SCALE;
+
   const recips = Array.isArray(m.recipients) ? m.recipients : [];
-  const recipientsHtml = recips.length > 0 ? `<div style="font-size:13px; color:#333; margin-top:8px; padding:8px; background:rgba(0,0,0,0.03); border-radius:8px;"><strong style="display:block; margin-bottom: 4px;">المستلمون:</strong><div style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(recips.join('\n'))}</div></div>` : '';
-  const editControls = (!shareMode && editMode) ? `
-    <div style="margin-top:10px;"><label style="font-size:12px; display:block; margin-bottom:2px;">اسم الموقع:</label><input id="info-name" type="text" value="${escapeHtml(name)}" style="width:100%; box-sizing:border-box; padding:6px; border-radius:6px; border:1px solid #ccc;"></div>
-    <div style="margin-top:8px;"><label style="font-size:12px; display:block; margin-bottom:2px;">المستلمون (افصل بينهم بسطر جديد):</label><textarea id="info-recipients" rows="3" style="width:100%; box-sizing:border-box; padding:6px; border-radius:6px; border:1px solid #ccc;">${escapeHtml(recips.join('\n'))}</textarea></div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
-      <div><label style="font-size:12px;">اللون:</label><input id="info-color" type="color" value="${c}" style="width:100%; height:28px; border:none; background:transparent; padding:0; border-radius:4px;"></div>
-      <div><label style="font-size:12px;">نصف القطر (متر):</label><input id="info-radius" type="number" min="5" max="5000" step="5" value="${Math.round(r)}" style="width:100%; box-sizing:border-box; padding:6px; border-radius:6px; border:1px solid #ccc;"></div>
-    </div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
-      <div><label style="font-size:12px;">الأيقونة:</label><select id="info-kind" style="width:100%; padding:6px; border-radius:6px; border:1px solid #ccc;">${MARKER_KINDS.map(k => `<option value="${k.id}" ${k.id === kind.id ? 'selected' : ''}>${k.label}</option>`).join('')}</select></div>
-      <div><label style="font-size:12px;">الحجم: <span id="info-scale-lbl">${scale.toFixed(1)}</span></label><input id="info-scale" type="range" min="0.5" max="2.5" step="0.1" value="${scale}" style="width:100%;"></div>
-    </div>
-    <div style="display:flex; gap:6px; margin-top:14px;">
-      <button id="info-save" style="flex:2; border:none; border-radius:10px; padding:8px; background:#4285f4; color:white; cursor:pointer;">✓ حفظ</button>
-      <button id="info-delete" style="flex:1; border:none; border-radius:10px; padding:8px; background:#ea4335; color:white; cursor:pointer;">✗ حذف</button>
-      <button id="info-close" style="flex:1; border:1px solid #ccc; border-radius:10px; padding:8px; background:white; cursor:pointer;">إغلاق</button>
-    </div>` : `${recipientsHtml}<div style="display:flex; gap:6px; margin-top:14px;"><button id="info-close" style="flex:1; border:1px solid #ccc; border-radius:10px; padding:8px; background:white; cursor:pointer;">إغلاق</button></div>`;
-  return `
-  <div id="infowin-root" dir="rtl" style="min-width:320px">
-    <div style="background:rgba(255,255,255,0.93); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(0,0,0,0.06); border-radius:18px; padding:14px; color:#111;">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-        <img src="/img/diriyah-logo.png" style="width:40px; height:40px; border-radius:8px;">
-        <div style="flex:1;"><div style="font-weight:800; font-size:16px;">${escapeHtml(name)}</div><div style="font-size:12px; color:#666;">${kind.label}</div></div>
+
+  const recipientsHtml =
+    recips.length > 0
+      ? `
+      <div style="font-size:13px;color:#333;margin-top:8px;padding:8px;
+      background:rgba(0,0,0,0.03);border-radius:8px;">
+        <strong style="display:block;margin-bottom:4px;">المستلمون:</strong>
+        <div style="white-space:pre-wrap;line-height:1.6;">
+          ${escapeHtml(recips.join('\n'))}
+        </div>
+      </div>`
+      : '';
+
+  const editControls =
+    (!shareMode && editMode)
+      ? `
+      <div style="margin-top:10px;">
+        <label style="font-size:12px;">اسم الموقع:</label>
+        <input id="info-name" type="text"
+        value="${escapeHtml(name)}"
+        style="width:100%;padding:6px;border:1px solid #ccc;border-radius:6px;">
       </div>
+
+      <div style="margin-top:8px;">
+        <label style="font-size:12px;">المستلمون:</label>
+        <textarea id="info-recipients" rows="3"
+        style="width:100%;padding:6px;border-radius:6px;border:1px solid #ccc;">${escapeHtml(
+          recips.join('\n')
+        )}</textarea>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+        <div>
+          <label style="font-size:12px;">اللون:</label>
+          <input id="info-color" type="color" value="${c}"
+          style="width:100%;height:28px;border:none;background:transparent;">
+        </div>
+
+        <div>
+          <label style="font-size:12px;">نصف القطر (متر):</label>
+          <input id="info-radius" type="number" min="5" max="5000"
+          value="${Math.round(r)}"
+          style="width:100%;padding:6px;border-radius:6px;border:1px solid #ccc;">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+        <div>
+          <label style="font-size:12px;">الأيقونة:</label>
+          <select id="info-kind"
+          style="width:100%;padding:6px;border-radius:6px;border:1px solid #ccc;">
+            ${MARKER_KINDS.map(
+              k => `<option value="${k.id}" ${
+                k.id === kind.id ? 'selected' : ''
+              }>${k.label}</option>`
+            ).join('')}
+          </select>
+        </div>
+
+        <div>
+          <label style="font-size:12px;">الحجم: <span id="info-scale-lbl">${scale.toFixed(
+            1
+          )}</span></label>
+          <input id="info-scale" type="range" min="0.5" max="2.5" step="0.1" value="${scale}"
+          style="width:100%;">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-top:14px;">
+        <button id="info-save" style="flex:2;background:#4285f4;color:white;border:none;
+        border-radius:10px;padding:8px;">✓ حفظ</button>
+
+        <button id="info-delete" style="flex:1;background:#ea4335;color:white;border:none;
+        border-radius:10px;padding:8px;">✗ حذف</button>
+
+        <button id="info-close" style="flex:1;border:1px solid #ccc;background:white;
+        border-radius:10px;padding:8px;">إغلاق</button>
+      </div>
+      `
+      : `
+      ${recipientsHtml}
+      <div style="display:flex;gap:6px;margin-top:14px;">
+        <button id="info-close"
+        style="flex:1;border:1px solid #ccc;background:white;border-radius:10px;padding:8px;">
+          إغلاق
+        </button>
+      </div>
+      `;
+
+  return `
+  <div id="infowin-root" dir="rtl" style="min-width:320px;">
+    <div style="background:rgba(255,255,255,0.93);backdrop-filter:blur(16px);
+    border-radius:18px;padding:14px;border:1px solid rgba(0,0,0,0.06);">
+
+      <div style="display:flex;gap:12px;margin-bottom:12px;">
+        <img src="/img/diriyah-logo.png" style="width:40px;height:40px;border-radius:8px;">
+        <div style="flex:1;">
+          <div style="font-weight:800;font-size:16px;">${escapeHtml(name)}</div>
+          <div style="font-size:12px;color:#666;">${kind.label}</div>
+        </div>
+      </div>
+
       ${editControls}
     </div>
   </div>`;
@@ -725,157 +1211,350 @@ function renderCard(item) {
 
 function attachCardEvents(item) {
   const root = document.getElementById('infowin-root');
+
   if (root) {
-    root.addEventListener('mouseenter', () => { cardHovering = true; });
-    root.addEventListener('mouseleave', () => { cardHovering = false; scheduleCardHide(); });
+    root.addEventListener('mouseenter', () => {
+      cardHovering = true;
+    });
+
+    root.addEventListener('mouseleave', () => {
+      cardHovering = false;
+      scheduleCardHide();
+    });
   }
+
   const closeBtn = document.getElementById('info-close');
-  if (closeBtn) { closeBtn.addEventListener('click', () => { if (infoWin) infoWin.close(); cardPinned = false; }); }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (infoWin)
+        infoWin.close();
+      cardPinned = false;
+    });
+  }
+
   if (shareMode || !editMode) return;
-  const saveBtn = document.getElementById('info-save'), delBtn = document.getElementById('info-delete'), nameEl = document.getElementById('info-name');
-  const recipEl = document.getElementById('info-recipients'), colorEl = document.getElementById('info-color'), radiusEl = document.getElementById('info-radius');
-  const kindEl = document.getElementById('info-kind'), scaleEl = document.getElementById('info-scale'), scaleLbl = document.getElementById('info-scale-lbl');
-  if (scaleEl) { scaleEl.addEventListener('input', () => { if (scaleLbl) scaleLbl.textContent = (+scaleEl.value).toFixed(1); }); }
+
+  const saveBtn = document.getElementById('info-save');
+  const delBtn = document.getElementById('info-delete');
+
+  const nameEl = document.getElementById('info-name');
+  const recipEl = document.getElementById('info-recipients');
+  const colorEl = document.getElementById('info-color');
+  const radiusEl = document.getElementById('info-radius');
+  const kindEl = document.getElementById('info-kind');
+  const scaleEl = document.getElementById('info-scale');
+  const scaleLbl = document.getElementById('info-scale-lbl');
+
+  if (scaleEl) {
+    scaleEl.addEventListener('input', () => {
+      if (scaleLbl)
+        scaleLbl.textContent = (+scaleEl.value).toFixed(1);
+    });
+  }
+
   if (saveBtn) {
     saveBtn.addEventListener('click', () => {
       item.meta.name = nameEl.value.trim();
       item.meta.kind = kindEl.value;
       item.meta.scale = +scaleEl.value;
       item.meta.recipients = parseRecipients(recipEl.value);
+
       const newColor = colorEl.value || DEFAULT_COLOR;
       const newRadius = clamp(+radiusEl.value, 5, 5000) || DEFAULT_RADIUS;
-      item.circle.setOptions({ radius: newRadius, strokeColor: newColor, fillColor: newColor });
-      updateMarkerContent(item.marker, newColor, item.meta.scale, item.meta.kind);
-      if (infoWin) infoWin.close();
+
+      item.circle.setOptions({
+        radius: newRadius,
+        strokeColor: newColor,
+        fillColor: newColor
+      });
+
+      updateMarkerContent(
+        item.marker,
+        newColor,
+        item.meta.scale,
+        item.meta.kind
+      );
+
+      if (infoWin)
+        infoWin.close();
+
       cardPinned = false;
       flushPersist();
       showToast('✓ تم حفظ الموقع');
     });
   }
+
   if (delBtn) {
     delBtn.addEventListener('click', () => {
-      if (!confirm(`هل أنت متأكد من حذف "${item.meta.name || item.defaultName}"؟`)) return;
+      if (!confirm(`هل أنت متأكد من حذف "${item.meta.name || item.defaultName}"؟`))
+        return;
+
       const idx = circles.findIndex(c => c.id === item.id);
-      if (idx > -1) circles.splice(idx, 1);
+
+      if (idx > -1)
+        circles.splice(idx, 1);
+
       item.marker.map = null;
       item.circle.setMap(null);
-      if (infoWin) infoWin.close();
+
+      if (infoWin)
+        infoWin.close();
+
       cardPinned = false;
+
       flushPersist();
       showToast('تم حذف الموقع');
     });
   }
 }
 
-// --- CORE MAP ITEMS ---
+/* ------- Map Items ------- */
+
 function createMarker(data) {
-    const marker = new AdvancedMarkerElement({
-        position: { lat: data.lat, lng: data.lng },
-        map: map,
-        gmpDraggable: !data.fixed && !shareMode && editMode,
-        zIndex: 1000
-    });
-    updateMarkerContent(marker, DEFAULT_MARKER_COLOR, DEFAULT_MARKER_SCALE, DEFAULT_MARKER_KIND);
-    return marker;
+  const marker = new AdvancedMarkerElement({
+    position: { lat: data.lat, lng: data.lng },
+    map,
+    gmpDraggable: !data.fixed && !shareMode && editMode,
+    zIndex: 1000
+  });
+
+  updateMarkerContent(
+    marker,
+    DEFAULT_MARKER_COLOR,
+    DEFAULT_MARKER_SCALE,
+    DEFAULT_MARKER_KIND
+  );
+
+  return marker;
 }
-function createCircle(data) { return new google.maps.Circle({ map: map, center: { lat: data.lat, lng: data.lng }, radius: data.radius || DEFAULT_RADIUS, strokeColor: data.color || DEFAULT_COLOR, strokeWeight: DEFAULT_STROKE_WEIGHT, fillColor: data.color || DEFAULT_COLOR, fillOpacity: DEFAULT_FILL_OPACITY, clickable: true, editable: false, zIndex: 5 }); }
+
+function createCircle(data) {
+  return new google.maps.Circle({
+    map,
+    center: { lat: data.lat, lng: data.lng },
+    radius: data.radius || DEFAULT_RADIUS,
+    strokeColor: data.color || DEFAULT_COLOR,
+    strokeWeight: DEFAULT_STROKE_WEIGHT,
+    fillColor: data.color || DEFAULT_COLOR,
+    fillOpacity: DEFAULT_FILL_OPACITY,
+    clickable: true,
+    editable: false,
+    zIndex: 5
+  });
+}
+
 function attachListeners(item) {
-  item.marker.addListener('drag', (e) => item.circle.setCenter(e.target.position));
+  item.marker.addListener('drag', (e) => {
+    item.circle.setCenter(e.target.position);
+  });
+
   item.marker.addListener('dragend', persist);
+
   item.marker.addListener('click', () => openCard(item));
   item.circle.addListener('click', () => openCard(item));
+
   item.circle.addListener('mouseover', () => showHoverCard(item));
-  item.circle.addListener('mouseout', () => { circleHovering = false; scheduleCardHide(); });
+  item.circle.addListener('mouseout', () => {
+    circleHovering = false;
+    scheduleCardHide();
+  });
 }
+
 function createMapItem(data) {
-  const marker = createMarker(data), circle = createCircle(data);
-  const item = { id: data.id, marker, circle, fixed: data.fixed || false, defaultName: data.name, meta: { name: data.name, kind: DEFAULT_MARKER_KIND, scale: DEFAULT_MARKER_SCALE, recipients: [] } };
+  const marker = createMarker(data);
+  const circle = createCircle(data);
+
+  const item = {
+    id: data.id,
+    marker,
+    circle,
+    fixed: data.fixed || false,
+    defaultName: data.name,
+    meta: {
+      name: data.name,
+      kind: DEFAULT_MARKER_KIND,
+      scale: DEFAULT_MARKER_SCALE,
+      recipients: []
+    }
+  };
+
   attachListeners(item);
   circles.push(item);
+
   return item;
 }
+
+/* ------- Toast ------- */
+
 function showToast(message) {
-  if (!toast) toast = document.getElementById('toast');
+  if (!toast)
+    toast = document.getElementById('toast');
+
   if (!toast) return;
+
   toast.textContent = message;
   toast.classList.add('show');
+
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.classList.remove('show'); }, 3000);
+
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 3000);
 }
+
 async function copyShareLink() {
   if (!btnShare) return;
+
   flushPersist();
+
   const longUrl = location.href;
+
   btnShare.disabled = true;
+
   const label = btnShare.querySelector('.label');
-  if (label) label.textContent = 'جاري...';
+  if (label)
+    label.textContent = 'جاري...';
+
   try {
-    const response = await fetch('/api/shorten', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: longUrl }) });
-    if (!response.ok) throw new Error('Network response was not ok');
+    const response = await fetch('/api/shorten', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: longUrl })
+    });
+
+    if (!response.ok)
+      throw new Error('Network response was not ok');
+
     const data = await response.json();
+
     if (data && data.shortUrl) {
       await navigator.clipboard.writeText(data.shortUrl);
       showToast('✓ تم نسخ الرابط المختصر');
-    } else { throw new Error(data.error || 'Invalid short URL response'); }
+    } else {
+      throw new Error(data.error || 'Invalid short URL response');
+    }
   } catch (error) {
     console.error('Failed to shorten link:', error);
-    try { await navigator.clipboard.writeText(longUrl); showToast('! تعذر الاختصار، تم نسخ الرابط الطويل'); } catch (e) { showToast('تعذر نسخ الرابط إلى الحافظة'); }
+
+    try {
+      await navigator.clipboard.writeText(longUrl);
+      showToast('! تعذر الاختصار، تم نسخ الرابط الطويل');
+    } catch (e) {
+      showToast('تعذر نسخ الرابط إلى الحافظة');
+    }
   } finally {
     btnShare.disabled = false;
-    if (label) label.textContent = 'مشاركة';
+    if (label)
+      label.textContent = 'مشاركة';
   }
 }
 
-/* ---------------- UI Mode Management ---------------- */
+/* ------- UI Mode Management ------- */
+
 function applyEditModeUI() {
   if (!map) return;
+
   if (modeBadge) {
     modeBadge.style.display = 'block';
     modeBadge.textContent = editMode ? 'وضع التحرير' : 'وضع العرض';
     modeBadge.classList.toggle('edit', editMode);
     modeBadge.classList.toggle('view', !editMode);
   }
-  circles.forEach(item => { item.marker.gmpDraggable = editMode && !item.fixed && !shareMode; });
-  routeStopMarkers.forEach(m => { m.gmpDraggable = editMode && !shareMode; });
-  if (!editMode) { setAddMode(false); setRouteMode(false); }
-}
-function setAddMode(isActive) {
-    addMode = isActive;
-    if (btnAdd) btnAdd.setAttribute('aria-pressed', String(isActive));
-    if (isActive) {
-        setRouteMode(false);
-        map.setOptions({ draggableCursor: 'crosshair' });
-        showToast('انقر على الخريطة لإضافة موقع');
-    } else { if (!routeMode) map.setOptions({ draggableCursor: 'grab' }); }
-}
-function setRouteMode(isActive) {
-    routeMode = isActive;
-    if (btnRoute) btnRoute.setAttribute('aria-pressed', String(isActive));
-    if (isActive) {
-        setAddMode(false);
-        map.setOptions({ draggableCursor: 'cell' });
-        showToast('انقر على الخريطة لإضافة نقاط المسار');
-    } else { if (!addMode) map.setOptions({ draggableCursor: 'grab' }); }
+
+  circles.forEach(item => {
+    item.marker.gmpDraggable = editMode && !item.fixed && !shareMode;
+  });
+
+  routeStopMarkers.forEach(m => {
+    m.gmpDraggable = editMode && !shareMode;
+  });
+
+  if (!editMode) {
+    setAddMode(false);
+    setRouteMode(false);
+  }
 }
 
-// --- MAIN BOOT FUNCTION ---
+function setAddMode(isActive) {
+  addMode = isActive;
+
+  if (btnAdd)
+    btnAdd.setAttribute('aria-pressed', String(isActive));
+
+  if (isActive) {
+    setRouteMode(false);
+    map.setOptions({ draggableCursor: 'crosshair' });
+    showToast('انقر على الخريطة لإضافة موقع');
+  } else {
+    if (!routeMode)
+      map.setOptions({ draggableCursor: 'grab' });
+  }
+}
+
+function setRouteMode(isActive) {
+  routeMode = isActive;
+
+  if (btnRoute)
+    btnRoute.setAttribute('aria-pressed', String(isActive));
+
+  if (isActive) {
+    setAddMode(false);
+    map.setOptions({ draggableCursor: 'cell' });
+    showToast('انقر على الخريطة لإضافة نقاط المسار');
+  } else {
+    if (!addMode)
+      map.setOptions({ draggableCursor: 'grab' });
+  }
+}
+
+/* ------- BOOT ------- */
+
 function boot(AdvMarker) {
-  AdvancedMarkerElement = AdvMarker; // Store the class globally
+  AdvancedMarkerElement = AdvMarker;
+
   console.log('Booting Diriyah Security Map v18.1');
+
   const mapEl = document.getElementById('map');
-  if (!mapEl || !window.google || !google.maps) { console.error('Google Maps not available'); return; }
+
+  if (!mapEl || !window.google || !google.maps) {
+    console.error('Google Maps not available');
+    return;
+  }
+
   map = new google.maps.Map(mapEl, {
-    center: DEFAULT_CENTER, zoom: BASE_ZOOM, mapId: 'DIRIYAH_SECURITY_MAP', streetViewControl: false, mapTypeControl: false,
-    fullscreenControl: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false
+    center: DEFAULT_CENTER,
+    zoom: BASE_ZOOM,
+    mapId: 'DIRIYAH_SECURITY_MAP',
+    streetViewControl: false,
+    mapTypeControl: false,
+    fullscreenControl: true,
+    zoomControl: true,
+    gestureHandling: 'greedy',
+    clickableIcons: false
   });
+
   trafficLayer = new google.maps.TrafficLayer();
+
   const params = new URLSearchParams(location.search);
+
   shareMode = params.has('x');
   editMode = !shareMode;
+
   const st = readShare();
-  if (st) { try { applyState(st); } catch (e) { console.error('State apply failed', e); } } else { LOCATIONS.forEach(createMapItem); }
+
+  if (st) {
+    try {
+      applyState(st);
+    } catch (e) {
+      console.error('State apply failed', e);
+    }
+  } else {
+    LOCATIONS.forEach(createMapItem);
+  }
+
   toast = document.getElementById('toast');
   modeBadge = document.getElementById('mode-badge');
+
   btnTraffic = document.getElementById('btn-traffic');
   btnShare = document.getElementById('btn-share');
   btnAdd = document.getElementById('btn-add');
@@ -884,34 +1563,44 @@ function boot(AdvMarker) {
   btnRoadmap = document.getElementById('btn-roadmap');
   btnSatellite = document.getElementById('btn-satellite');
   btnEdit = document.getElementById('btn-edit');
+
   if (shareMode) {
-    [btnShare, btnAdd, btnRoute, btnRouteClear, btnEdit].forEach(btn => { if(btn) btn.style.display = 'none'; });
-    setAddMode(false); setRouteMode(false);
+    [btnShare, btnAdd, btnRoute, btnRouteClear, btnEdit].forEach(btn => {
+      if (btn)
+        btn.style.display = 'none';
+    });
+
+    setAddMode(false);
+    setRouteMode(false);
+
     if (modeBadge) {
       modeBadge.textContent = 'وضع العرض (رابط مشاركة)';
       modeBadge.style.display = 'block';
       modeBadge.classList.add('view');
     }
-  } else { applyEditModeUI(); }
- btnRoadmap?.addEventListener('click', () => {
-  map.setMapTypeId('roadmap');
-  btnRoadmap.setAttribute('aria-pressed', 'true');
-  btnSatellite?.setAttribute('aria-pressed', 'false');
-  persist();
-});
+  } else {
+    applyEditModeUI();
+  }
 
- if (btnSatellite) {
-  btnSatellite.addEventListener('click', () => {
-    map.setMapTypeId('hybrid');
-
-    if (btnRoadmap) 
-      btnRoadmap.setAttribute('aria-pressed', 'false');
-
-    btnSatellite.setAttribute('aria-pressed', 'true');
-
+  btnRoadmap?.addEventListener('click', () => {
+    map.setMapTypeId('roadmap');
+    btnRoadmap.setAttribute('aria-pressed', 'true');
+    btnSatellite?.setAttribute('aria-pressed', 'false');
     persist();
   });
-}
+
+  if (btnSatellite) {
+    btnSatellite.addEventListener('click', () => {
+      map.setMapTypeId('hybrid');
+
+      if (btnRoadmap)
+        btnRoadmap.setAttribute('aria-pressed', 'false');
+
+      btnSatellite.setAttribute('aria-pressed', 'true');
+
+      persist();
+    });
+  }
 
   if (btnTraffic) {
     btnTraffic.addEventListener('click', () => {
@@ -921,11 +1610,14 @@ function boot(AdvMarker) {
       persist();
     });
   }
+
   if (btnShare) {
     btnShare.addEventListener('click', copyShareLink);
   }
+
   if (btnEdit && !shareMode) {
     btnEdit.setAttribute('aria-pressed', String(editMode));
+
     btnEdit.addEventListener('click', () => {
       editMode = !editMode;
       btnEdit.setAttribute('aria-pressed', String(editMode));
@@ -940,6 +1632,7 @@ function boot(AdvMarker) {
         showToast('لتعديل الخريطة، فعّل وضع التحرير أولاً');
         return;
       }
+
       setAddMode(!addMode);
     });
   }
@@ -950,11 +1643,14 @@ function boot(AdvMarker) {
         showToast('لتعديل المسار، فعّل وضع التحرير أولاً');
         return;
       }
+
       const willBeActive = !routeMode;
+
       if (!willBeActive && routePoints.length > 0) {
-          clearRouteVisuals(true);
-          showToast('تم مسح المسار الحالي.');
+        clearRouteVisuals(true);
+        showToast('تم مسح المسار الحالي.');
       }
+
       setRouteMode(willBeActive);
     });
   }
@@ -965,10 +1661,12 @@ function boot(AdvMarker) {
         showToast('لا يمكن تعديل المسار في وضع العرض');
         return;
       }
+
       if (routePoints.length === 0) {
         showToast('لا يوجد مسار لحذفه');
         return;
       }
+
       if (confirm('هل أنت متأكد من حذف المسار الحالي؟')) {
         clearRouteVisuals(true);
         showToast('تم حذف المسار');
@@ -981,14 +1679,19 @@ function boot(AdvMarker) {
       infoWin.close();
       cardPinned = false;
     }
+
     if (routeCardPinned && (routeInfoWin || routeCardWin)) {
-        if(routeInfoWin) routeInfoWin.close();
-        if(routeCardWin) routeCardWin.close();
-        routeCardPinned = false;
+      if (routeInfoWin)
+        routeInfoWin.close();
+      if (routeCardWin)
+        routeCardWin.close();
+
+      routeCardPinned = false;
     }
-      
-    if (shareMode || !editMode) return;
-    
+
+    if (shareMode || !editMode)
+      return;
+
     if (addMode) {
       const item = createMapItem({
         id: 'c' + Date.now(),
@@ -997,25 +1700,34 @@ function boot(AdvMarker) {
         lng: e.latLng.lng(),
         fixed: false
       });
+
       openCard(item);
       setAddMode(false);
-    } 
-    else if (routeMode) {
+    } else if (routeMode) {
       addRoutePoint(e.latLng);
     }
   });
 
   const throttledPersist = throttle(persist, 1000);
+
   map.addListener('bounds_changed', throttledPersist);
+
   map.addListener('zoom_changed', () => {
     circles.forEach(item => {
-      updateMarkerContent(item.marker, toHex(item.circle.get('fillColor')), item.meta.scale, item.meta.kind);
+      updateMarkerContent(
+        item.marker,
+        toHex(item.circle.get('fillColor')),
+        item.meta.scale,
+        item.meta.kind
+      );
     });
+
     throttledPersist();
   });
 
-  if (!shareMode) {
+  if (!shareMode)
     persist();
-  }
-} // --- End of boot() ---
+}
+
+// END FILE
 
