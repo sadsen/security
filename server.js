@@ -1,20 +1,19 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const fetch = require('node-fetch');
+
 const app = express();
 const publicDir = path.join(__dirname, 'public');
 
 console.log('Booting Diriyah Security Map server...');
 console.log('__dirname =', __dirname);
 
-// --- Middleware ---
+// Middleware
 app.use(express.json());
-
-// --- Static Files ---
-// تقديم جميع الملفات الثابتة من مجلد public
 app.use(express.static(publicDir));
 
-// --- Routes ---
+// Routes
 app.get('/', (req, res) => {
   renderIndex(req, res);
 });
@@ -42,7 +41,7 @@ app.get('/health', (req, res) => {
   res.send('OK');
 });
 
-// تقديم ملف index.html لجميع المسارات الأخرى
+// Fallback route
 app.get('*', (req, res) => {
   renderIndex(req, res);
 });
@@ -61,7 +60,7 @@ function renderIndex(req, res) {
   }
 }
 
-// بدء الخادم
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log('Server is running on port', PORT);
