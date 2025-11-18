@@ -510,8 +510,8 @@ class LocationManager {
     return this.items.map(it => ({
       id: it.id,
       name: it.name,
-      lat: it.marker.position.lat(),
-      lng: it.marker.position.lng(),
+      lat: it.marker.position.lat,
+      lng: it.marker.position.lng,
       color: it.color,
       radius: it.radius,
       recipients: it.recipients
@@ -981,7 +981,7 @@ class RouteManager {
       distance: rt.distance,
       duration: rt.duration,
       overview: rt.overview,
-      points: rt.points.map(p => ({ lat: p.lat(), lng: p.lng() }))
+      points: rt.points.map(p => ({ lat: p.lat, lng: p.lng }))
     }));
   }
 
