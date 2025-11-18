@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+  window.initMap = function() {
+  console.log('Google Maps API loaded, initializing map...');
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
