@@ -1587,6 +1587,6 @@
       }
     }
   </script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=geometry,marker&callback=initMap" async defer></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjX9UJKG53r5ymGydlWEMNbuvi234LcC8&libraries=geometry,marker&callback=initMap" async defer></script>
 </body>
 </html>
