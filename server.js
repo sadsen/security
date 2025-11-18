@@ -21,7 +21,10 @@ if (!fs.existsSync(jsDir)) {
 app.use(express.json());
 
 // خدمة الملفات الثابتة
-app.use(express.static(publicDir, {
+app.use(express.static(publicDir));
+
+// تحديد نوع المحتوى لملفات JS
+app.use('/js', express.static(path.join(publicDir, 'js'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript');
