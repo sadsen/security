@@ -6,16 +6,24 @@ const fetch = require('node-fetch');
 const app = express();
 const publicDir = path.join(__dirname, 'public');
 
-console.log('Booting Diriyah Security Map server...');
-console.log('__dirname =', __dirname);
+// تأكد من أن مجلد public موجود
+if (!fs.existsSync(publicDir)) {
+  fs.mkdirSync(publicDir);
+}
+
+// تأكد من أن مجلد js موجود
+const jsDir = path.join(publicDir, 'js');
+if (!fs.existsSync(jsDir)) {
+  fs.mkdirSync(jsDir);
+}
 
 // Middleware
 app.use(express.json());
 
-// خدمة الملفات الثابتة من مجلد public
+// خدمة الملفات الثابتة
 app.use(express.static(publicDir, {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.js')) {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript');
     }
   }
@@ -72,4 +80,6 @@ function renderIndex(req, res) {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log('Server is running on port', PORT);
+  console.log('Public directory:', publicDir);
+  console.log('JS directory:', jsDir);
 });
