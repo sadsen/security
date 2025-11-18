@@ -1071,7 +1071,7 @@ class StateManager {
         traffic: MAP.trafficLayer?.getMap() ? 1 : 0
       },
       routes: ROUTES.exportState(),
-      locations: LOCATIONS_MGR.exportState()
+      locations: LOCATIONS.exportState()
     };
   }
 
