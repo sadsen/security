@@ -3,13 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <title>خريطة أمن الدرعية</title>
-
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap"
         rel="stylesheet">
-
   <style>
     html, body {
       height: 100%;
@@ -18,7 +15,6 @@
       background: #0b0f14;
       overflow: hidden;
     }
-
     #map {
       position: fixed;
       inset: 0;
@@ -26,7 +22,6 @@
       height: 100%;
       z-index: 1;
     }
-
     /* Toolbar -------------------------------------------------- */
     #toolbar {
       position: fixed;
@@ -41,7 +36,6 @@
       border-radius: 14px;
       backdrop-filter: blur(12px);
     }
-
     .btn {
       height: 34px;
       padding: 0 12px;
@@ -56,17 +50,14 @@
       gap: 6px;
       white-space: nowrap;
     }
-
     .btn[aria-pressed="true"] {
       background: rgba(66,133,244,0.8);
       border-color: rgba(66,133,244,1);
     }
-
     .btn:disabled {
       opacity: 0.45;
       cursor: not-allowed;
     }
-
     /* Mode Badge ------------------------------------------------ */
     #mode-badge {
       position: fixed;
@@ -81,9 +72,8 @@
       z-index: 99999;
       display: none;
     }
-    #mode-badge.edit  { background: rgba(66,133,244,0.7); }
-    #mode-badge.view  { background: rgba(224, 62, 62, 0.7); }
-
+    #mode-badge.edit { background: rgba(66,133,244,0.7); }
+    #mode-badge.view { background: rgba(224, 62, 62, 0.7); }
     /* Toast ----------------------------------------------------- */
     #toast {
       position: fixed;
@@ -105,7 +95,6 @@
     #toast.show {
       bottom: 28px;
     }
-
     @media(max-width: 768px) {
       #toolbar {
         left: 14px;
@@ -121,25 +110,20 @@
     }
   </style>
 </head>
-
 <body>
-
   <!-- الخريطة -->
   <div id="map"></div>
 
   <!-- الأدوات -->
   <div id="toolbar">
-    <button id="btn-roadmap"     class="btn" aria-pressed="true">طرق</button>
-    <button id="btn-satellite"   class="btn" aria-pressed="false">قمر صناعي</button>
-    <button id="btn-traffic"     class="btn" aria-pressed="false">حركة المرور</button>
-
-    <button id="btn-add"         class="btn" aria-pressed="false">إضافة موقع</button>
-    <button id="btn-route"       class="btn" aria-pressed="false">مسار</button>
+    <button id="btn-roadmap" class="btn" aria-pressed="true">طرق</button>
+    <button id="btn-satellite" class="btn" aria-pressed="false">قمر صناعي</button>
+    <button id="btn-traffic" class="btn" aria-pressed="false">حركة المرور</button>
+    <button id="btn-add" class="btn" aria-pressed="false">إضافة موقع</button>
+    <button id="btn-route" class="btn" aria-pressed="false">مسار</button>
     <button id="btn-route-clear" class="btn" aria-pressed="false">مسح المسار</button>
-
-    <button id="btn-edit"        class="btn" aria-pressed="true">تحرير</button>
-
-    <button id="btn-share"       class="btn">
+    <button id="btn-edit" class="btn" aria-pressed="true">تحرير</button>
+    <button id="btn-share" class="btn">
       <span class="label">مشاركة</span>
     </button>
   </div>
@@ -150,11 +134,12 @@
   <!-- toast -->
   <div id="toast"></div>
 
-  <!-- ملفات السكربت -->
+  <!-- تحميل ملف الجافاسكريبت الرئيسي -->
   <script src="/js/main.js"></script>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUC7Z3PeZXtNV-KUTWtqPUNnMRZksig2s&libraries=geometry,marker&callback=initMap" async defer></script>
-
-
+  <!-- تحميل Google Maps API مع كل المكتبات المطلوبة (الحل النهائي) -->
+  <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUC7Z3PeZXtNV-KUTWtqPUNnMRZksig2s&libraries=geometry,marker,places,drawing&callback=initMap">
+  </script>
 </body>
 </html>
