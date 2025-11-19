@@ -92,29 +92,16 @@
       text-align: center;
       transition: 0.35s;
     }
-    #toast.show {
-      bottom: 28px;
-    }
+    #toast.show { bottom: 28px; }
     @media(max-width: 768px) {
-      #toolbar {
-        left: 14px;
-        right: 14px;
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-      .btn {
-        flex: 1 1 auto;
-        text-align: center;
-        min-width: 74px;
-      }
+      #toolbar { left: 14px; right: 14px; flex-wrap: wrap; justify-content: center; }
+      .btn { flex: 1 1 auto; text-align: center; min-width: 74px; }
     }
   </style>
 </head>
 <body>
-  <!-- الخريطة -->
   <div id="map"></div>
 
-  <!-- الأدوات -->
   <div id="toolbar">
     <button id="btn-roadmap" class="btn" aria-pressed="true">طرق</button>
     <button id="btn-satellite" class="btn" aria-pressed="false">قمر صناعي</button>
@@ -123,23 +110,38 @@
     <button id="btn-route" class="btn" aria-pressed="false">مسار</button>
     <button id="btn-route-clear" class="btn" aria-pressed="false">مسح المسار</button>
     <button id="btn-edit" class="btn" aria-pressed="true">تحرير</button>
-    <button id="btn-share" class="btn">
-      <span class="label">مشاركة</span>
-    </button>
+    <button id="btn-share" class="btn"><span class="label">مشاركة</span></button>
   </div>
 
-  <!-- شارة الوضع -->
   <div id="mode-badge"></div>
-
-  <!-- toast -->
   <div id="toast"></div>
 
-  <!-- تحميل ملف الجافاسكريبت الرئيسي -->
+  <!-- تحميل main.js أولاً -->
   <script src="/js/main.js"></script>
 
-  <!-- تحميل Google Maps API مع كل المكتبات المطلوبة (الحل النهائي) -->
-  <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUC7Z3PeZXtNV-KUTWtqPUNnMRZksig2s&libraries=geometry,marker,places,drawing&callback=initMap">
+  <!-- الطريقة الجديدة الرسمية 2025 لتحميل Google Maps (تحل كل المشاكل على Render) -->
+  <script>
+    (g => {
+      var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window;
+      b = b || {};
+      var d = b[c] || (b[c] = {});
+      var i = d.maps || (d.maps = {});
+      i[q] || (i[q] = {});
+      i[q][l] || (i[q][l] = function () { (i[q][l].q = i[q][l].q || []).push(arguments); });
+      if (!i.loader) {
+        i.loader = {
+          load: async function () {
+            if (!i[q][l].loaded) {
+              const s = m.createElement("script");
+              s.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBUC7Z3PeZXtNV-KUTWtqPUNnMRZksig2s&callback=${g}&loading=async&libraries=marker,places,drawing,geometry`;
+              m.head.appendChild(s);
+              i[q][l].loaded = true;
+            }
+          }
+        };
+      }
+      i.loader.load();
+    })(() => window.initMap && window.initMap());
   </script>
 </body>
 </html>
