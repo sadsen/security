@@ -59,46 +59,58 @@ const Utils = {
     },
 
     /* 
-     * Base64 URL-Safe encoding to avoid iOS/Safari corruptions
+     * Base64 URL-Safe encoding with compression
      */
     b64uEncode(str) {
         try {
-            const bytes = new TextEncoder().encode(str);
-            let bin = "";
-            bytes.forEach(b => bin += String.fromCharCode(b));
+            // 1. تحويل النص إلى بايتات (UTF-8)
+            const textEncoder = new TextEncoder();
+            const bytes = textEncoder.encode(str);
 
-            return btoa(bin)
+            // 2. ضغط البايتات باستخدام pako
+            const compressed = pako.deflate(bytes);
+
+            // 3. تحويل البايتات المضغوطة إلى نص Base64
+            let bin = "";
+            compressed.forEach(b => bin += String.fromCharCode(b));
+            const base64 = btoa(bin);
+
+            // 4. جعل الرابط آمنًا للاستخدام في الـ URL
+            return base64
                 .replace(/\+/g, "-")
                 .replace(/\//g, "_")
-                .replace(/=+$/, "");  // no padding
+                .replace(/=+$/, "");
         } catch (e) {
-            console.error("Encoding error", e);
+            console.error("Compression/Encoding error", e);
             return "";
         }
     },
 
     /* 
-     * Base64 URL-safe decode tolerant to iOS URL mangling
+     * Base64 URL-safe decode with decompression
      */
     b64uDecode(str) {
         try {
             if (!str) return null;
 
+            // 1. إعادة الرابط إلى صيغة Base64 قياسية
             str = str.replace(/[^A-Za-z0-9\-_]/g, "");
-
             const pad = (4 - (str.length % 4)) % 4;
             str += "=".repeat(pad);
+            const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
 
-            const normal = str
-                .replace(/-/g, "+")
-                .replace(/_/g, "/");
+            // 2. فك ترميز Base64 إلى بايتات
+            const decoded = atob(base64);
+            const compressedBytes = Uint8Array.from(decoded, c => c.charCodeAt(0));
 
-            const decoded = atob(normal);
+            // 3. فك ضغط البايتات باستخدام pako
+            const decompressedBytes = pako.inflate(compressedBytes);
 
-            const bytes = Uint8Array.from(decoded, c => c.charCodeAt(0));
-            return new TextDecoder().decode(bytes);
+            // 4. تحويل البايتات المستعادة إلى نص (UTF-8)
+            const textDecoder = new TextDecoder();
+            return textDecoder.decode(decompressedBytes);
         } catch (e) {
-            console.error("Decoding error", e);
+            console.error("Decompression/Decoding error", e);
             return null;
         }
     },
@@ -118,7 +130,6 @@ const Utils = {
         return `${h} ساعة ${r} دقيقة`;
     }
 };
-
 
 
 /* ============================================================
@@ -599,6 +610,9 @@ const STATE = new StateManager();
 /* ============================================================
    ShareManager — نسخ آمن مع تحقق من طول الرابط
 ============================================================ */
+/* ============================================================
+   ShareManager — نسخ آمن مع ضغط البيانات
+============================================================ */
 class ShareManager {
 
     constructor() {
@@ -609,34 +623,23 @@ class ShareManager {
     }
 
     async generateShareLink() {
+        const st = STATE.buildState();
+        if (!st) {
+            bus.emit("toast", "تعذر إنشاء رابط المشاركة");
+            return;
+        }
+
+        const longUrl = STATE.writeShare(st);
         const label = this.btn.querySelector(".label");
         const original = label ? label.textContent : null;
 
         this.btn.disabled = true;
-        if (label) label.textContent = "جاري التحضير…";
-
-        // 1. بناء الحالة والرابط الطويل
-        const st = STATE.buildState();
-        if (!st) {
-            bus.emit("toast", "تعذر إنشاء رابط المشاركة");
-            this.resetButton(original);
-            return;
-        }
-        const longUrl = STATE.writeShare(st);
-
-        // 2. التحقق من طول الرابط (الحد الأقصى الآمن هو حوالي 8000 حرف)
-        if (longUrl.length > 8000) {
-            bus.emit("toast", "البيانات كبيرة جدًا للمشاركة. حذف بعض المواقع أو المسارات.");
-            this.resetButton(original);
-            return;
-        }
-
         if (label) label.textContent = "جاري التقصير…";
 
         let finalUrl = longUrl;
 
-        // 3. محاولة التقصير
         try {
+            // الآن الرابط سيكون قصيرًا بفضل الضغط، وفرص النجاح أعلى
             const api = "https://is.gd/create.php?format=json&url=" +
                         encodeURIComponent(longUrl);
             const res = await fetch(api);
@@ -647,9 +650,10 @@ class ShareManager {
             }
         } catch (err) {
             console.error("is.gd error, using long URL.", err);
+            finalUrl = longUrl;
         }
 
-        // 4. محاولة النسخ
+        // محاولة النسخ
         try {
             await navigator.clipboard.writeText(finalUrl);
             bus.emit("toast", "تم نسخ رابط المشاركة");
@@ -658,15 +662,11 @@ class ShareManager {
             this.showManualCopyDialog(finalUrl);
         }
 
-        this.resetButton(original);
-    }
-    
-    resetButton(originalText) {
         this.btn.disabled = false;
-        const label = this.btn.querySelector(".label");
-        if (label) label.textContent = originalText || "مشاركة";
+        if (label) label.textContent = original || "مشاركة";
     }
 
+    // دالة لعرض نافذة النسخ اليدوي (تبقى كما هي)
     showManualCopyDialog(url) {
         const overlay = document.createElement('div');
         overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;`;
