@@ -444,61 +444,146 @@ const ROUTES = new RouteManager();
 /* ============================================================
    PolygonManager — إدارة المضلعات + بطاقات Glass (مُصلح)
 ============================================================ */
+/* ============================================================
+   PolygonManager — إدارة المضلعات + بطاقات Glass (مُصلح)
+============================================================ */
 class PolygonManager {
 
     constructor() {
-        this.polygons = []; this.map = null; this.shareMode = false; this.editMode = true;
-        this.infoWin = null; this.cardPinned = false; this.activePolygonIndex = -1;
-        bus.on("map:ready", map => { this.map = map; this.shareMode = MAP.shareMode; this.editMode = MAP.editMode; this.onMapReady(); });
+        this.polygons = [];
+        this.map = null;
+        this.shareMode = false;
+        this.editMode = true;
+        this.infoWin = null;
+        this.cardPinned = false;
+        this.activePolygonIndex = -1;
+
+        bus.on("map:ready", map => {
+            this.map = map;
+            this.shareMode = MAP.shareMode;
+            this.editMode = MAP.editMode;
+            this.onMapReady();
+        });
+
         bus.on("state:load", st => this.applyState(st));
         bus.on("state:save", () => this.exportState());
     }
 
     onMapReady() {
         this.map.addListener("click", e => {
-            if (!MAP.modePolygonAdd || this.shareMode) return;
-            if (this.activePolygonIndex === -1) this.createNewPolygon();
+            // لا تفعل شيئًا إذا لم نكن في وضع إضافة مضلع
+            if (!MAP.modePolygonAdd) return;
+            if (this.shareMode) return;
+
+            if (this.activePolygonIndex === -1) {
+                this.createNewPolygon();
+            }
             this.addPointToPolygon(this.activePolygonIndex, e.latLng);
         });
-        this.map.addListener("click", () => { if (!this.cardPinned && this.infoWin) this.infoWin.close(); this.cardPinned = false; });
+
+        this.map.addListener("click", () => {
+            if (!this.cardPinned && this.infoWin) {
+                this.infoWin.close();
+            }
+            this.cardPinned = false;
+        });
     }
 
-    // الدوال التي كانت مفقودة
-    startPolygonSequence() { this.activePolygonIndex = -1; UI.showDrawFinishUI(); }
+    // تم تصحيح هذه الدالة
+    startPolygonSequence() {
+        this.activePolygonIndex = -1;
+        // تم حذف الاستدعاء الخاطئ لدالة غير موجودة
+        // UI.showPolygonAddingUI(); // هذا السطر كان يسبب الخطأ
+    }
+
     finishCurrentPolygon() {
         if (this.activePolygonIndex === -1) return;
+        
         const poly = this.polygons[this.activePolygonIndex];
+
+        // إزالة الخط المؤقت والعلامات المؤقتة
         if (poly.activePolyline) poly.activePolyline.setMap(null);
         poly.markers.forEach(m => m.map = null);
+
+        // إنشاء المضلع النهائي إذا كان به 3 نقاط على الأقل
         if (poly.points.length >= 3) {
-            poly.polygon = new google.maps.Polygon({ paths: poly.points, map: this.map, strokeColor: poly.color, strokeOpacity: poly.strokeOpacity, strokeWeight: poly.strokeWeight, fillColor: poly.color, fillOpacity: poly.fillOpacity, zIndex: 5 });
+            poly.polygon = new google.maps.Polygon({
+                paths: poly.points,
+                map: this.map,
+                strokeColor: poly.color,
+                strokeOpacity: poly.strokeOpacity,
+                strokeWeight: poly.strokeWeight,
+                fillColor: poly.color,
+                fillOpacity: poly.fillOpacity,
+                zIndex: 5
+            });
+
             poly.polygon.addListener("mouseover", () => { if (!this.cardPinned) this.openCard(this.polygons.indexOf(poly), true); });
             poly.polygon.addListener("mouseout", () => { if (!this.cardPinned && this.infoWin) setTimeout(() => { if (!this.cardPinned && this.infoWin) this.infoWin.close(); }, 150); });
             poly.polygon.addListener("click", () => this.openCard(this.polygons.indexOf(poly), false));
+            
             bus.emit("persist");
-        } else { this.polygons.pop(); }
-        this.activePolygonIndex = -1; UI.showDefaultUI();
+        } else {
+            // إذا كان أقل من 3 نقاط، احذف المضلع غير المكتمل
+            this.polygons.pop();
+        }
+
+        this.activePolygonIndex = -1;
     }
 
     createNewPolygon() {
-        const polygon = { id: "poly" + Date.now(), name: "مضلع جديد", points: [], color: "#ff9800", strokeWeight: 2, strokeOpacity: 0.8, fillOpacity: 0.35, polygon: null, markers: [], activePolyline: null };
-        this.polygons.push(polygon); this.activePolygonIndex = this.polygons.length - 1; return polygon;
+        const polygon = {
+            id: "poly" + Date.now(),
+            name: "مضلع جديد",
+            points: [],
+            color: "#ff9800",
+            strokeWeight: 2,
+            strokeOpacity: 0.8,
+            fillOpacity: 0.35,
+            polygon: null,
+            markers: [],
+            activePolyline: null
+        };
+        this.polygons.push(polygon);
+        this.activePolygonIndex = this.polygons.length - 1;
+        return polygon;
     }
 
     addPointToPolygon(polyIndex, latLng) {
-        const poly = this.polygons[polyIndex]; poly.points.push(latLng);
-        const marker = new google.maps.marker.AdvancedMarkerElement({ position: latLng, map: this.map, content: this.buildVertexMarkerContent(poly.color) });
+        const poly = this.polygons[polyIndex];
+        poly.points.push(latLng);
+
+        const marker = new google.maps.marker.AdvancedMarkerElement({
+            position: latLng,
+            map: this.map,
+            content: this.buildVertexMarkerContent(poly.color)
+        });
         poly.markers.push(marker);
+
         if (poly.activePolyline) poly.activePolyline.setMap(null);
-        poly.activePolyline = new google.maps.Polyline({ path: poly.points, map: this.map, strokeColor: poly.color, strokeOpacity: 0.6, strokeWeight: 2, zIndex: 10 });
+        poly.activePolyline = new google.maps.Polyline({
+            path: poly.points,
+            map: this.map,
+            strokeColor: poly.color,
+            strokeOpacity: 0.6,
+            strokeWeight: 2,
+            zIndex: 10
+        });
     }
 
     buildVertexMarkerContent(color) {
-        const el = document.createElement("div"); el.style.width = "12px"; el.style.height = "12px"; el.style.borderRadius = "50%"; el.style.background = "white"; el.style.border = `2px solid ${color}`; return el;
+        const el = document.createElement("div");
+        el.style.width = "12px";
+        el.style.height = "12px";
+        el.style.borderRadius = "50%";
+        el.style.background = "white";
+        el.style.border = `2px solid ${color}`;
+        return el;
     }
 
     openCard(polyIndex, hoverOnly = false) {
-        const poly = this.polygons[polyIndex]; const isEditable = !hoverOnly && MAP.editMode;
+        const poly = this.polygons[polyIndex];
+        const isEditable = !hoverOnly && MAP.editMode;
         const cardStyle = `background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.5); padding: 0; color: #333; direction: rtl; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2); max-width: 95vw; width: auto; box-sizing: border-box; overflow: hidden;`;
         const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.5); border-bottom: 1px solid rgba(255, 255, 255, 0.4);`;
         const bodyStyle = `padding: 20px;`;
@@ -528,6 +613,7 @@ class PolygonManager {
     exportState() { return this.polygons.filter(p => p.polygon).map(poly => ({ id: poly.id, name: poly.name, color: poly.color, strokeWeight: poly.strokeWeight, strokeOpacity: poly.strokeOpacity, fillOpacity: poly.fillOpacity, points: poly.points.map(p => ({ lat: typeof p.lat === 'function' ? p.lat() : p.lat, lng: typeof p.lng === 'function' ? p.lng() : p.lng })) })); }
     applyState(state) { if (!state || !state.polygons) return; this.polygons.forEach(p => { if (p.polygon) p.polygon.setMap(null); }); this.polygons = []; state.polygons.forEach(polyData => { const newPoly = { id: polyData.id, name: polyData.name, color: polyData.color, strokeWeight: polyData.strokeWeight, strokeOpacity: polyData.strokeOpacity, fillOpacity: polyData.fillOpacity, points: polyData.points.map(p => new google.maps.LatLng(p.lat, p.lng)), polygon: null, markers: [], activePolyline: null }; newPoly.polygon = new google.maps.Polygon({ paths: newPoly.points, map: this.map, strokeColor: newPoly.color, strokeOpacity: newPoly.strokeOpacity, strokeWeight: newPoly.strokeWeight, fillColor: newPoly.color, fillOpacity: newPoly.fillOpacity, zIndex: 5 }); newPoly.polygon.addListener("mouseover", () => { if (!this.cardPinned) this.openCard(this.polygons.length, true); }); newPoly.polygon.addListener("mouseout", () => { if (!this.cardPinned && this.infoWin) setTimeout(() => { if (!this.cardPinned && this.infoWin) this.infoWin.close(); }, 150); }); newPoly.polygon.addListener("click", () => this.openCard(this.polygons.length, false)); this.polygons.push(newPoly); }); }
 }
+
 const POLYGONS = new PolygonManager();
 
 /* ============================================================
@@ -791,8 +877,8 @@ class UIManager {
         if (this.btnRoadmap) {
             this.btnRoadmap.addEventListener("click", () => {
                 MAP.setRoadmap();
-                this.btnRoadmap.setAttribute("aria-pressed", "true");
-                this.btnSatellite.setAttribute("aria-pressed", "false");
+                this.btnRoadmap.setAttribute("aria-pressed","true");
+                this.btnSatellite.setAttribute("aria-pressed","false");
                 this.showToast("تم التبديل لخريطة الطرق");
             });
         }
@@ -800,8 +886,8 @@ class UIManager {
         if (this.btnSatellite) {
             this.btnSatellite.addEventListener("click", () => {
                 MAP.setSatellite();
-                this.btnRoadmap.setAttribute("aria-pressed", "false");
-                this.btnSatellite.setAttribute("aria-pressed", "true");
+                this.btnRoadmap.setAttribute("aria-pressed","false");
+                this.btnSatellite.setAttribute("aria-pressed","true");
                 this.showToast("تم التبديل للأقمار الصناعية");
             });
         }
@@ -826,7 +912,7 @@ class UIManager {
             });
         }
 
-        // أحداث الرسم
+        // --- منطق الأزرار المُصلح ---
         if (this.btnAdd && !MAP.shareMode) {
             this.btnAdd.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
@@ -855,6 +941,7 @@ class UIManager {
                 } else if (MAP.modePolygonAdd) {
                     POLYGONS.finishCurrentPolygon();
                 }
+                this.showDefaultUI();
             });
         }
 
@@ -871,15 +958,18 @@ class UIManager {
         this.updateModeBadge();
     }
 
-    // دالة لتنظيم أوضاع الرسم
+    // دالة لتنظيم أوضاع الرسم (تم تصحيحها)
     setActiveMode(mode) {
+        // إيقاف جميع الأوضاع أولاً
         MAP.modeAdd = false;
         MAP.modeRouteAdd = false;
         MAP.modePolygonAdd = false;
 
+        // إعادة تعيين حالة الأزرار
         if (this.btnAdd) this.btnAdd.setAttribute("aria-pressed", "false");
         if (this.btnRoute) this.btnRoute.setAttribute("aria-pressed", "false");
         if (this.btnPolygon) this.btnPolygon.setAttribute("aria-pressed", "false");
+
         MAP.setCursor("grab");
 
         switch (mode) {
@@ -896,7 +986,9 @@ class UIManager {
                 this.showToast("اضغط لإضافة نقاط المسار الأول");
                 break;
             case 'polygon':
+                // تم تصحيح هذا الجزء
                 POLYGONS.startPolygonSequence();
+                MAP.modePolygonAdd = true; // <-- هذا السطر كان مفقودًا
                 this.showDrawFinishUI();
                 this.showToast("اضغط لإضافة رؤوس المضلع، ثم 'إنهاء الرسم'");
                 break;
@@ -919,14 +1011,14 @@ class UIManager {
         if (this.btnPolygon) this.btnPolygon.style.display = "none";
         if (this.btnDrawFinish) this.btnDrawFinish.style.display = "inline-block";
     }
-
+    
     showDefaultUI() {
         if (this.btnRoute) this.btnRoute.style.display = "inline-block";
         if (this.btnPolygon) this.btnPolygon.style.display = "inline-block";
         if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
     }
 
-    updateModeBadge(forceMode = null) {
+    updateModeBadge(forceMode=null) {
         if (!this.modeBadge) return;
         const mode = forceMode || (MAP.editMode ? "edit" : "view");
         this.modeBadge.style.display = "block";
