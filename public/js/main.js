@@ -236,21 +236,15 @@ const MAP = new MapController();
 
 
 /* ============================================================
-   LocationManager — المواقع + بطاقات Glass
-============================================================ */
-/* ============================================================
-   LocationManager — المواقع + بطاقات Glass (محدث)
+   LocationManager — المواقع + بطاقات Glass (تصميم موحد)
 ============================================================ */
 class LocationManager {
 
     constructor() {
-
         this.items = [];
         this.map = null;
-
         this.shareMode = false;
         this.editMode = true;
-
         this.infoWin = null;
         this.cardPinned = false;
 
@@ -265,20 +259,13 @@ class LocationManager {
         bus.on("state:save", () => this.exportState());
     }
 
-
     onMapReady() {
-        if (!this.shareMode && this.items.length === 0)
-            this.loadDefaultLocations();
-
-        // Click outside → hide unpinned
+        if (!this.shareMode && this.items.length === 0) this.loadDefaultLocations();
         this.map.addListener("click", () => {
-            if (!this.cardPinned && this.infoWin) {
-                this.infoWin.close();
-            }
+            if (!this.cardPinned && this.infoWin) this.infoWin.close();
             this.cardPinned = false;
         });
     }
-
 
     loadDefaultLocations() {
         const LOCS = [
@@ -287,251 +274,144 @@ class LocationManager {
             { name: "دوار البجيري", lat: 24.737521, lng: 46.574069 },
             { name: "إشارة البجيري", lat: 24.737662, lng: 46.575429 }
         ];
-
         LOCS.forEach(loc => this.addItem({
-            id: "d" + Date.now() + Math.random(),
-            name: loc.name,
-            lat: loc.lat,
-            lng: loc.lng,
-            radius: 22,
-            color: "#ff0000",
-            recipients: []
+            id: "d" + Date.now() + Math.random(), name: loc.name, lat: loc.lat, lng: loc.lng,
+            radius: 22, color: "#ff0000", recipients: []
         }));
     }
 
-
     addItem(data) {
-        // --- تعديل: إخفاء النقطة الحمراء وجعلها غير مرئية ولكن قابلة للسحب ---
         const marker = new google.maps.marker.AdvancedMarkerElement({
-            position: { lat: data.lat, lng: data.lng },
-            map: this.map,
-            content: document.createElement('div'), // محتوى فارغ لإخفاء النقطة
-            gmpDraggable: this.editMode && !this.shareMode
+            position: { lat: data.lat, lng: data.lng }, map: this.map,
+            content: document.createElement('div'), gmpDraggable: this.editMode && !this.shareMode
         });
-
         const circle = new google.maps.Circle({
-            center: { lat: data.lat, lng: data.lng },
-            map: this.map,
-            radius: data.radius || 22,
-            strokeColor: data.color || "#ff0000",
-            fillColor: data.color || "#ff0000",
-            fillOpacity: 0.30,
-            strokeOpacity: 0.9,
-            strokeWeight: 2
+            center: { lat: data.lat, lng: data.lng }, map: this.map, radius: data.radius || 22,
+            strokeColor: data.color || "#ff0000", fillColor: data.color || "#ff0000",
+            fillOpacity: 0.30, strokeOpacity: 0.9, strokeWeight: 2
         });
-
         const item = {
-            id: data.id,
-            name: data.name || "نقطة",
-            color: data.color,
-            radius: data.radius,
-            recipients: data.recipients,
-            marker,
-            circle
+            id: data.id, name: data.name || "نقطة", color: data.color, radius: data.radius,
+            recipients: data.recipients, marker, circle
         };
-
         this.attachListeners(item);
         this.items.push(item);
-
         return item;
     }
 
-
     attachListeners(item) {
-        item.marker.addListener("drag", () => {
-            item.circle.setCenter(item.marker.position);
-        });
-
-        item.marker.addListener("dragend", () => {
-            bus.emit("persist");
-        });
-
-        // --- تعديل: توحيد منطق الفتح بالتمرير والنقر ---
-        item.circle.addListener("mouseover", () => {
-            if (!this.cardPinned) this.openCard(item, true); // true = hover
-        });
-
+        item.marker.addListener("drag", () => item.circle.setCenter(item.marker.position));
+        item.marker.addListener("dragend", () => bus.emit("persist"));
+        item.circle.addListener("mouseover", () => { if (!this.cardPinned) this.openCard(item, true); });
         item.circle.addListener("mouseout", () => {
-            if (!this.cardPinned && this.infoWin) {
-                setTimeout(() => {
-                    if (!this.cardPinned && this.infoWin) this.infoWin.close();
-                }, 120);
-            }
+            if (!this.cardPinned && this.infoWin) setTimeout(() => { if (!this.cardPinned && this.infoWin) this.infoWin.close(); }, 120);
         });
-
-        item.circle.addListener("click", () => {
-            this.openCard(item, false); // false = pinned
-        });
+        item.circle.addListener("click", () => this.openCard(item, false));
     }
-
 
     openCard(item, hoverOnly = false) {
         const html = this.buildCardHTML(item, hoverOnly);
-
-        if (!this.infoWin) {
-            this.infoWin = new google.maps.InfoWindow({
-                maxWidth: 350,
-                pixelOffset: new google.maps.Size(0, -28)
-            });
-        }
-
+        if (!this.infoWin) this.infoWin = new google.maps.InfoWindow({ maxWidth: 380, pixelOffset: new google.maps.Size(0, -28) });
         this.infoWin.setContent(html);
         this.infoWin.setPosition(item.marker.position);
         this.infoWin.open({ map: this.map, anchor: item.marker });
-
         if (!hoverOnly) this.cardPinned = true;
-
-        google.maps.event.addListenerOnce(this.infoWin, "domready", () => {
-            this.attachCardEvents(item, hoverOnly);
-        });
+        google.maps.event.addListenerOnce(this.infoWin, "domready", () => this.attachCardEvents(item, hoverOnly));
     }
-
 
     buildCardHTML(item, hover) {
         const name = Utils.escapeHTML(item.name);
-        const recipients = Utils.escapeHTML(item.recipients.join("، "));
+        const recipientsHtml = item.recipients.map(r => Utils.escapeHTML(r)).join('<br>');
+        const isEditable = !hover && MAP.editMode;
 
-        const logoHTML = `
-            <div style="width:48px; height:48px; border-radius:12px; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                <img src="img/logo.png" style="width:36px;">
-            </div>
+        const cardStyle = `
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px) saturate(1.8);
+            -webkit-backdrop-filter: blur(20px) saturate(1.8);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            padding: 0;
+            color: #333;
+            direction: rtl;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+            width: 340px;
+            overflow: hidden;
         `;
 
+        const headerStyle = `
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 20px; background: rgba(255, 255, 255, 0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+        `;
+        
+        const bodyStyle = `padding: 20px;`;
+        const footerStyle = `padding: 12px 20px; background: rgba(255, 255, 255, 0.5); border-top: 1px solid rgba(255, 255, 255, 0.4);`;
+
         return `
-        <div style="
-            background:rgba(255,255,255,0.85);
-            backdrop-filter:blur(16px);
-            border-radius:18px;
-            padding:16px;
-            color:#111;
-            direction:rtl;
-            box-shadow:0 8px 32px rgba(0,0,0,0.12);
-            border:1px solid rgba(255,255,255,0.3);
-        ">
-            <div style="display:flex;align-items:center;gap:12px;">
-                <div style="flex-grow:1;">
-                    <div style="font-weight:800;font-size:18px; margin-bottom:4px;">${name}</div>
-                    <div style="font-size:13px;color:#555;">المستلمون: ${recipients || 'لا يوجد'}</div>
-                </div>
-                ${logoHTML}
+        <div style="${cardStyle}">
+            <div style="${headerStyle}">
+                <h3 style="margin:0; font-size: 18px; font-weight: 700;">${name}</h3>
+                <img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;">
             </div>
-
-            ${hover || !MAP.editMode ? `
-                <div style="text-align:center;margin-top:12px;">
-                    <button id="loc-close" style="
-                        padding:6px 14px;
-                        background:#fff;
-                        border:1px solid #ccc;
-                        border-radius:10px;
-                        cursor:pointer;
-                    ">إغلاق</button>
-                </div>
-            ` : `
-                <div style="margin-top:12px;">
-                    <label style="font-size:12px;">اسم الموقع:</label>
-                    <input id="loc-name" value="${name}"
-                        style="width:100%;padding:7px;border:1px solid #ccc;border-radius:8px;">
-                </div>
-
-                <div style="margin-top:10px;">
-                    <label style="font-size:12px;">المستلمون:</label>
-                    <textarea id="loc-rec" rows="3"
-                        style="width:100%;padding:7px;border-radius:8px;border:1px solid #ccc;">${item.recipients.join("\n")}</textarea>
-                </div>
-
-                <div style="display:flex;gap:10px;margin-top:10px;">
-                    <div style="flex:1;">
-                        <label style="font-size:12px;">اللون:</label>
-                        <input id="loc-color" type="color" value="${item.color}"
-                            style="width:100%;height:32px;border:none;">
+            <div style="${bodyStyle}">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #555;">المستلمون:</p>
+                ${isEditable ? `
+                    <textarea id="loc-rec" rows="3" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #ccc; resize: none; box-sizing: border-box;">${item.recipients.join("\n")}</textarea>
+                ` : `
+                    <div style="background: rgba(0,0,0,0.05); padding: 8px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.6;">
+                        ${recipientsHtml || '<span style="color: #888;">لا يوجد مستلمين</span>'}
                     </div>
-
-                    <div style="flex:1;">
-                        <label style="font-size:12px;">نصف القطر:</label>
-                        <input id="loc-radius" type="number" value="${item.radius}"
-                            min="5" max="5000" step="5"
-                            style="width:100%;padding:7px;border-radius:8px;border:1px solid #ccc;">
+                `}
+            </div>
+            ${isEditable ? `
+                <div style="${footerStyle}">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <div style="flex:1;">
+                            <label style="font-size:12px; display:block; margin-bottom:4px;">اللون:</label>
+                            <input id="loc-color" type="color" value="${item.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size:12px; display:block; margin-bottom:4px;">نصف القطر:</label>
+                            <input id="loc-radius" type="number" value="${item.radius}" min="5" max="5000" step="5" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ccc;box-sizing:border-box;">
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:14px;">
+                        <button id="loc-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600;">حفظ</button>
+                        <button id="loc-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600;">حذف</button>
+                        <button id="loc-close" style="flex:1;background:rgba(0,0,0,0.1);color:#333;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600;">إغلاق</button>
                     </div>
                 </div>
-
-                <div style="display:flex;gap:8px;margin-top:14px;">
-                    <button id="loc-save" style="
-                        flex:2;background:#4285f4;color:white;
-                        border:none;border-radius:10px;padding:8px;cursor:pointer;">حفظ</button>
-
-                    <button id="loc-delete" style="
-                        flex:1;background:#e94235;color:white;
-                        border:none;border-radius:10px;padding:8px;cursor:pointer;">حذف</button>
-
-                    <button id="loc-close" style="
-                        flex:1;background:#fff;color:#333;
-                        border:1px solid #ccc;border-radius:10px;padding:8px;cursor:pointer;">إغلاق</button>
-                </div>
-            `}
+            ` : ''}
         </div>`;
     }
 
-
     attachCardEvents(item, hoverOnly) {
         const closeBtn = document.getElementById("loc-close");
-        if (closeBtn) closeBtn.addEventListener("click", () => {
-            if (this.infoWin) this.infoWin.close();
-            this.cardPinned = false;
-        });
-
+        if (closeBtn) closeBtn.addEventListener("click", () => { if (this.infoWin) this.infoWin.close(); this.cardPinned = false; });
         if (hoverOnly || !MAP.editMode) return;
 
-        const saveBtn = document.getElementById("loc-save");
-        const delBtn = document.getElementById("loc-delete");
-        const nameEl = document.getElementById("loc-name");
-        const recEl = document.getElementById("loc-rec");
-        const colEl = document.getElementById("loc-color");
-        const radEl = document.getElementById("loc-radius");
+        const saveBtn = document.getElementById("loc-save"); const delBtn = document.getElementById("loc-delete");
+        const recEl = document.getElementById("loc-rec"); const colEl = document.getElementById("loc-color"); const radEl = document.getElementById("loc-radius");
 
-        if (saveBtn) {
-            saveBtn.addEventListener("click", () => {
-                item.name = nameEl.value.trim();
-                item.color = colEl.value;
-                item.radius = Utils.clamp(+radEl.value, 5, 5000);
-                item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
-
-                item.circle.setOptions({
-                    fillColor: item.color,
-                    strokeColor: item.color,
-                    radius: item.radius
-                });
-
-                bus.emit("persist");
-                this.infoWin.close();
-                this.cardPinned = false;
-                bus.emit("toast", "تم حفظ التعديلات");
-            });
-        }
-
-        if (delBtn) {
-            delBtn.addEventListener("click", () => {
-                if (!confirm(`حذف "${item.name}"؟`)) return;
-                item.marker.map = null;
-                item.circle.setMap(null);
-                this.items = this.items.filter(x => x.id !== item.id);
-                this.infoWin.close();
-                this.cardPinned = false;
-                bus.emit("persist");
-                bus.emit("toast", "تم حذف الموقع");
-            });
-        }
+        if (saveBtn) saveBtn.addEventListener("click", () => {
+            item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
+            item.color = colEl.value; item.radius = Utils.clamp(+radEl.value, 5, 5000);
+            item.circle.setOptions({ fillColor: item.color, strokeColor: item.color, radius: item.radius });
+            bus.emit("persist"); this.infoWin.close(); this.cardPinned = false; bus.emit("toast", "تم حفظ التعديلات");
+        });
+        if (delBtn) delBtn.addEventListener("click", () => {
+            if (!confirm(`حذف "${item.name}"؟`)) return;
+            item.marker.map = null; item.circle.setMap(null); this.items = this.items.filter(x => x.id !== item.id);
+            this.infoWin.close(); this.cardPinned = false; bus.emit("persist"); bus.emit("toast", "تم حذف الموقع");
+        });
     }
-
 
     exportState() {
         return this.items.map(it => ({
-            id: it.id,
-            name: it.name,
+            id: it.id, name: it.name,
             lat: typeof it.marker.position.lat === 'function' ? it.marker.position.lat() : it.marker.position.lat,
             lng: typeof it.marker.position.lng === 'function' ? it.marker.position.lng() : it.marker.position.lng,
-            color: it.color,
-            radius: it.radius,
-            recipients: it.recipients
+            color: it.color, radius: it.radius, recipients: it.recipients
         }));
     }
 
@@ -545,273 +425,159 @@ class LocationManager {
 
 const LOCATIONS = new LocationManager();
 
+
 /* ============================================================
-   RouteManager — إدارة المسارات + بطاقات Glass + Directions
-============================================================ */
-/* ============================================================
-   RouteManager — إدارة المسارات + بطاقات Glass + ملاحظات (محدث)
+   RouteManager — إدارة المسارات + بطاقات Glass (تصميم موحد)
 ============================================================ */
 class RouteManager {
 
     constructor() {
-        this.routes = [];
-        this.map = null;
-        this.shareMode = false;
-        this.editMode = true;
-        this.directionsService = null;
-        this.infoWin = null;
-        this.cardPinned = false;
-        this.activeRouteIndex = -1;
-
-        bus.on("map:ready", map => {
-            this.map = map;
-            this.shareMode = MAP.shareMode;
-            this.editMode = MAP.editMode;
-            this.onMapReady();
-        });
-
+        this.routes = []; this.map = null; this.shareMode = false; this.editMode = true;
+        this.directionsService = null; this.infoWin = null; this.cardPinned = false; this.activeRouteIndex = -1;
+        bus.on("map:ready", map => { this.map = map; this.shareMode = MAP.shareMode; this.editMode = MAP.editMode; this.onMapReady(); });
         bus.on("state:load", st => this.applyState(st));
         bus.on("state:save", () => this.exportState());
     }
 
     onMapReady() {
-        this.map.addListener("click", e => {
-            if (!MAP.modeRouteAdd) return;
-            if (this.shareMode) return;
-            if (this.activeRouteIndex === -1) this.createNewRoute();
-            this.addPointToRoute(this.activeRouteIndex, e.latLng);
-        });
-
-        this.map.addListener("click", () => {
-            if (!this.cardPinned && this.infoWin) {
-                this.infoWin.close();
-            }
-            this.cardPinned = false;
-        });
+        this.map.addListener("click", e => { if (!MAP.modeRouteAdd || this.shareMode) return; if (this.activeRouteIndex === -1) this.createNewRoute(); this.addPointToRoute(this.activeRouteIndex, e.latLng); });
+        this.map.addListener("click", () => { if (!this.cardPinned && this.infoWin) this.infoWin.close(); this.cardPinned = false; });
     }
 
     createNewRoute() {
-        const route = {
-            id: "rt" + Date.now(),
-            points: [],
-            color: "#3344ff",
-            weight: 6,
-            opacity: 0.95,
-            distance: 0,
-            duration: 0,
-            overview: null,
-            poly: null,
-            stops: [],
-            notes: "" // --- إضافة حقل الملاحظات ---
-        };
-        this.routes.push(route);
-        this.activeRouteIndex = this.routes.length - 1;
-        return route;
+        const route = { id: "rt" + Date.now(), points: [], color: "#3344ff", weight: 6, opacity: 0.95, distance: 0, duration: 0, overview: null, poly: null, stops: [], notes: "" };
+        this.routes.push(route); this.activeRouteIndex = this.routes.length - 1; return route;
     }
 
     addPointToRoute(routeIndex, latLng) {
-        const rt = this.routes[routeIndex];
-        rt.points.push(latLng);
-        const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1);
-        rt.stops.push(stop);
-        if (rt.points.length >= 2) {
-            this.requestRoute(routeIndex);
-        } else {
-            bus.emit("persist");
-        }
+        const rt = this.routes[routeIndex]; rt.points.push(latLng);
+        const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1); rt.stops.push(stop);
+        if (rt.points.length >= 2) this.requestRoute(routeIndex); else bus.emit("persist");
     }
 
     createStopMarker(pos, routeIndex, idx) {
         const rt = this.routes[routeIndex];
-        const el = document.createElement("div");
-        el.style.width = "22px"; el.style.height = "22px"; el.style.background = "white";
-        el.style.borderRadius = "50%"; el.style.border = `2px solid ${rt.color}`;
-        el.style.display = "flex"; el.style.alignItems = "center"; el.style.justifyContent = "center";
-        el.style.fontSize = "12px"; el.style.fontWeight = "bold"; el.textContent = idx + 1;
-
-        const marker = new google.maps.marker.AdvancedMarkerElement({
-            position: pos, map: this.map, content: el, gmpDraggable: !this.shareMode
-        });
-
-        marker.addListener("dragend", () => {
-            rt.points[idx] = marker.position;
-            this.requestRoute(routeIndex);
-            bus.emit("persist");
-        });
-
-        marker.addListener("contextmenu", () => {
-            if (this.shareMode) return;
-            this.removePoint(routeIndex, idx);
-        });
-
+        const el = document.createElement("div"); el.style.cssText = "width:22px;height:22px;background:white;border-radius:50%;border:2px solid "+rt.color+";display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;"; el.textContent = idx + 1;
+        const marker = new google.maps.marker.AdvancedMarkerElement({ position: pos, map: this.map, content: el, gmpDraggable: !this.shareMode });
+        marker.addListener("dragend", () => { rt.points[idx] = marker.position; this.requestRoute(routeIndex); bus.emit("persist"); });
+        marker.addListener("contextmenu", () => { if (this.shareMode) return; this.removePoint(routeIndex, idx); });
         return marker;
     }
 
     removePoint(routeIndex, idx) {
-        const rt = this.routes[routeIndex];
-        if (rt.stops[idx]) rt.stops[idx].map = null;
-        rt.points.splice(idx, 1); rt.stops.splice(idx, 1);
-        rt.stops.forEach((m, i) => { m.content.textContent = i + 1; });
-        if (rt.points.length >= 2) { this.requestRoute(routeIndex); } else { this.clearRoute(routeIndex); }
+        const rt = this.routes[routeIndex]; if (rt.stops[idx]) rt.stops[idx].map = null;
+        rt.points.splice(idx, 1); rt.stops.splice(idx, 1); rt.stops.forEach((m, i) => { m.content.textContent = i + 1; });
+        if (rt.points.length >= 2) this.requestRoute(routeIndex); else this.clearRoute(routeIndex);
         bus.emit("persist");
     }
 
     removeRoute(routeIndex) {
-        const rt = this.routes[routeIndex];
-        if (rt.poly) rt.poly.setMap(null);
-        rt.stops.forEach(s => s.map = null);
-        this.routes.splice(routeIndex, 1);
-        this.activeRouteIndex = -1;
-        if (this.infoWin) this.infoWin.close();
-        this.cardPinned = false;
-        bus.emit("persist");
+        const rt = this.routes[routeIndex]; if (rt.poly) rt.poly.setMap(null); rt.stops.forEach(s => s.map = null);
+        this.routes.splice(routeIndex, 1); this.activeRouteIndex = -1; if (this.infoWin) this.infoWin.close(); this.cardPinned = false; bus.emit("persist");
     }
 
-    clearRoute(routeIndex) {
-        const rt = this.routes[routeIndex];
-        if (rt.poly) rt.poly.setMap(null);
-        rt.poly = null; rt.overview = null; rt.distance = 0; rt.duration = 0;
-    }
+    clearRoute(routeIndex) { const rt = this.routes[routeIndex]; if (rt.poly) rt.poly.setMap(null); rt.poly = null; rt.overview = null; rt.distance = 0; rt.duration = 0; }
 
     requestRoute(routeIndex) {
         if (!this.directionsService) this.directionsService = new google.maps.DirectionsService();
-        const rt = this.routes[routeIndex]; const pts = rt.points;
-        if (pts.length < 2) return;
+        const rt = this.routes[routeIndex]; const pts = rt.points; if (pts.length < 2) return;
         const req = { origin: pts[0], destination: pts[pts.length - 1], travelMode: google.maps.TravelMode.DRIVING };
-        if (pts.length > 2) { req.waypoints = pts.slice(1, -1).map(p => ({ location: p, stopover: true })); }
+        if (pts.length > 2) req.waypoints = pts.slice(1, -1).map(p => ({ location: p, stopover: true }));
         this.directionsService.route(req, (res, status) => {
             if (status !== "OK") { bus.emit("toast", "تعذر حساب المسار"); return; }
             const r = res.routes[0]; rt.overview = r.overview_polyline;
             rt.distance = r.legs.reduce((s, l) => s + l.distance.value, 0);
             rt.duration = r.legs.reduce((s, l) => s + l.duration.value, 0);
-            this.renderRoute(routeIndex);
-            bus.emit("persist");
+            this.renderRoute(routeIndex); bus.emit("persist");
         });
     }
 
     renderRoute(routeIndex) {
-        const rt = this.routes[routeIndex];
-        if (rt.poly) rt.poly.setMap(null);
+        const rt = this.routes[routeIndex]; if (rt.poly) rt.poly.setMap(null);
         let path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points;
-        rt.poly = new google.maps.Polyline({
-            map: this.map, path, strokeColor: rt.color, strokeWeight: rt.weight,
-            strokeOpacity: rt.opacity, zIndex: 9
-        });
-
-        // --- تعديل: توحيد منطق الفتح بالتمرير والنقر ---
-        rt.poly.addListener("mouseover", () => {
-            if (!this.cardPinned) this.openRouteCard(routeIndex, true); // true = hover
-        });
-
-        rt.poly.addListener("mouseout", () => {
-            if (!this.cardPinned && this.infoWin) {
-                setTimeout(() => {
-                    if (!this.cardPinned && this.infoWin) this.infoWin.close();
-                }, 150);
-            }
-        });
-
-        rt.poly.addListener("click", () => {
-            this.openRouteCard(routeIndex, false); // false = pinned
-        });
+        rt.poly = new google.maps.Polyline({ map: this.map, path, strokeColor: rt.color, strokeWeight: rt.weight, strokeOpacity: rt.opacity, zIndex: 9 });
+        rt.poly.addListener("mouseover", () => { if (!this.cardPinned) this.openRouteCard(routeIndex, true); });
+        rt.poly.addListener("mouseout", () => { if (!this.cardPinned && this.infoWin) setTimeout(() => { if (!this.cardPinned && this.infoWin) this.infoWin.close(); }, 150); });
+        rt.poly.addListener("click", () => this.openRouteCard(routeIndex, false));
     }
 
     openRouteCard(routeIndex, hoverOnly = false) {
-        const rt = this.routes[routeIndex];
-        const dist = Utils.formatDistance(rt.distance);
-        const dur = Utils.formatDuration(rt.duration);
+        const rt = this.routes[routeIndex]; const dist = Utils.formatDistance(rt.distance); const dur = Utils.formatDuration(rt.duration);
         const notes = Utils.escapeHTML(rt.notes || "");
+        const isEditable = !hoverOnly && MAP.editMode;
+
+        const cardStyle = `
+            background: rgba(30, 30, 30, 0.75);
+            backdrop-filter: blur(20px) saturate(1.8);
+            -webkit-backdrop-filter: blur(20px) saturate(1.8);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0;
+            color: #f0f0f0;
+            direction: rtl;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            width: 340px;
+            overflow: hidden;
+        `;
+        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1);`;
+        const bodyStyle = `padding: 20px;`;
+        const footerStyle = `padding: 12px 20px; background: rgba(0, 0, 0, 0.3); border-top: 1px solid rgba(255, 255, 255, 0.1);`;
 
         const html = `
-        <div style="
-            background:rgba(20,20,20,0.85);
-            backdrop-filter:blur(18px);
-            color:white;
-            border-radius:16px;
-            padding:14px;
-            direction:rtl;
-            min-width:280px;
-            border:1px solid rgba(255,255,255,0.2);
-            box-shadow:0 8px 32px rgba(0,0,0,0.3);
-        ">
-            <div style="font-weight:800;font-size:17px;margin-bottom:12px;">
-                معلومات المسار ${routeIndex + 1}
+        <div style="${cardStyle}">
+            <div style="${headerStyle}">
+                <h3 style="margin:0; font-size: 18px; font-weight: 700;">معلومات المسار ${routeIndex + 1}</h3>
+                <img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;">
             </div>
-
-            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
-                <div>المسافة: <b>${dist}</b></div>
-                <div>الوقت: <b>${dur}</b></div>
+            <div style="${bodyStyle}">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px;">
+                    <span><b>المسافة:</b> ${dist}</span>
+                    <span><b>الوقت:</b> ${dur}</span>
+                </div>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc;">ملاحظات:</p>
+                ${isEditable ? `
+                    <textarea id="route-notes" rows="3" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; resize: none; box-sizing: border-box;">${notes}</textarea>
+                ` : `
+                    <div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.6;">
+                        ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
+                    </div>
+                `}
             </div>
-
-            ${hoverOnly ? `
-                ${notes ? `<div style="font-size:13px; opacity:0.8; border-top:1px solid rgba(255,255,255,0.2); padding-top:10px; margin-top:10px;">ملاحظات: ${notes}</div>` : ''}
-            ` : `
-                <div style="margin-top:10px;">
-                    <label style="font-size:12px;">ملاحظات:</label>
-                    <textarea id="route-notes" rows="3" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;resize:none;">${notes}</textarea>
+            ${isEditable ? `
+                <div style="${footerStyle}">
+                    <div style="display:flex;gap:8px;">
+                        <button id="route-save" style="flex:2;background:#34a853;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600;">حفظ</button>
+                        <button id="route-close" style="flex:1;background:rgba(255,255,255,0.2);color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600;">إغلاق</button>
+                    </div>
                 </div>
-
-                <div style="display:flex;gap:8px;margin-top:14px;">
-                    <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:8px;cursor:pointer;">حفظ</button>
-                    <button id="route-close" style="flex:1;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:10px;padding:8px;cursor:pointer;">إغلاق</button>
-                </div>
-            `}
+            ` : ''}
         </div>`;
 
-        if (!this.infoWin) {
-            this.infoWin = new google.maps.InfoWindow({ maxWidth: 360 });
-        }
+        if (!this.infoWin) this.infoWin = new google.maps.InfoWindow({ maxWidth: 380 });
         this.infoWin.setContent(html);
         this.infoWin.setPosition(this.getRouteCenter(rt));
         this.infoWin.open({ map: this.map });
-
         if (!hoverOnly) this.cardPinned = true;
-
-        google.maps.event.addListenerOnce(this.infoWin, "domready", () => {
-            this.attachRouteCardEvents(routeIndex, hoverOnly);
-        });
+        google.maps.event.addListenerOnce(this.infoWin, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
     }
 
     getRouteCenter(rt) {
-        const path = rt.poly.getPath();
-        const bounds = new google.maps.LatLngBounds();
-        for (let i = 0; i < path.getLength(); i++) {
-            bounds.extend(path.getAt(i));
-        }
+        const path = rt.poly.getPath(); const bounds = new google.maps.LatLngBounds();
+        for (let i = 0; i < path.getLength(); i++) bounds.extend(path.getAt(i));
         return bounds.getCenter();
     }
 
     attachRouteCardEvents(routeIndex, hoverOnly) {
         if (hoverOnly) return;
-
         const rt = this.routes[routeIndex];
-        const saveBtn = document.getElementById("route-save");
-        const closeBtn = document.getElementById("route-close");
-        const notesEl = document.getElementById("route-notes");
-
-        if (saveBtn) {
-            saveBtn.addEventListener("click", () => {
-                rt.notes = notesEl.value.trim();
-                bus.emit("persist");
-                this.infoWin.close();
-                this.cardPinned = false;
-                bus.emit("toast", "تم حفظ الملاحظات");
-            });
-        }
-
-        if (closeBtn) {
-            closeBtn.addEventListener("click", () => {
-                this.infoWin.close();
-                this.cardPinned = false;
-            });
-        }
+        const saveBtn = document.getElementById("route-save"); const closeBtn = document.getElementById("route-close"); const notesEl = document.getElementById("route-notes");
+        if (saveBtn) saveBtn.addEventListener("click", () => { rt.notes = notesEl.value.trim(); bus.emit("persist"); this.infoWin.close(); this.cardPinned = false; bus.emit("toast", "تم حفظ الملاحظات"); });
+        if (closeBtn) closeBtn.addEventListener("click", () => { this.infoWin.close(); this.cardPinned = false; });
     }
 
     exportState() {
         return this.routes.map(rt => ({
-            id: rt.id, color: rt.color, weight: rt.weight, opacity: rt.opacity,
-            distance: rt.distance, duration: rt.duration, overview: rt.overview,
-            notes: rt.notes, // --- إضافة الملاحظات في التصدير ---
+            id: rt.id, color: rt.color, weight: rt.weight, opacity: rt.opacity, distance: rt.distance, duration: rt.duration, overview: rt.overview, notes: rt.notes,
             points: rt.points.map(p => ({ lat: typeof p.lat === 'function' ? p.lat() : p.lat, lng: typeof p.lng === 'function' ? p.lng() : p.lng }))
         }));
     }
@@ -821,24 +587,16 @@ class RouteManager {
         this.routes.forEach(rt => { if (rt.poly) rt.poly.setMap(null); rt.stops.forEach(s => s.map = null); });
         this.routes = [];
         state.routes.forEach(rt => {
-            const newRoute = {
-                id: rt.id, color: rt.color, weight: rt.weight, opacity: rt.opacity,
-                distance: rt.distance, duration: rt.duration, overview: rt.overview,
-                notes: rt.notes || "", // --- إضافة الملاحظات في الاستيراد ---
-                points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)),
-                poly: null, stops: []
-            };
+            const newRoute = { id: rt.id, color: rt.color, weight: rt.weight, opacity: rt.opacity, distance: rt.distance, duration: rt.duration, overview: rt.overview, notes: rt.notes || "", points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)), poly: null, stops: [] };
             this.routes.push(newRoute);
-            newRoute.points.forEach((pt, i) => {
-                const stop = this.createStopMarker(pt, this.routes.length - 1, i);
-                newRoute.stops.push(stop);
-            });
+            newRoute.points.forEach((pt, i) => { const stop = this.createStopMarker(pt, this.routes.length - 1, i); newRoute.stops.push(stop); });
             this.renderRoute(this.routes.length - 1);
         });
     }
 }
 
 const ROUTES = new RouteManager();
+
 
 
 
