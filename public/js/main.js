@@ -238,6 +238,9 @@ const MAP = new MapController();
 /* ============================================================
    LocationManager — المواقع + بطاقات Glass (تصميم موحد)
 ============================================================ */
+/* ============================================================
+   LocationManager — المواقع + بطاقات Glass (مع تحكم الشفافية)
+============================================================ */
 class LocationManager {
 
     constructor() {
@@ -276,7 +279,7 @@ class LocationManager {
         ];
         LOCS.forEach(loc => this.addItem({
             id: "d" + Date.now() + Math.random(), name: loc.name, lat: loc.lat, lng: loc.lng,
-            radius: 22, color: "#ff0000", recipients: []
+            radius: 22, color: "#ff0000", fillOpacity: 0.3, recipients: [] // <-- إضافة الشفافية الافتراضية
         }));
     }
 
@@ -288,10 +291,13 @@ class LocationManager {
         const circle = new google.maps.Circle({
             center: { lat: data.lat, lng: data.lng }, map: this.map, radius: data.radius || 22,
             strokeColor: data.color || "#ff0000", fillColor: data.color || "#ff0000",
-            fillOpacity: 0.30, strokeOpacity: 0.9, strokeWeight: 2
+            fillOpacity: data.fillOpacity || 0.3, // <-- استخدام الشفافية
+            strokeOpacity: 0.9, strokeWeight: 2,
+            zIndex: 100 // <-- ضمان بقاء الدائرة فوق المسارات
         });
         const item = {
             id: data.id, name: data.name || "نقطة", color: data.color, radius: data.radius,
+            fillOpacity: data.fillOpacity || 0.3, // <-- حفظ الشفافية
             recipients: data.recipients, marker, circle
         };
         this.attachListeners(item);
@@ -324,26 +330,8 @@ class LocationManager {
         const recipientsHtml = item.recipients.map(r => Utils.escapeHTML(r)).join('<br>');
         const isEditable = !hover && MAP.editMode;
 
-        const cardStyle = `
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(20px) saturate(1.8);
-            -webkit-backdrop-filter: blur(20px) saturate(1.8);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            padding: 0;
-            color: #333;
-            direction: rtl;
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
-            width: 340px;
-            overflow: hidden;
-        `;
-
-        const headerStyle = `
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 16px 20px; background: rgba(255, 255, 255, 0.5);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.4);
-        `;
-        
+        const cardStyle = `background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.5); padding: 0; color: #333; direction: rtl; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2); width: 340px; overflow: hidden;`;
+        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.5); border-bottom: 1px solid rgba(255, 255, 255, 0.4);`;
         const bodyStyle = `padding: 20px;`;
         const footerStyle = `padding: 12px 20px; background: rgba(255, 255, 255, 0.5); border-top: 1px solid rgba(255, 255, 255, 0.4);`;
 
@@ -365,17 +353,21 @@ class LocationManager {
             </div>
             ${isEditable ? `
                 <div style="${footerStyle}">
-                    <div style="display:flex; gap:10px; align-items:center;">
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px;">
                         <div style="flex:1;">
                             <label style="font-size:12px; display:block; margin-bottom:4px;">اللون:</label>
                             <input id="loc-color" type="color" value="${item.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;">
                         </div>
                         <div style="flex:1;">
-                            <label style="font-size:12px; display:block; margin-bottom:4px;">نصف القطر:</label>
+                            <label style="font-size:12px; display:block; margin-bottom:4px;">الحجم:</label>
                             <input id="loc-radius" type="number" value="${item.radius}" min="5" max="5000" step="5" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ccc;box-sizing:border-box;">
                         </div>
                     </div>
-                    <div style="display:flex;gap:8px;margin-top:14px;">
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px;">شفافية التعبئة: <span id="loc-opacity-val">${Math.round(item.fillOpacity * 100)}%</span></label>
+                        <input id="loc-opacity" type="range" min="0" max="100" value="${Math.round(item.fillOpacity * 100)}" style="width:100%;">
+                    </div>
+                    <div style="display:flex;gap:8px;">
                         <button id="loc-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600;">حفظ</button>
                         <button id="loc-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600;">حذف</button>
                         <button id="loc-close" style="flex:1;background:rgba(0,0,0,0.1);color:#333;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600;">إغلاق</button>
@@ -392,11 +384,22 @@ class LocationManager {
 
         const saveBtn = document.getElementById("loc-save"); const delBtn = document.getElementById("loc-delete");
         const recEl = document.getElementById("loc-rec"); const colEl = document.getElementById("loc-color"); const radEl = document.getElementById("loc-radius");
+        const opEl = document.getElementById("loc-opacity"); const opValEl = document.getElementById("loc-opacity-val");
+
+        if(opEl) {
+            opEl.addEventListener("input", () => {
+                if(opValEl) opValEl.textContent = opEl.value + "%";
+            });
+        }
 
         if (saveBtn) saveBtn.addEventListener("click", () => {
             item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
             item.color = colEl.value; item.radius = Utils.clamp(+radEl.value, 5, 5000);
-            item.circle.setOptions({ fillColor: item.color, strokeColor: item.color, radius: item.radius });
+            item.fillOpacity = Utils.clamp(+opEl.value, 0, 100) / 100; // <-- حفظ الشفافية
+            item.circle.setOptions({
+                fillColor: item.color, strokeColor: item.color, radius: item.radius,
+                fillOpacity: item.fillOpacity // <-- تطبيق الشفافية
+            });
             bus.emit("persist"); this.infoWin.close(); this.cardPinned = false; bus.emit("toast", "تم حفظ التعديلات");
         });
         if (delBtn) delBtn.addEventListener("click", () => {
@@ -411,7 +414,8 @@ class LocationManager {
             id: it.id, name: it.name,
             lat: typeof it.marker.position.lat === 'function' ? it.marker.position.lat() : it.marker.position.lat,
             lng: typeof it.marker.position.lng === 'function' ? it.marker.position.lng() : it.marker.position.lng,
-            color: it.color, radius: it.radius, recipients: it.recipients
+            color: it.color, radius: it.radius, fillOpacity: it.fillOpacity, // <-- تصدير الشفافية
+            recipients: it.recipients
         }));
     }
 
@@ -428,6 +432,9 @@ const LOCATIONS = new LocationManager();
 
 /* ============================================================
    RouteManager — إدارة المسارات + بطاقات Glass (تصميم موحد)
+============================================================ */
+/* ============================================================
+   RouteManager — إدارة المسارات + بطاقات Glass (مع تحكم الخط)
 ============================================================ */
 class RouteManager {
 
@@ -457,7 +464,7 @@ class RouteManager {
 
     createStopMarker(pos, routeIndex, idx) {
         const rt = this.routes[routeIndex];
-        const el = document.createElement("div"); el.style.cssText = "width:22px;height:22px;background:white;border-radius:50%;border:2px solid "+rt.color+";display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;"; el.textContent = idx + 1;
+        const el = document.createElement("div"); el.style.cssText = "width:22px;height:22px;background:white;border-radius:50%;border:2px solid "+rt.color+";display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;z-index:101;"; el.textContent = idx + 1;
         const marker = new google.maps.marker.AdvancedMarkerElement({ position: pos, map: this.map, content: el, gmpDraggable: !this.shareMode });
         marker.addListener("dragend", () => { rt.points[idx] = marker.position; this.requestRoute(routeIndex); bus.emit("persist"); });
         marker.addListener("contextmenu", () => { if (this.shareMode) return; this.removePoint(routeIndex, idx); });
@@ -495,7 +502,10 @@ class RouteManager {
     renderRoute(routeIndex) {
         const rt = this.routes[routeIndex]; if (rt.poly) rt.poly.setMap(null);
         let path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points;
-        rt.poly = new google.maps.Polyline({ map: this.map, path, strokeColor: rt.color, strokeWeight: rt.weight, strokeOpacity: rt.opacity, zIndex: 9 });
+        rt.poly = new google.maps.Polyline({
+            map: this.map, path, strokeColor: rt.color, strokeWeight: rt.weight, strokeOpacity: rt.opacity,
+            zIndex: 10 // <-- ضمان بقاء الخط تحت الدوائر
+        });
         rt.poly.addListener("mouseover", () => { if (!this.cardPinned) this.openRouteCard(routeIndex, true); });
         rt.poly.addListener("mouseout", () => { if (!this.cardPinned && this.infoWin) setTimeout(() => { if (!this.cardPinned && this.infoWin) this.infoWin.close(); }, 150); });
         rt.poly.addListener("click", () => this.openRouteCard(routeIndex, false));
@@ -506,19 +516,7 @@ class RouteManager {
         const notes = Utils.escapeHTML(rt.notes || "");
         const isEditable = !hoverOnly && MAP.editMode;
 
-        const cardStyle = `
-            background: rgba(30, 30, 30, 0.75);
-            backdrop-filter: blur(20px) saturate(1.8);
-            -webkit-backdrop-filter: blur(20px) saturate(1.8);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 0;
-            color: #f0f0f0;
-            direction: rtl;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            width: 340px;
-            overflow: hidden;
-        `;
+        const cardStyle = `background: rgba(30, 30, 30, 0.75); backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2); padding: 0; color: #f0f0f0; direction: rtl; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); width: 340px; overflow: hidden;`;
         const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1);`;
         const bodyStyle = `padding: 20px;`;
         const footerStyle = `padding: 12px 20px; background: rgba(0, 0, 0, 0.3); border-top: 1px solid rgba(255, 255, 255, 0.1);`;
@@ -545,6 +543,20 @@ class RouteManager {
             </div>
             ${isEditable ? `
                 <div style="${footerStyle}">
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px;">
+                        <div style="flex:1;">
+                            <label style="font-size:12px; display:block; margin-bottom:4px;">اللون:</label>
+                            <input id="rt-color" type="color" value="${rt.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size:12px; display:block; margin-bottom:4px;">السماكة: <span id="rt-weight-val">${rt.weight}px</span></label>
+                            <input id="rt-weight" type="range" min="1" max="15" value="${rt.weight}" style="width:100%;">
+                        </div>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px;">شفافية الخط: <span id="rt-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
+                        <input id="rt-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
+                    </div>
                     <div style="display:flex;gap:8px;">
                         <button id="route-save" style="flex:2;background:#34a853;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600;">حفظ</button>
                         <button id="route-close" style="flex:1;background:rgba(255,255,255,0.2);color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600;">إغلاق</button>
@@ -571,7 +583,28 @@ class RouteManager {
         if (hoverOnly) return;
         const rt = this.routes[routeIndex];
         const saveBtn = document.getElementById("route-save"); const closeBtn = document.getElementById("route-close"); const notesEl = document.getElementById("route-notes");
-        if (saveBtn) saveBtn.addEventListener("click", () => { rt.notes = notesEl.value.trim(); bus.emit("persist"); this.infoWin.close(); this.cardPinned = false; bus.emit("toast", "تم حفظ الملاحظات"); });
+        const colEl = document.getElementById("rt-color"); const weightEl = document.getElementById("rt-weight"); const opEl = document.getElementById("rt-opacity");
+        const weightValEl = document.getElementById("rt-weight-val"); const opValEl = document.getElementById("rt-opacity-val");
+
+        if(weightEl) {
+            weightEl.addEventListener("input", () => {
+                if(weightValEl) weightValEl.textContent = weightEl.value + "px";
+            });
+        }
+        if(opEl) {
+            opEl.addEventListener("input", () => {
+                if(opValEl) opValEl.textContent = opEl.value + "%";
+            });
+        }
+
+        if (saveBtn) saveBtn.addEventListener("click", () => {
+            rt.notes = notesEl.value.trim();
+            rt.color = colEl.value;
+            rt.weight = Utils.clamp(+weightEl.value, 1, 15);
+            rt.opacity = Utils.clamp(+opEl.value, 0, 100) / 100;
+            this.renderRoute(routeIndex); // <-- إعادة رسم الخط بالخيارات الجديدة
+            bus.emit("persist"); this.infoWin.close(); this.cardPinned = false; bus.emit("toast", "تم حفظ إعدادات المسار");
+        });
         if (closeBtn) closeBtn.addEventListener("click", () => { this.infoWin.close(); this.cardPinned = false; });
     }
 
