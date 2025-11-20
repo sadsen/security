@@ -368,7 +368,7 @@ const LOCATIONS = new LocationManager();
    RouteManager — إدارة المسارات + بطاقات Glass (تصميم موحد)
 ============================================================ */
 /* ============================================================
-   RouteManager — إدارة المسارات + بطاقات Glass (متجاوبة مع الجوال)
+   RouteManager — إدارة المسارات (محدث لدعم عدة مسارات)
 ============================================================ */
 class RouteManager {
 
@@ -380,67 +380,84 @@ class RouteManager {
         bus.on("state:save", () => this.exportState());
     }
 
-    onMapReady() { this.map.addListener("click", e => { if (!MAP.modeRouteAdd || this.shareMode) return; if (this.activeRouteIndex === -1) this.createNewRoute(); this.addPointToRoute(this.activeRouteIndex, e.latLng); }); this.map.addListener("click", () => { if (!this.cardPinned && this.infoWin) this.infoWin.close(); this.cardPinned = false; }); }
-    createNewRoute() { const route = { id: "rt" + Date.now(), points: [], color: "#3344ff", weight: 6, opacity: 0.95, distance: 0, duration: 0, overview: null, poly: null, stops: [], notes: "" }; this.routes.push(route); this.activeRouteIndex = this.routes.length - 1; return route; }
-    addPointToRoute(routeIndex, latLng) { const rt = this.routes[routeIndex]; rt.points.push(latLng); const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1); rt.stops.push(stop); if (rt.points.length >= 2) this.requestRoute(routeIndex); else bus.emit("persist"); }
-    createStopMarker(pos, routeIndex, idx) { const rt = this.routes[routeIndex]; const el = document.createElement("div"); el.style.cssText = "width:22px;height:22px;background:white;border-radius:50%;border:2px solid "+rt.color+";display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;z-index:101;"; el.textContent = idx + 1; const marker = new google.maps.marker.AdvancedMarkerElement({ position: pos, map: this.map, content: el, gmpDraggable: !this.shareMode }); marker.addListener("dragend", () => { rt.points[idx] = marker.position; this.requestRoute(routeIndex); bus.emit("persist"); }); marker.addListener("contextmenu", () => { if (this.shareMode) return; this.removePoint(routeIndex, idx); }); return marker; }
-    removePoint(routeIndex, idx) { const rt = this.routes[routeIndex]; if (rt.stops[idx]) rt.stops[idx].map = null; rt.points.splice(idx, 1); rt.stops.splice(idx, 1); rt.stops.forEach((m, i) => { m.content.textContent = i + 1; }); if (rt.points.length >= 2) this.requestRoute(routeIndex); else this.clearRoute(routeIndex); bus.emit("persist"); }
-    removeRoute(routeIndex) { const rt = this.routes[routeIndex]; if (rt.poly) rt.poly.setMap(null); rt.stops.forEach(s => s.map = null); this.routes.splice(routeIndex, 1); this.activeRouteIndex = -1; if (this.infoWin) this.infoWin.close(); this.cardPinned = false; bus.emit("persist"); }
+    onMapReady() {
+        this.map.addListener("click", e => {
+            // لا تفعل شيئًا إذا لم نكن في وضع إضافة مسار
+            if (!MAP.modeRouteAdd) return;
+            if (this.shareMode) return;
+
+            // إذا لم يكن هناك مسار نشط، قم بإنشاء واحد جديد
+            if (this.activeRouteIndex === -1) {
+                this.createNewRoute();
+            }
+
+            // أضف النقطة إلى المسار النشط
+            this.addPointToRoute(this.activeRouteIndex, e.latLng);
+        });
+
+        this.map.addListener("click", () => {
+            if (!this.cardPinned && this.infoWin) this.infoWin.close();
+            this.cardPinned = false;
+        });
+    }
+
+    // دالة جديدة لبدء تسلسل مسار جديد
+    startNewRouteSequence() {
+        this.activeRouteIndex = -1; // إعادة تعيين المسار النشط
+        UI.showRouteAddingUI();   // تحديث واجهة المستخدم
+    }
+
+    // دالة جديدة لإنهاء المسار الحالي
+    finishCurrentRoute() {
+        this.activeRouteIndex = -1; // إعادة تعيين المسار النشط
+        UI.showDefaultUI();       // إعادة الواجهة إلى وضعها الافتراضي
+    }
+
+    createNewRoute() {
+        const route = { id: "rt" + Date.now(), points: [], color: "#3344ff", weight: 6, opacity: 0.95, distance: 0, duration: 0, overview: null, poly: null, stops: [], notes: "" };
+        this.routes.push(route);
+        this.activeRouteIndex = this.routes.length - 1;
+        return route;
+    }
+
+    addPointToRoute(routeIndex, latLng) {
+        const rt = this.routes[routeIndex]; rt.points.push(latLng);
+        const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1); rt.stops.push(stop);
+        if (rt.points.length >= 2) this.requestRoute(routeIndex); else bus.emit("persist");
+    }
+
+    createStopMarker(pos, routeIndex, idx) {
+        const rt = this.routes[routeIndex];
+        const el = document.createElement("div"); el.style.cssText = "width:22px;height:22px;background:white;border-radius:50%;border:2px solid "+rt.color+";display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;z-index:101;"; el.textContent = idx + 1;
+        const marker = new google.maps.marker.AdvancedMarkerElement({ position: pos, map: this.map, content: el, gmpDraggable: !this.shareMode });
+        marker.addListener("dragend", () => { rt.points[idx] = marker.position; this.requestRoute(routeIndex); bus.emit("persist"); });
+        marker.addListener("contextmenu", () => { if (this.shareMode) return; this.removePoint(routeIndex, idx); });
+        return marker;
+    }
+
+    removePoint(routeIndex, idx) {
+        const rt = this.routes[routeIndex]; if (rt.stops[idx]) rt.stops[idx].map = null;
+        rt.points.splice(idx, 1); rt.stops.splice(idx, 1); rt.stops.forEach((m, i) => { m.content.textContent = i + 1; });
+        if (rt.points.length >= 2) this.requestRoute(routeIndex); else this.clearRoute(routeIndex);
+        bus.emit("persist");
+    }
+
+    removeRoute(routeIndex) {
+        const rt = this.routes[routeIndex]; if (rt.poly) rt.poly.setMap(null); rt.stops.forEach(s => s.map = null);
+        this.routes.splice(routeIndex, 1); this.activeRouteIndex = -1; if (this.infoWin) this.infoWin.close(); this.cardPinned = false; bus.emit("persist");
+    }
+
     clearRoute(routeIndex) { const rt = this.routes[routeIndex]; if (rt.poly) rt.poly.setMap(null); rt.poly = null; rt.overview = null; rt.distance = 0; rt.duration = 0; }
     requestRoute(routeIndex) { if (!this.directionsService) this.directionsService = new google.maps.DirectionsService(); const rt = this.routes[routeIndex]; const pts = rt.points; if (pts.length < 2) return; const req = { origin: pts[0], destination: pts[pts.length - 1], travelMode: google.maps.TravelMode.DRIVING }; if (pts.length > 2) req.waypoints = pts.slice(1, -1).map(p => ({ location: p, stopover: true })); this.directionsService.route(req, (res, status) => { if (status !== "OK") { bus.emit("toast", "تعذر حساب المسار"); return; } const r = res.routes[0]; rt.overview = r.overview_polyline; rt.distance = r.legs.reduce((s, l) => s + l.distance.value, 0); rt.duration = r.legs.reduce((s, l) => s + l.duration.value, 0); this.renderRoute(routeIndex); bus.emit("persist"); }); }
     renderRoute(routeIndex) { const rt = this.routes[routeIndex]; if (rt.poly) rt.poly.setMap(null); let path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points; rt.poly = new google.maps.Polyline({ map: this.map, path, strokeColor: rt.color, strokeWeight: rt.weight, strokeOpacity: rt.opacity, zIndex: 10 }); rt.poly.addListener("mouseover", () => { if (!this.cardPinned) this.openRouteCard(routeIndex, true); }); rt.poly.addListener("mouseout", () => { if (!this.cardPinned && this.infoWin) setTimeout(() => { if (!this.cardPinned && this.infoWin) this.infoWin.close(); }, 150); }); rt.poly.addListener("click", () => this.openRouteCard(routeIndex, false)); }
 
     openRouteCard(routeIndex, hoverOnly = false) {
         const rt = this.routes[routeIndex]; const dist = Utils.formatDistance(rt.distance); const dur = Utils.formatDuration(rt.duration); const notes = Utils.escapeHTML(rt.notes || ""); const isEditable = !hoverOnly && MAP.editMode;
-
-        // === تعديل التصميم ليكون متجاوبًا ===
-        const cardStyle = `
-            background: rgba(30, 30, 30, 0.75);
-            backdrop-filter: blur(20px) saturate(1.8);
-            -webkit-backdrop-filter: blur(20px) saturate(1.8);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 0;
-            color: #f0f0f0;
-            direction: rtl;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            max-width: 95vw; /* عرض متجاوب */
-            width: auto;    /* عرض مرن */
-            box-sizing: border-box; /* لضمان احتساب الحجم بشكل صحيح */
-            overflow: hidden;
-        `;
-        // ==================================
-
+        const cardStyle = `background: rgba(30, 30, 30, 0.75); backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2); padding: 0; color: #f0f0f0; direction: rtl; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); max-width: 95vw; width: auto; box-sizing: border-box; overflow: hidden;`;
         const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1);`;
         const bodyStyle = `padding: 20px;`;
         const footerStyle = `padding: 12px 20px; background: rgba(0, 0, 0, 0.3); border-top: 1px solid rgba(255, 255, 255, 0.1);`;
-
-        const html = `
-        <div style="${cardStyle}">
-            <div style="${headerStyle}"><h3 style="margin:0; font-size: 18px; font-weight: 700;">معلومات المسار ${routeIndex + 1}</h3><img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;"></div>
-            <div style="${bodyStyle}">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px;"><span><b>المسافة:</b> ${dist}</span><span><b>الوقت:</b> ${dur}</span></div>
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc;">ملاحظات:</p>
-                ${isEditable ? `<textarea id="route-notes" rows="3" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; resize: none; box-sizing: border-box;">${notes}</textarea>` : `<div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.6;">${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}</div>`}
-            </div>
-            ${isEditable ? `
-                <div style="${footerStyle}">
-                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px;">اللون:</label><input id="rt-color" type="color" value="${rt.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;"></div>
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px;">السماكة: <span id="rt-weight-val">${rt.weight}px</span></label><input id="rt-weight" type="range" min="1" max="15" value="${rt.weight}" style="width:100%;"></div>
-                    </div>
-                    <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px;">شفافية الخط: <span id="rt-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
-                        <input id="rt-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
-                    </div>
-                    <div style="display:flex;gap:8px; flex-wrap: wrap;">
-                        <button id="route-save" style="flex:2;background:#34a853;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; min-width: 100px;">حفظ</button>
-                        <button id="route-close" style="flex:1;background:rgba(255,255,255,0.2);color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; min-width: 80px;">إغلاق</button>
-                    </div>
-                </div>
-            ` : ''}
-        </div>`;
-
+        const html = `<div style="${cardStyle}"><div style="${headerStyle}"><h3 style="margin:0; font-size: 18px; font-weight: 700;">معلومات المسار ${routeIndex + 1}</h3><img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;"></div><div style="${bodyStyle}"><div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px;"><span><b>المسافة:</b> ${dist}</span><span><b>الوقت:</b> ${dur}</span></div><p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc;">ملاحظات:</p>${isEditable ? `<textarea id="route-notes" rows="3" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; resize: none; box-sizing: border-box;">${notes}</textarea>` : `<div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.6;">${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}</div>`}</div>${isEditable ? `<div style="${footerStyle}"><div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;"><div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px;">اللون:</label><input id="rt-color" type="color" value="${rt.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;"></div><div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px;">السماكة: <span id="rt-weight-val">${rt.weight}px</span></label><input id="rt-weight" type="range" min="1" max="15" value="${rt.weight}" style="width:100%;"></div></div><div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px;">شفافية الخط: <span id="rt-opacity-val">${Math.round(rt.opacity * 100)}%</span></label><input id="rt-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;"></div><div style="display:flex;gap:8px; flex-wrap: wrap;"><button id="route-save" style="flex:2;background:#34a853;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; min-width: 100px;">حفظ</button><button id="route-close" style="flex:1;background:rgba(255,255,255,0.2);color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; min-width: 80px;">إغلاق</button></div></div>` : ''}</div>`;
         if (!this.infoWin) this.infoWin = new google.maps.InfoWindow({ maxWidth: 400 });
         this.infoWin.setContent(html);
         this.infoWin.setPosition(this.getRouteCenter(rt));
@@ -465,8 +482,8 @@ class RouteManager {
     exportState() { return this.routes.map(rt => ({ id: rt.id, color: rt.color, weight: rt.weight, opacity: rt.opacity, distance: rt.distance, duration: rt.duration, overview: rt.overview, notes: rt.notes, points: rt.points.map(p => ({ lat: typeof p.lat === 'function' ? p.lat() : p.lat, lng: typeof p.lng === 'function' ? p.lng() : p.lng })) })); }
     applyState(state) { if (!state || !state.routes) return; this.routes.forEach(rt => { if (rt.poly) rt.poly.setMap(null); rt.stops.forEach(s => s.map = null); }); this.routes = []; state.routes.forEach(rt => { const newRoute = { id: rt.id, color: rt.color, weight: rt.weight, opacity: rt.opacity, distance: rt.distance, duration: rt.duration, overview: rt.overview, notes: rt.notes || "", points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)), poly: null, stops: [] }; this.routes.push(newRoute); newRoute.points.forEach((pt, i) => { const stop = this.createStopMarker(pt, this.routes.length - 1, i); newRoute.stops.push(stop); }); this.renderRoute(this.routes.length - 1); }); }
 }
-const ROUTES = new RouteManager();
 
+const ROUTES = new RouteManager();
 
 
 /* ============================================================
@@ -755,6 +772,9 @@ const SHARE = new ShareManager();
 /* ============================================================
    UIManager — واجهة المستخدم
 ============================================================ */
+/* ============================================================
+   UIManager — واجهة المستخدم (محدث لدعم عدة مسارات)
+============================================================ */
 class UIManager {
 
     constructor() {
@@ -766,6 +786,7 @@ class UIManager {
         this.btnTraffic    = document.getElementById("btn-traffic");
         this.btnAdd        = document.getElementById("btn-add");
         this.btnRoute      = document.getElementById("btn-route");
+        this.btnRouteFinish = document.getElementById("btn-route-finish"); // <-- إضافة: تعريف زر إنهاء المسار
         this.btnRouteClear = document.getElementById("btn-route-clear");
         this.btnEdit       = document.getElementById("btn-edit");
 
@@ -823,6 +844,8 @@ class UIManager {
                     MAP.modeRouteAdd = false;
                     if (this.btnAdd) this.btnAdd.setAttribute("aria-pressed","false");
                     if (this.btnRoute) this.btnRoute.setAttribute("aria-pressed","false");
+                    // إعادة الواجهة إلى وضعها الافتراضي عند إيقاف التحرير
+                    this.showDefaultUI();
                 }
             });
         }
@@ -846,37 +869,38 @@ class UIManager {
             });
         }
 
+        // <-- تعديل: تغيير منطق زر إضافة المسار
         if (this.btnRoute && !MAP.shareMode) {
             this.btnRoute.addEventListener("click", () => {
 
                 if (!MAP.editMode)
                     return this.showToast("فعّل وضع التحرير");
 
-                MAP.modeRouteAdd = !MAP.modeRouteAdd;
-                MAP.modeAdd = false;
+                // بدء تسلسل مسار جديد بدلاً من التبديل
+                ROUTES.startNewRouteSequence();
+                this.showRouteAddingUI(); // تحديث الواجهة
+                this.showToast("اضغط لإضافة نقاط المسار الأول");
+            });
+        }
 
-                this.btnAdd.setAttribute("aria-pressed","false");
-                this.btnRoute.setAttribute(
-                    "aria-pressed", MAP.modeRouteAdd ? "true" : "false"
-                );
-
-                MAP.setCursor(MAP.modeRouteAdd ? "cell" : "grab");
-
-                if (MAP.modeRouteAdd) {
-                    ROUTES.createNewRoute();
-                    this.showToast("اضغط لإضافة نقاط المسار");
-                }
+        // <-- إضافة: حدث لزر إنهاء المسار
+        if (this.btnRouteFinish && !MAP.shareMode) {
+            this.btnRouteFinish.addEventListener("click", () => {
+                ROUTES.finishCurrentRoute();
+                this.showDefaultUI(); // إعادة الواجهة
+                this.showToast("تم إنهاء المسار، يمكنك البدء في مسار جديد");
             });
         }
 
         if (this.btnRouteClear && !MAP.shareMode) {
             this.btnRouteClear.addEventListener("click", () => {
                 if (ROUTES.activeRouteIndex === -1)
-                    return this.showToast("لا يوجد مسار لحذفه");
+                    return this.showToast("لا يوجد مسار نشط لحذفه");
 
                 if (!confirm("حذف المسار الحالي؟")) return;
 
                 ROUTES.removeRoute(ROUTES.activeRouteIndex);
+                this.showDefaultUI(); // إعادة الواجهة بعد الحذف
                 this.showToast("تم حذف المسار");
             });
         }
@@ -888,10 +912,29 @@ class UIManager {
 
         if (this.btnAdd) this.btnAdd.style.display = "none";
         if (this.btnRoute) this.btnRoute.style.display = "none";
+        if (this.btnRouteFinish) this.btnRouteFinish.style.display = "none"; // <-- إضافة: إخفاء الزر الجديد في وضع المشاركة
         if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
         if (this.btnEdit) this.btnEdit.style.display = "none";
 
         this.updateModeBadge("view");
+    }
+
+    // <-- إضافة: دالة لتحديث الواجهة عند بدء مسار جديد
+    showRouteAddingUI() {
+        if (this.btnRoute) this.btnRoute.style.display = "none";
+        if (this.btnRouteFinish) this.btnRouteFinish.style.display = "inline-block";
+        if (this.btnAdd) this.btnAdd.setAttribute("aria-pressed", "false");
+        MAP.modeAdd = false;
+        MAP.modeRouteAdd = true;
+        MAP.setCursor("cell");
+    }
+
+    // <-- إضافة: دالة لإعادة الواجهة إلى وضعها الافتراضي
+    showDefaultUI() {
+        if (this.btnRoute) this.btnRoute.style.display = "inline-block";
+        if (this.btnRouteFinish) this.btnRouteFinish.style.display = "none";
+        MAP.modeRouteAdd = false;
+        MAP.setCursor("grab");
     }
 
     updateModeBadge(forceMode=null) {
