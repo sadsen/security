@@ -1063,6 +1063,9 @@ const ROUTES = new RouteManager();
 /* ============================================================
    StateManager — إدارة حفظ واسترجاع الحالة
 ============================================================ */
+/* ============================================================
+   StateManager — إدارة حفظ واسترجاع الحالة (محدث)
+============================================================ */
 class StateManager {
 
     constructor() {
@@ -1077,7 +1080,8 @@ class StateManager {
             // قراءة حالة المشاركة مرة واحدة فقط
             const st = this.readShare();
             if (st) {
-                bus.emit("state:load", st);
+                // *** هنا يتم استدعاء الدالة الجديدة ***
+                this.applyState(st);
             }
 
             // في الوضع العادي فقط نفعّل الحفظ التلقائي
@@ -1145,6 +1149,43 @@ class StateManager {
         } catch (e) {
             console.error("State read error", e);
             return null;
+        }
+    }
+
+    // =======================================================
+    // == ضع الكود الجديد هنا == (الدالة الجديدة)
+    // =======================================================
+    applyState(state) {
+        console.log("Applying state:", state); // للتتبع
+
+        if (!state) return;
+
+        // تطبيق حالة الخريطة
+        if (state.map) {
+            const mapState = state.map;
+            if (mapState.c && mapState.z) {
+                this.map.setCenter({ lat: mapState.c[0], lng: mapState.c[1] });
+                this.map.setZoom(mapState.z);
+            }
+            if (mapState.t) {
+                this.map.setMapTypeId(mapState.t);
+            }
+            // تطبيق حالة حركة المرور
+            if (mapState.traffic) {
+                MAP.trafficLayer.setMap(this.map);
+            } else {
+                MAP.trafficLayer.setMap(null);
+            }
+        }
+
+        // تطبيق حالة المواقع
+        if (state.locations) {
+            LOCATIONS.applyState({ locations: state.locations });
+        }
+
+        // تطبيق حالة المسارات
+        if (state.routes) {
+            ROUTES.applyState({ routes: state.routes });
         }
     }
 }
