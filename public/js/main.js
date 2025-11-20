@@ -238,6 +238,9 @@ const MAP = new MapController();
 /* ============================================================
    LocationManager — المواقع + بطاقات Glass
 ============================================================ */
+/* ============================================================
+   LocationManager — المواقع + بطاقات Glass (محدث)
+============================================================ */
 class LocationManager {
 
     constructor() {
@@ -264,7 +267,6 @@ class LocationManager {
 
 
     onMapReady() {
-
         if (!this.shareMode && this.items.length === 0)
             this.loadDefaultLocations();
 
@@ -278,9 +280,7 @@ class LocationManager {
     }
 
 
-    /* المواقع الافتراضية */
     loadDefaultLocations() {
-
         const LOCS = [
             { name: "بوابة سمحان", lat: 24.742132, lng: 46.569503 },
             { name: "منطقة سمحان", lat: 24.740913, lng: 46.571891 },
@@ -301,11 +301,11 @@ class LocationManager {
 
 
     addItem(data) {
-
+        // --- تعديل: إخفاء النقطة الحمراء وجعلها غير مرئية ولكن قابلة للسحب ---
         const marker = new google.maps.marker.AdvancedMarkerElement({
             position: { lat: data.lat, lng: data.lng },
             map: this.map,
-            content: this.buildMarkerContent(data.color),
+            content: document.createElement('div'), // محتوى فارغ لإخفاء النقطة
             gmpDraggable: this.editMode && !this.shareMode
         });
 
@@ -337,20 +337,7 @@ class LocationManager {
     }
 
 
-    buildMarkerContent(color) {
-        const el = document.createElement("div");
-        el.style.width = "18px";
-        el.style.height = "18px";
-        el.style.borderRadius = "50%";
-        el.style.background = color;
-        el.style.border = "2px solid #fff";
-        el.style.boxShadow = "0 0 6px rgba(0,0,0,0.4)";
-        return el;
-    }
-
-
     attachListeners(item) {
-
         item.marker.addListener("drag", () => {
             item.circle.setCenter(item.marker.position);
         });
@@ -359,27 +346,26 @@ class LocationManager {
             bus.emit("persist");
         });
 
-        item.marker.addListener("click", () => this.openCard(item, false));
-        item.circle.addListener("click", () => this.openCard(item, false));
-
+        // --- تعديل: توحيد منطق الفتح بالتمرير والنقر ---
         item.circle.addListener("mouseover", () => {
-            if (!this.cardPinned)
-                this.openCard(item, true);
+            if (!this.cardPinned) this.openCard(item, true); // true = hover
         });
 
         item.circle.addListener("mouseout", () => {
             if (!this.cardPinned && this.infoWin) {
                 setTimeout(() => {
-                    if (!this.cardPinned && this.infoWin)
-                        this.infoWin.close();
+                    if (!this.cardPinned && this.infoWin) this.infoWin.close();
                 }, 120);
             }
+        });
+
+        item.circle.addListener("click", () => {
+            this.openCard(item, false); // false = pinned
         });
     }
 
 
     openCard(item, hoverOnly = false) {
-
         const html = this.buildCardHTML(item, hoverOnly);
 
         if (!this.infoWin) {
@@ -402,53 +388,46 @@ class LocationManager {
 
 
     buildCardHTML(item, hover) {
-
         const name = Utils.escapeHTML(item.name);
-        const recipients = item.recipients.join("، ");
+        const recipients = Utils.escapeHTML(item.recipients.join("، "));
 
         const logoHTML = `
-            <div style="
-                width:48px;
-                height:48px;
-                border-radius:12px;
-                background:rgba(255,255,255,0.12);
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                margin-left:8px;
-            ">
+            <div style="width:48px; height:48px; border-radius:12px; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                 <img src="img/logo.png" style="width:36px;">
             </div>
         `;
 
         return `
         <div style="
-            background:rgba(255,255,255,0.92);
+            background:rgba(255,255,255,0.85);
             backdrop-filter:blur(16px);
             border-radius:18px;
             padding:16px;
             color:#111;
             direction:rtl;
+            box-shadow:0 8px 32px rgba(0,0,0,0.12);
+            border:1px solid rgba(255,255,255,0.3);
         ">
-            <div style="display:flex;align-items:center;margin-bottom:10px;">
-                ${logoHTML}
-                <div>
-                    <div style="font-weight:800;font-size:17px;">${name}</div>
-                    <div style="font-size:12px;color:#666;">نطاق: ${item.radius} م</div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="flex-grow:1;">
+                    <div style="font-weight:800;font-size:18px; margin-bottom:4px;">${name}</div>
+                    <div style="font-size:13px;color:#555;">المستلمون: ${recipients || 'لا يوجد'}</div>
                 </div>
+                ${logoHTML}
             </div>
 
             ${hover || !MAP.editMode ? `
-                <div style="text-align:center;margin-top:10px;">
+                <div style="text-align:center;margin-top:12px;">
                     <button id="loc-close" style="
                         padding:6px 14px;
                         background:#fff;
                         border:1px solid #ccc;
                         border-radius:10px;
+                        cursor:pointer;
                     ">إغلاق</button>
                 </div>
             ` : `
-                <div style="margin-top:10px;">
+                <div style="margin-top:12px;">
                     <label style="font-size:12px;">اسم الموقع:</label>
                     <input id="loc-name" value="${name}"
                         style="width:100%;padding:7px;border:1px solid #ccc;border-radius:8px;">
@@ -478,15 +457,15 @@ class LocationManager {
                 <div style="display:flex;gap:8px;margin-top:14px;">
                     <button id="loc-save" style="
                         flex:2;background:#4285f4;color:white;
-                        border:none;border-radius:10px;padding:8px;">حفظ</button>
+                        border:none;border-radius:10px;padding:8px;cursor:pointer;">حفظ</button>
 
                     <button id="loc-delete" style="
                         flex:1;background:#e94235;color:white;
-                        border:none;border-radius:10px;padding:8px;">حذف</button>
+                        border:none;border-radius:10px;padding:8px;cursor:pointer;">حذف</button>
 
                     <button id="loc-close" style="
                         flex:1;background:#fff;color:#333;
-                        border:1px solid #ccc;border-radius:10px;padding:8px;">إغلاق</button>
+                        border:1px solid #ccc;border-radius:10px;padding:8px;cursor:pointer;">إغلاق</button>
                 </div>
             `}
         </div>`;
@@ -494,7 +473,6 @@ class LocationManager {
 
 
     attachCardEvents(item, hoverOnly) {
-
         const closeBtn = document.getElementById("loc-close");
         if (closeBtn) closeBtn.addEventListener("click", () => {
             if (this.infoWin) this.infoWin.close();
@@ -505,7 +483,6 @@ class LocationManager {
 
         const saveBtn = document.getElementById("loc-save");
         const delBtn = document.getElementById("loc-delete");
-
         const nameEl = document.getElementById("loc-name");
         const recEl = document.getElementById("loc-rec");
         const colEl = document.getElementById("loc-color");
@@ -513,13 +490,10 @@ class LocationManager {
 
         if (saveBtn) {
             saveBtn.addEventListener("click", () => {
-
                 item.name = nameEl.value.trim();
                 item.color = colEl.value;
                 item.radius = Utils.clamp(+radEl.value, 5, 5000);
-                item.recipients = recEl.value.split("\n")
-                    .map(s => s.trim())
-                    .filter(Boolean);
+                item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
 
                 item.circle.setOptions({
                     fillColor: item.color,
@@ -527,13 +501,9 @@ class LocationManager {
                     radius: item.radius
                 });
 
-                item.marker.content.style.background = item.color;
-
                 bus.emit("persist");
-
                 this.infoWin.close();
                 this.cardPinned = false;
-
                 bus.emit("toast", "تم حفظ التعديلات");
             });
         }
@@ -541,15 +511,11 @@ class LocationManager {
         if (delBtn) {
             delBtn.addEventListener("click", () => {
                 if (!confirm(`حذف "${item.name}"؟`)) return;
-
                 item.marker.map = null;
                 item.circle.setMap(null);
-
                 this.items = this.items.filter(x => x.id !== item.id);
-
                 this.infoWin.close();
                 this.cardPinned = false;
-
                 bus.emit("persist");
                 bus.emit("toast", "تم حذف الموقع");
             });
@@ -557,56 +523,44 @@ class LocationManager {
     }
 
 
-    // في كلاس LocationManager
-// في كلاس LocationManager
-exportState() {
-    return this.items.map(it => ({
-        id: it.id,
-        name: it.name,
-        // التحقق الآمن لجلب خطوط الطول والعرض
-        lat: typeof it.marker.position.lat === 'function' ? it.marker.position.lat() : it.marker.position.lat,
-        lng: typeof it.marker.position.lng === 'function' ? it.marker.position.lng() : it.marker.position.lng,
-        color: it.color,
-        radius: it.radius,
-        recipients: it.recipients
-    }));
-}
+    exportState() {
+        return this.items.map(it => ({
+            id: it.id,
+            name: it.name,
+            lat: typeof it.marker.position.lat === 'function' ? it.marker.position.lat() : it.marker.position.lat,
+            lng: typeof it.marker.position.lng === 'function' ? it.marker.position.lng() : it.marker.position.lng,
+            color: it.color,
+            radius: it.radius,
+            recipients: it.recipients
+        }));
+    }
 
     applyState(state) {
-
         if (!state || !state.locations) return;
-
-        this.items.forEach(it => {
-            it.marker.map = null;
-            it.circle.setMap(null);
-        });
-
+        this.items.forEach(it => { it.marker.map = null; it.circle.setMap(null); });
         this.items = [];
-
         state.locations.forEach(loc => this.addItem(loc));
     }
 }
 
 const LOCATIONS = new LocationManager();
+
 /* ============================================================
    RouteManager — إدارة المسارات + بطاقات Glass + Directions
+============================================================ */
+/* ============================================================
+   RouteManager — إدارة المسارات + بطاقات Glass + ملاحظات (محدث)
 ============================================================ */
 class RouteManager {
 
     constructor() {
-
         this.routes = [];
         this.map = null;
-
         this.shareMode = false;
         this.editMode = true;
-
         this.directionsService = null;
-
-        this.routeCard = null;
-        this.infoCard = null;
+        this.infoWin = null;
         this.cardPinned = false;
-
         this.activeRouteIndex = -1;
 
         bus.on("map:ready", map => {
@@ -621,30 +575,22 @@ class RouteManager {
     }
 
     onMapReady() {
-
-        // اضغط على الخريطة لإضافة نقاط المسار
         this.map.addListener("click", e => {
             if (!MAP.modeRouteAdd) return;
             if (this.shareMode) return;
-
-            if (this.activeRouteIndex === -1) {
-                this.createNewRoute();
-            }
+            if (this.activeRouteIndex === -1) this.createNewRoute();
             this.addPointToRoute(this.activeRouteIndex, e.latLng);
         });
 
-        // إغلاق البطاقات غير المثبتة
         this.map.addListener("click", () => {
-            if (!this.cardPinned) {
-                if (this.routeCard) this.routeCard.close();
-                if (this.infoCard) this.infoCard.close();
+            if (!this.cardPinned && this.infoWin) {
+                this.infoWin.close();
             }
             this.cardPinned = false;
         });
     }
 
     createNewRoute() {
-
         const route = {
             id: "rt" + Date.now(),
             points: [],
@@ -655,23 +601,19 @@ class RouteManager {
             duration: 0,
             overview: null,
             poly: null,
-            stops: []
+            stops: [],
+            notes: "" // --- إضافة حقل الملاحظات ---
         };
-
         this.routes.push(route);
         this.activeRouteIndex = this.routes.length - 1;
-
         return route;
     }
 
     addPointToRoute(routeIndex, latLng) {
-
         const rt = this.routes[routeIndex];
         rt.points.push(latLng);
-
         const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1);
         rt.stops.push(stop);
-
         if (rt.points.length >= 2) {
             this.requestRoute(routeIndex);
         } else {
@@ -680,27 +622,15 @@ class RouteManager {
     }
 
     createStopMarker(pos, routeIndex, idx) {
-
         const rt = this.routes[routeIndex];
-
         const el = document.createElement("div");
-        el.style.width = "22px";
-        el.style.height = "22px";
-        el.style.background = "white";
-        el.style.borderRadius = "50%";
-        el.style.border = `2px solid ${rt.color}`;
-        el.style.display = "flex";
-        el.style.alignItems = "center";
-        el.style.justifyContent = "center";
-        el.style.fontSize = "12px";
-        el.style.fontWeight = "bold";
-        el.textContent = idx + 1;
+        el.style.width = "22px"; el.style.height = "22px"; el.style.background = "white";
+        el.style.borderRadius = "50%"; el.style.border = `2px solid ${rt.color}`;
+        el.style.display = "flex"; el.style.alignItems = "center"; el.style.justifyContent = "center";
+        el.style.fontSize = "12px"; el.style.fontWeight = "bold"; el.textContent = idx + 1;
 
         const marker = new google.maps.marker.AdvancedMarkerElement({
-            position: pos,
-            map: this.map,
-            content: el,
-            gmpDraggable: !this.shareMode
+            position: pos, map: this.map, content: el, gmpDraggable: !this.shareMode
         });
 
         marker.addListener("dragend", () => {
@@ -718,343 +648,191 @@ class RouteManager {
     }
 
     removePoint(routeIndex, idx) {
-
         const rt = this.routes[routeIndex];
-
         if (rt.stops[idx]) rt.stops[idx].map = null;
-
-        rt.points.splice(idx, 1);
-        rt.stops.splice(idx, 1);
-
-        rt.stops.forEach((m, i) => {
-            m.content.textContent = i + 1;
-        });
-
-        if (rt.points.length >= 2) {
-            this.requestRoute(routeIndex);
-        } else {
-            this.clearRoute(routeIndex);
-        }
-
+        rt.points.splice(idx, 1); rt.stops.splice(idx, 1);
+        rt.stops.forEach((m, i) => { m.content.textContent = i + 1; });
+        if (rt.points.length >= 2) { this.requestRoute(routeIndex); } else { this.clearRoute(routeIndex); }
         bus.emit("persist");
     }
 
     removeRoute(routeIndex) {
-
         const rt = this.routes[routeIndex];
-
         if (rt.poly) rt.poly.setMap(null);
         rt.stops.forEach(s => s.map = null);
-
         this.routes.splice(routeIndex, 1);
         this.activeRouteIndex = -1;
-
-        if (this.routeCard) this.routeCard.close();
-        if (this.infoCard) this.infoCard.close();
+        if (this.infoWin) this.infoWin.close();
         this.cardPinned = false;
-
         bus.emit("persist");
     }
 
     clearRoute(routeIndex) {
         const rt = this.routes[routeIndex];
         if (rt.poly) rt.poly.setMap(null);
-        rt.poly = null;
-        rt.overview = null;
-        rt.distance = 0;
-        rt.duration = 0;
+        rt.poly = null; rt.overview = null; rt.distance = 0; rt.duration = 0;
     }
 
     requestRoute(routeIndex) {
-
-        if (!this.directionsService) {
-            this.directionsService = new google.maps.DirectionsService();
-        }
-
-        const rt = this.routes[routeIndex];
-        const pts = rt.points;
-
+        if (!this.directionsService) this.directionsService = new google.maps.DirectionsService();
+        const rt = this.routes[routeIndex]; const pts = rt.points;
         if (pts.length < 2) return;
-
-        const req = {
-            origin: pts[0],
-            destination: pts[pts.length - 1],
-            travelMode: google.maps.TravelMode.DRIVING
-        };
-
-        if (pts.length > 2) {
-            req.waypoints = pts.slice(1, -1).map(p => ({ location: p, stopover: true }));
-        }
-
+        const req = { origin: pts[0], destination: pts[pts.length - 1], travelMode: google.maps.TravelMode.DRIVING };
+        if (pts.length > 2) { req.waypoints = pts.slice(1, -1).map(p => ({ location: p, stopover: true })); }
         this.directionsService.route(req, (res, status) => {
-
-            if (status !== "OK") {
-                bus.emit("toast", "تعذر حساب المسار");
-                return;
-            }
-
-            const r = res.routes[0];
-            rt.overview = r.overview_polyline;
-
+            if (status !== "OK") { bus.emit("toast", "تعذر حساب المسار"); return; }
+            const r = res.routes[0]; rt.overview = r.overview_polyline;
             rt.distance = r.legs.reduce((s, l) => s + l.distance.value, 0);
             rt.duration = r.legs.reduce((s, l) => s + l.duration.value, 0);
-
             this.renderRoute(routeIndex);
-
             bus.emit("persist");
         });
     }
 
     renderRoute(routeIndex) {
-
         const rt = this.routes[routeIndex];
-
         if (rt.poly) rt.poly.setMap(null);
-
-        let path;
-
-        if (rt.overview) {
-            path = google.maps.geometry.encoding.decodePath(rt.overview);
-        } else {
-            path = rt.points;
-        }
-
+        let path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points;
         rt.poly = new google.maps.Polyline({
-            map: this.map,
-            path,
-            strokeColor: rt.color,
-            strokeWeight: rt.weight,
-            strokeOpacity: rt.opacity,
-            zIndex: 9
+            map: this.map, path, strokeColor: rt.color, strokeWeight: rt.weight,
+            strokeOpacity: rt.opacity, zIndex: 9
         });
 
+        // --- تعديل: توحيد منطق الفتح بالتمرير والنقر ---
         rt.poly.addListener("mouseover", () => {
-            if (!this.cardPinned) this.openInfoCard(routeIndex, false);
+            if (!this.cardPinned) this.openRouteCard(routeIndex, true); // true = hover
         });
 
         rt.poly.addListener("mouseout", () => {
-            if (!this.cardPinned && this.infoCard) {
+            if (!this.cardPinned && this.infoWin) {
                 setTimeout(() => {
-                    if (!this.cardPinned && this.infoCard)
-                        this.infoCard.close();
+                    if (!this.cardPinned && this.infoWin) this.infoWin.close();
                 }, 150);
             }
         });
 
-        rt.poly.addListener("click", e => {
-
-            if (this.shareMode) {
-                this.openInfoCard(routeIndex, true);
-            } else {
-                this.openRouteCard(routeIndex, e.latLng);
-            }
+        rt.poly.addListener("click", () => {
+            this.openRouteCard(routeIndex, false); // false = pinned
         });
     }
 
-    openInfoCard(routeIndex, pinned = false) {
-
+    openRouteCard(routeIndex, hoverOnly = false) {
         const rt = this.routes[routeIndex];
         const dist = Utils.formatDistance(rt.distance);
         const dur = Utils.formatDuration(rt.duration);
+        const notes = Utils.escapeHTML(rt.notes || "");
 
         const html = `
         <div style="
-            background:rgba(20,20,20,0.78);
+            background:rgba(20,20,20,0.85);
             backdrop-filter:blur(18px);
             color:white;
             border-radius:16px;
             padding:14px;
             direction:rtl;
-            min-width:260px;
-            border:1px solid rgba(255,255,255,0.35);
-            box-shadow:0 6px 18px rgba(0,0,0,0.35);
+            min-width:280px;
+            border:1px solid rgba(255,255,255,0.2);
+            box-shadow:0 8px 32px rgba(0,0,0,0.3);
         ">
-            <div style="font-weight:800;font-size:16px;margin-bottom:8px;">
+            <div style="font-weight:800;font-size:17px;margin-bottom:12px;">
                 معلومات المسار ${routeIndex + 1}
             </div>
 
-            <div style="display:flex;justify-content:space-between;margin-top:8px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
                 <div>المسافة: <b>${dist}</b></div>
                 <div>الوقت: <b>${dur}</b></div>
             </div>
-        </div>
-        `;
 
-        if (!this.infoCard) {
-            this.infoCard = new google.maps.InfoWindow();
+            ${hoverOnly ? `
+                ${notes ? `<div style="font-size:13px; opacity:0.8; border-top:1px solid rgba(255,255,255,0.2); padding-top:10px; margin-top:10px;">ملاحظات: ${notes}</div>` : ''}
+            ` : `
+                <div style="margin-top:10px;">
+                    <label style="font-size:12px;">ملاحظات:</label>
+                    <textarea id="route-notes" rows="3" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;resize:none;">${notes}</textarea>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:14px;">
+                    <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:8px;cursor:pointer;">حفظ</button>
+                    <button id="route-close" style="flex:1;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:10px;padding:8px;cursor:pointer;">إغلاق</button>
+                </div>
+            `}
+        </div>`;
+
+        if (!this.infoWin) {
+            this.infoWin = new google.maps.InfoWindow({ maxWidth: 360 });
         }
+        this.infoWin.setContent(html);
+        this.infoWin.setPosition(this.getRouteCenter(rt));
+        this.infoWin.open({ map: this.map });
 
-        this.infoCard.setContent(html);
-        this.infoCard.open({ map: this.map });
+        if (!hoverOnly) this.cardPinned = true;
 
-        this.cardPinned = pinned;
-
-        google.maps.event.addListenerOnce(this.infoCard, "closeclick", () => {
-            this.cardPinned = false;
+        google.maps.event.addListenerOnce(this.infoWin, "domready", () => {
+            this.attachRouteCardEvents(routeIndex, hoverOnly);
         });
     }
 
-    openRouteCard(routeIndex, pos) {
+    getRouteCenter(rt) {
+        const path = rt.poly.getPath();
+        const bounds = new google.maps.LatLngBounds();
+        for (let i = 0; i < path.getLength(); i++) {
+            bounds.extend(path.getAt(i));
+        }
+        return bounds.getCenter();
+    }
+
+    attachRouteCardEvents(routeIndex, hoverOnly) {
+        if (hoverOnly) return;
 
         const rt = this.routes[routeIndex];
+        const saveBtn = document.getElementById("route-save");
+        const closeBtn = document.getElementById("route-close");
+        const notesEl = document.getElementById("route-notes");
 
-        const html = `
-        <div style="
-            background:rgba(255,255,255,0.92);
-            backdrop-filter:blur(16px);
-            border-radius:18px;
-            padding:14px;
-            direction:rtl;
-            min-width:300px;
-        ">
-            <div style="font-weight:bold;font-size:17px;margin-bottom:10px;">
-                إعدادات المسار ${routeIndex + 1}
-            </div>
-
-            <label style="font-size:12px;">اللون:</label>
-            <input id="rt-color" type="color" value="${rt.color}"
-                style="width:100%;height:32px;border:none;margin-bottom:12px;">
-
-            <label style="font-size:12px;">السماكة:</label>
-            <input id="rt-w" type="range" min="1" max="12" value="${rt.weight}"
-                style="width:100%;">
-            <div style="margin-bottom:12px;font-size:12px;color:#555;">
-                ${rt.weight}px
-            </div>
-
-            <label style="font-size:12px;">الشفافية:</label>
-            <input id="rt-op" type="range" min="0.2" max="1" step="0.05" value="${rt.opacity}"
-                style="width:100%;">
-
-            <div style="display:flex;gap:8px;margin-top:14px;">
-                <button id="rt-save" style="
-                    flex:2;background:#4285f4;color:white;
-                    border:none;border-radius:8px;padding:8px;">حفظ</button>
-
-                <button id="rt-del" style="
-                    flex:1;background:#e94235;color:white;
-                    border:none;border-radius:8px;padding:8px;">حذف</button>
-
-                <button id="rt-close" style="
-                    flex:1;background:white;border:1px solid #ccc;
-                    border-radius:8px;padding:8px;">إغلاق</button>
-            </div>
-        </div>
-        `;
-
-        if (!this.routeCard) {
-            this.routeCard = new google.maps.InfoWindow({
-                maxWidth: 360,
-                pixelOffset: new google.maps.Size(0, -8)
+        if (saveBtn) {
+            saveBtn.addEventListener("click", () => {
+                rt.notes = notesEl.value.trim();
+                bus.emit("persist");
+                this.infoWin.close();
+                this.cardPinned = false;
+                bus.emit("toast", "تم حفظ الملاحظات");
             });
         }
 
-        this.routeCard.setContent(html);
-        this.routeCard.setPosition(pos);
-        this.routeCard.open({ map: this.map });
-
-        this.cardPinned = true;
-
-        google.maps.event.addListenerOnce(this.routeCard, "domready", () => {
-            this.attachRouteCardEvents(routeIndex);
-        });
-
-        google.maps.event.addListenerOnce(this.routeCard, "closeclick", () => {
-            this.cardPinned = false;
-        });
+        if (closeBtn) {
+            closeBtn.addEventListener("click", () => {
+                this.infoWin.close();
+                this.cardPinned = false;
+            });
+        }
     }
 
-    attachRouteCardEvents(routeIndex) {
-
-        const rt = this.routes[routeIndex];
-
-        const colorEl = document.getElementById("rt-color");
-        const wEl     = document.getElementById("rt-w");
-        const opEl    = document.getElementById("rt-op");
-
-        const saveBtn = document.getElementById("rt-save");
-        const delBtn  = document.getElementById("rt-del");
-        const closeBtn= document.getElementById("rt-close");
-
-        saveBtn.addEventListener("click", () => {
-
-            rt.color   = colorEl.value;
-            rt.weight  = +wEl.value;
-            rt.opacity = +opEl.value;
-
-            this.renderRoute(routeIndex);
-
-            bus.emit("persist");
-
-            this.routeCard.close();
-            this.cardPinned = false;
-
-            bus.emit("toast", "تم حفظ إعدادات المسار");
-        });
-
-        delBtn.addEventListener("click", () => {
-            if (!confirm("هل تريد حذف هذا المسار؟")) return;
-            this.removeRoute(routeIndex);
-            bus.emit("toast", "تم حذف المسار");
-        });
-
-        closeBtn.addEventListener("click", () => {
-            this.routeCard.close();
-            this.cardPinned = false;
-        });
-    }
-
-    // في كلاس RouteManager
     exportState() {
-    return this.routes.map(rt => ({
-        id: rt.id,
-        color: rt.color,
-        weight: rt.weight,
-        opacity: rt.opacity,
-        distance: rt.distance,
-        duration: rt.duration,
-        overview: rt.overview,
-        // التحقق الآمن لجلب خطوط الطول والعرض لكل نقطة في المسار
-        points: rt.points.map(p => ({
-            lat: typeof p.lat === 'function' ? p.lat() : p.lat,
-            lng: typeof p.lng === 'function' ? p.lng() : p.lng
-        }))
-    }));
-}
+        return this.routes.map(rt => ({
+            id: rt.id, color: rt.color, weight: rt.weight, opacity: rt.opacity,
+            distance: rt.distance, duration: rt.duration, overview: rt.overview,
+            notes: rt.notes, // --- إضافة الملاحظات في التصدير ---
+            points: rt.points.map(p => ({ lat: typeof p.lat === 'function' ? p.lat() : p.lat, lng: typeof p.lng === 'function' ? p.lng() : p.lng }))
+        }));
+    }
 
     applyState(state) {
-
         if (!state || !state.routes) return;
-
-        this.routes.forEach(rt => {
-            if (rt.poly) rt.poly.setMap(null);
-            rt.stops.forEach(s => s.map = null);
-        });
-
+        this.routes.forEach(rt => { if (rt.poly) rt.poly.setMap(null); rt.stops.forEach(s => s.map = null); });
         this.routes = [];
-
         state.routes.forEach(rt => {
-
             const newRoute = {
-                id: rt.id,
-                color: rt.color,
-                weight: rt.weight,
-                opacity: rt.opacity,
-                distance: rt.distance,
-                duration: rt.duration,
-                overview: rt.overview,
+                id: rt.id, color: rt.color, weight: rt.weight, opacity: rt.opacity,
+                distance: rt.distance, duration: rt.duration, overview: rt.overview,
+                notes: rt.notes || "", // --- إضافة الملاحظات في الاستيراد ---
                 points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)),
-                poly: null,
-                stops: []
+                poly: null, stops: []
             };
-
             this.routes.push(newRoute);
-
             newRoute.points.forEach((pt, i) => {
                 const stop = this.createStopMarker(pt, this.routes.length - 1, i);
                 newRoute.stops.push(stop);
             });
-
             this.renderRoute(this.routes.length - 1);
         });
     }
