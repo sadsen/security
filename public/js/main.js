@@ -751,7 +751,7 @@ class RouteManager {
     }
 }
 
-// هذا هو السطر المهم الذي يجب أن يكون صحيحًا
+// هام: تأكد من أن هذا السطر صحيح ويحتوي على حرف E
 const ROUTES = new RouteManager();
 
 /* ============================================================
@@ -1476,12 +1476,13 @@ const SHARE = new ShareManager();
 ============================================================ */
 
 /* ============================================================
-   UIManager — واجهة المستخدم (النسخة المصححة والكاملة)
+   UIManager — واجهة المستخدم (النسخة الكاملة والمحدثة)
 ============================================================ */
 class UIManager {
 
     constructor() {
         this.logo = "/img/logo.png";
+
         this.btnRoadmap = document.getElementById("btn-roadmap");
         this.btnSatellite = document.getElementById("btn-satellite");
         this.btnTraffic = document.getElementById("btn-traffic");
@@ -1507,8 +1508,8 @@ class UIManager {
         if (this.btnRoadmap) {
             this.btnRoadmap.addEventListener("click", () => {
                 MAP.setRoadmap();
-                this.btnRoadmap.setAttribute("aria-pressed","true");
-                this.btnSatellite.setAttribute("aria-pressed","false");
+                this.btnRoadmap.setAttribute("aria-pressed", "true");
+                this.btnSatellite.setAttribute("aria-pressed", "false");
                 this.showToast("تم التبديل لخريطة الطرق");
             });
         }
@@ -1516,8 +1517,8 @@ class UIManager {
         if (this.btnSatellite) {
             this.btnSatellite.addEventListener("click", () => {
                 MAP.setSatellite();
-                this.btnRoadmap.setAttribute("aria-pressed","false");
-                this.btnSatellite.setAttribute("aria-pressed","true");
+                this.btnRoadmap.setAttribute("aria-pressed", "false");
+                this.btnSatellite.setAttribute("aria-pressed", "true");
                 this.showToast("تم التبديل للأقمار الصناعية");
             });
         }
@@ -1542,7 +1543,7 @@ class UIManager {
             });
         }
 
-        // أحداث الرسم
+        // --- منطق الأزرار المُصلح ---
         if (this.btnAdd && !MAP.shareMode) {
             this.btnAdd.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
@@ -1566,6 +1567,7 @@ class UIManager {
 
         if (this.btnDrawFinish && !MAP.shareMode) {
             this.btnDrawFinish.addEventListener("click", () => {
+                // هام: تأكد من أن هذا السطر يستخدم ROUTES (مع حرف E)
                 if (MAP.modeRouteAdd) {
                     ROUTES.finishCurrentRoute();
                 } else if (MAP.modePolygonAdd) {
@@ -1577,6 +1579,7 @@ class UIManager {
 
         if (this.btnRouteClear && !MAP.shareMode) {
             this.btnRouteClear.addEventListener("click", () => {
+                // هام: تأكد من أن هذا السطر يستخدم ROUTES (مع حرف E)
                 if (ROUTES.activeRouteIndex === -1) return this.showToast("لا يوجد مسار نشط لحذفه");
                 if (!confirm("حذف المسار الحالي؟")) return;
                 ROUTES.removeRoute(ROUTES.activeRouteIndex);
@@ -1643,14 +1646,6 @@ class UIManager {
         if (this.btnRoute) this.btnRoute.style.display = "inline-block";
         if (this.btnPolygon) this.btnPolygon.style.display = "inline-block";
         if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
-
-        // === هذا هو السطر المهم الذي يصلح المشكلة ===
-        // إعادة تعيين جميع أوضاع الرسم إلى الوضع الافتراضي
-        MAP.modeAdd = false;
-        MAP.modeRouteAdd = false;
-        MAP.modePolygonAdd = false;
-        MAP.setCursor("grab");
-        // =================================================
     }
 
     updateModeBadge(forceMode = null) {
