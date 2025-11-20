@@ -558,18 +558,19 @@ class LocationManager {
 
 
     // في كلاس LocationManager
+// في كلاس LocationManager
 exportState() {
     return this.items.map(it => ({
         id: it.id,
         name: it.name,
-        lat: it.marker.position.lat(), // <-- تم التصحيح هنا (أضفنا الأقواس)
-        lng: it.marker.position.lng(), // <-- تم التصحيح هنا (أضفنا الأقواس)
+        // التحقق الآمن لجلب خطوط الطول والعرض
+        lat: typeof it.marker.position.lat === 'function' ? it.marker.position.lat() : it.marker.position.lat,
+        lng: typeof it.marker.position.lng === 'function' ? it.marker.position.lng() : it.marker.position.lng,
         color: it.color,
         radius: it.radius,
         recipients: it.recipients
     }));
 }
-
 
     applyState(state) {
 
@@ -1004,7 +1005,7 @@ class RouteManager {
     }
 
     // في كلاس RouteManager
-exportState() {
+    exportState() {
     return this.routes.map(rt => ({
         id: rt.id,
         color: rt.color,
@@ -1013,7 +1014,11 @@ exportState() {
         distance: rt.distance,
         duration: rt.duration,
         overview: rt.overview,
-        points: rt.points.map(p => ({ lat: p.lat(), lng: p.lng() })) // <-- تم التصحيح هنا (أضفنا الأقواس)
+        // التحقق الآمن لجلب خطوط الطول والعرض لكل نقطة في المسار
+        points: rt.points.map(p => ({
+            lat: typeof p.lat === 'function' ? p.lat() : p.lat,
+            lng: typeof p.lng === 'function' ? p.lng() : p.lng
+        }))
     }));
 }
 
