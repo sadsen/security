@@ -331,7 +331,7 @@ const LOCATIONS = new LocationManager();
 ============================================================ */
 
 /* ============================================================
-   RouteManager — إدارة المسارات + بطاقات Glass (النسخة الكاملة مع التحرير)
+   RouteManager — إدارة المسارات + بطاقات Glass (مع دعم التمرير والنقر)
    ============================================================ */
 class RouteManager {
 
@@ -372,6 +372,7 @@ class RouteManager {
             this.addPointToRoute(this.activeRouteIndex, e.latLng);
         });
 
+        // مستمع النقر العام لإخفاء الكرت المثبت
         this.map.addListener("click", () => {
             if (!this.cardPinned && this.infoWin) {
                 this.infoWin.close();
@@ -591,10 +592,27 @@ class RouteManager {
             strokeColor: rt.color,
             strokeWeight: rt.weight,
             strokeOpacity: rt.opacity,
-            zIndex: 10
+            zIndex: 10 // الطبقة الوسطى
+        });
+
+        // === التغييرات الرئيسية هنا ===
+        // إضافة مستمعي الأحداث للتفاعل مع المسار
+        rt.poly.addListener("mouseover", () => {
+            // عند التمرير، اعرض الكرت إذا لم يكن مثبتًا
+            if (!this.cardPinned) {
+                this.openRouteCard(routeIndex, true);
+            }
+        });
+
+        rt.poly.addListener("mouseout", () => {
+            // عند إبعاد المؤشر، أغلق الكرت إذا لم يكن مثبتًا
+            if (!this.cardPinned && this.infoWin) {
+                this.infoWin.close();
+            }
         });
 
         rt.poly.addListener("click", () => {
+            // عند النقر، اعرض الكرت وثبته
             this.openRouteCard(routeIndex, false);
         });
     }
@@ -682,7 +700,12 @@ class RouteManager {
         this.infoWin.setContent(html);
         this.infoWin.setPosition(this.getRouteCenter(rt));
         this.infoWin.open({ map: this.map });
-        if (!hoverOnly) this.cardPinned = true;
+        
+        // ثبّت الكرت إذا كان النقر هو السبب في فتحه
+        if (!hoverOnly) {
+            this.cardPinned = true;
+        }
+        
         google.maps.event.addListenerOnce(this.infoWin, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
     }
 
@@ -805,6 +828,7 @@ class RouteManager {
 }
 
 const ROUTES = new RouteManager();
+
 
 /* ============================================================
    PolygonManager — إدارة المضلعات + بطاقات Glass
