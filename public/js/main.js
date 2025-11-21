@@ -142,14 +142,15 @@ const Utils = {
 };
 
 /* ============================================================
-   MapController — وحدة إدارة الخريطة
+   MapController — وحدة إدارة الخريطة (مع دعم الطبقات المتقدمة)
 ============================================================ */
 class MapController {
 
     constructor() {
-
         this.map = null;
         this.trafficLayer = null;
+        this.bicyclingLayer = null; // طبقة جديدة
+        this.transitLayer = null;     // طبقة جديدة
 
         this.editMode = true;
         this.shareMode = false;
@@ -164,13 +165,54 @@ class MapController {
     }
 
     init() {
-
-        console.log("Boot v22.0");
+        console.log("Boot v22.0 - Layers Update");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
-
         this.editMode = !this.shareMode;
+
+        // تعريف الأنماط المخصصة للخريطة
+        const darkModeStyle = [
+            { elementType: "geometry", stylers: [{ color: "#212121" }] },
+            { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+            { elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+            { elementType: "labels.text.stroke", stylers: [{ color: "#212121" }] },
+            { featureType: "administrative", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
+            { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+            { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#181818" }] },
+            { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+            { featureType: "poi.park", elementType: "labels.text.stroke", stylers: [{ color: "#1b1b1b" }] },
+            { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2c2c2c" }] },
+            { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#8a8a8a" }] },
+            { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#373737" }] },
+            { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3c3c3c" }] },
+            { featureType: "road.highway.controlled_access", elementType: "geometry", stylers: [{ color: "#4e4e4e" }] },
+            { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+            { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+            { featureType: "water", elementType: "geometry", stylers: [{ color: "#000000" }] },
+            { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3d3d3d" }] }
+        ];
+
+        const silverStyle = [
+            { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+            { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+            { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+            { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
+            { featureType: "administrative.land_parcel", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
+            { featureType: "poi", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
+            { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+            { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
+            { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+            { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+            { featureType: "road.arterial", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+            { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#dadada" }] },
+            { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+            { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+            { featureType: "transit.line", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
+            { featureType: "transit.station", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
+            { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9c9c9" }] },
+            { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] }
+        ];
 
         this.map = new google.maps.Map(document.getElementById("map"), {
             center: this.centerDefault,
@@ -188,7 +230,14 @@ class MapController {
             ]
         });
 
+        // تهيئة الطبقات
         this.trafficLayer = new google.maps.TrafficLayer();
+        this.bicyclingLayer = new google.maps.BicyclingLayer();
+        this.transitLayer = new google.maps.TransitLayer();
+
+        // تسجيل الأنماط المخصصة
+        this.map.mapTypes.set("dark", new google.maps.StyledMapType(darkModeStyle, { name: "الوضع الليلي" }));
+        this.map.mapTypes.set("silver", new google.maps.StyledMapType(silverStyle, { name: "فضي" }));
 
         bus.emit("map:ready", this.map);
 
@@ -203,12 +252,32 @@ class MapController {
 
     setRoadmap() { this.map.setMapTypeId("roadmap"); }
     setSatellite() { this.map.setMapTypeId("hybrid"); }
+    setTerrain() { this.map.setMapTypeId("terrain"); } // دالة جديدة
+    setDarkMode() { this.map.setMapTypeId("dark"); }   // دالة جديدة
+    setSilverMode() { this.map.setMapTypeId("silver"); } // دالة جديدة
 
     toggleTraffic() {
-        if (this.trafficLayer.getMap())
+        if (this.trafficLayer.getMap()) {
             this.trafficLayer.setMap(null);
-        else
+        } else {
             this.trafficLayer.setMap(this.map);
+        }
+    }
+
+    toggleBicycling() { // دالة جديدة
+        if (this.bicyclingLayer.getMap()) {
+            this.bicyclingLayer.setMap(null);
+        } else {
+            this.bicyclingLayer.setMap(this.map);
+        }
+    }
+
+    toggleTransit() { // دالة جديدة
+        if (this.transitLayer.getMap()) {
+            this.transitLayer.setMap(null);
+        } else {
+            this.transitLayer.setMap(this.map);
+        }
     }
 
     setCursor(c) {
@@ -217,8 +286,6 @@ class MapController {
 }
 
 const MAP = new MapController();
-
-
 
 /* ============================================================
    LocationManager — المواقع + بطاقات Glass (تصميم موحد)
@@ -1669,7 +1736,7 @@ const MEASURE = new MeasureManager();
 ============================================================ */
 
 /* ============================================================
-   UIManager — واجهة المستخدم (مع نافذة معلومات مركزية ومتجاوبة)
+   UIManager — واجهة المستخدم (مع لوحة الطبقات)
    ============================================================ */
 class UIManager {
 
@@ -1679,9 +1746,7 @@ class UIManager {
         this.infoWindowPinned = false; // هل نافذة المعلومات مثبتة؟
 
         // الحصول على جميع الأزرار من الصفحة
-        this.btnRoadmap = document.getElementById("btn-roadmap");
-        this.btnSatellite = document.getElementById("btn-satellite");
-        this.btnTraffic = document.getElementById("btn-traffic");
+        this.btnLayers = document.getElementById("btn-layers"); // زر جديد
         this.btnAdd = document.getElementById("btn-add");
         this.btnRoute = document.getElementById("btn-route");
         this.btnPolygon = document.getElementById("btn-polygon");
@@ -1689,6 +1754,10 @@ class UIManager {
         this.btnDrawFinish = document.getElementById("btn-draw-finish");
         this.btnRouteClear = document.getElementById("btn-route-clear");
         this.btnEdit = document.getElementById("btn-edit");
+
+        // عناصر لوحة الطبقات
+        this.layersPanel = document.getElementById("layers-panel");
+        this.btnCloseLayers = document.getElementById("btn-close-layers");
 
         this.modeBadge = document.getElementById("mode-badge");
         this.toastElement = document.getElementById("toast");
@@ -1709,32 +1778,28 @@ class UIManager {
             this.closeSharedInfoCard();
         });
 
-        // أحداث التحكم بالخريطة
-        if (this.btnRoadmap) {
-            this.btnRoadmap.addEventListener("click", () => {
-                MAP.setRoadmap();
-                this.btnRoadmap.setAttribute("aria-pressed", "true");
-                this.btnSatellite.setAttribute("aria-pressed", "false");
-                this.showToast("تم التبديل لخريطة الطرق");
-            });
+        // مستمع أحداث لوحة الطبقات
+        if (this.btnLayers) {
+            this.btnLayers.addEventListener("click", () => this.toggleLayersPanel());
+        }
+        if (this.btnCloseLayers) {
+            this.btnCloseLayers.addEventListener("click", () => this.toggleLayersPanel());
         }
 
-        if (this.btnSatellite) {
-            this.btnSatellite.addEventListener("click", () => {
-                MAP.setSatellite();
-                this.btnRoadmap.setAttribute("aria-pressed", "false");
-                this.btnSatellite.setAttribute("aria-pressed", "true");
-                this.showToast("تم التبديل للأقمار الصناعية");
+        // مستمعو أحداث محتوى لوحة الطبقات
+        const baseMapRadios = document.querySelectorAll('input[name="base-map"]');
+        baseMapRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.setBaseMap(radio.value);
             });
-        }
+        });
 
-        if (this.btnTraffic) {
-            this.btnTraffic.addEventListener("click", () => {
-                MAP.toggleTraffic();
-                const active = this.btnTraffic.getAttribute("aria-pressed") === "true";
-                this.btnTraffic.setAttribute("aria-pressed", active ? "false" : "true");
+        const layerCheckboxes = document.querySelectorAll('#layer-traffic, #layer-bicycling, #layer-transit');
+        layerCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                this.toggleLayer(checkbox.id, checkbox.checked);
             });
-        }
+        });
 
         // أحداث التحرير
         if (this.btnEdit && !MAP.shareMode) {
@@ -1757,7 +1822,9 @@ class UIManager {
         }
 
         if (this.btnRoute && !MAP.shareMode) {
+            console.log("UI: Adding listener to btn-route.");
             this.btnRoute.addEventListener("click", () => {
+                console.log("UI: btn-route clicked.");
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
                 this.setActiveMode('route');
             });
@@ -1779,6 +1846,7 @@ class UIManager {
 
         if (this.btnDrawFinish && !MAP.shareMode) {
             this.btnDrawFinish.addEventListener("click", () => {
+                console.log("UI: btn-draw-finish clicked.");
                 if (MAP.modeRouteAdd) {
                     ROUTES.finishCurrentRoute();
                 } else if (MAP.modePolygonAdd) {
@@ -1799,6 +1867,41 @@ class UIManager {
         }
 
         this.updateModeBadge();
+    }
+
+    /**
+     * دالة لفتح وإغلاق لوحة الطبقات
+     */
+    toggleLayersPanel() {
+        if (this.layersPanel) {
+            this.layersPanel.classList.toggle("show");
+            const isPressed = this.layersPanel.classList.contains("show");
+            this.btnLayers.setAttribute("aria-pressed", isPressed ? "true" : "false");
+        }
+    }
+
+    /**
+     * دالة لتغيير نوع الخريطة الأساسي
+     */
+    setBaseMap(mapTypeId) {
+        switch (mapTypeId) {
+            case 'roadmap': MAP.setRoadmap(); break;
+            case 'satellite': MAP.setSatellite(); break;
+            case 'terrain': MAP.setTerrain(); break;
+            case 'dark': MAP.setDarkMode(); break;
+            case 'silver': MAP.setSilverMode(); break;
+        }
+    }
+
+    /**
+     * دالة لتفعيل أو إلغاء تفعيل الطبقات الإضافية
+     */
+    toggleLayer(layerId, isChecked) {
+        switch (layerId) {
+            case 'layer-traffic': MAP.toggleTraffic(); break;
+            case 'layer-bicycling': MAP.toggleBicycling(); break;
+            case 'layer-transit': MAP.toggleTransit(); break;
+        }
     }
 
     /**
@@ -1902,9 +2005,13 @@ class UIManager {
         if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
         if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
         if (this.btnEdit) this.btnEdit.style.display = "none";
+        if (this.btnLayers) this.btnLayers.style.display = "none"; // إخفاء زر الطبقات في وضع العرض
         this.updateModeBadge("view");
     }
 
+    /**
+     * إظهار واجهة إنهاء الرسم (للمسارات والمضلعات)
+     */
     showDrawFinishUI() {
         if (this.btnAdd) this.btnAdd.setAttribute("aria-pressed", "false");
         if (this.btnRoute) this.btnRoute.style.display = "none";
@@ -1913,6 +2020,9 @@ class UIManager {
         if (this.btnDrawFinish) this.btnDrawFinish.style.display = "inline-block";
     }
 
+    /**
+     * إظهار الواجهة الافتراضية (أزرار الرسم الرئيسية)
+     */
     showDefaultUI() {
         if (this.btnRoute) this.btnRoute.style.display = "inline-block";
         if (this.btnPolygon) this.btnPolygon.style.display = "inline-block";
@@ -1920,6 +2030,9 @@ class UIManager {
         if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
     }
 
+    /**
+     * إظهار واجهة تحرير المضلع (إخفاء جميع الأزرار)
+     */
     showPolygonEditingUI() {
         if (this.btnAdd) this.btnAdd.style.display = "none";
         if (this.btnRoute) this.btnRoute.style.display = "none";
