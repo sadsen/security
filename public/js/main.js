@@ -215,20 +215,18 @@ class MapController {
         ];
 
         this.map = new google.maps.Map(document.getElementById("map"), {
-            center: this.centerDefault,
-            zoom: this.zoomDefault,
-            mapTypeId: "roadmap",
-            mapId: "b76177e462344e3ee4d9178b",
-            streetViewControl: false,
-            mapTypeControl: false,
-            fullscreenControl: true,
-            zoomControl: true,
-            gestureHandling: 'greedy',
-            clickableIcons: false,
-            styles: [
-                { featureType: "poi", stylers: [{ visibility: "off" }] }
-            ]
-        });
+    center: this.centerDefault,
+    zoom: this.zoomDefault,
+    mapTypeId: "roadmap",
+    mapId: "b76177e462344e3ee4d9178b", // تم إبقاء هذا السطر
+    streetViewControl: false,
+    mapTypeControl: false,
+    fullscreenControl: true,
+    zoomControl: true,
+    gestureHandling: 'greedy',
+    clickableIcons: false
+    // تم حذف خاصية "styles" بالكامل
+});
 
         // تهيئة الطبقات
         this.trafficLayer = new google.maps.TrafficLayer();
