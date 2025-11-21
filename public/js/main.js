@@ -331,8 +331,8 @@ const LOCATIONS = new LocationManager();
 ============================================================ */
 
 /* ============================================================
-   RouteManager — إدارة المسارات + بطاقات Glass (النسخة الكاملة)
-============================================================ */
+   RouteManager — إدارة المسارات + بطاقات Glass (النسخة الكاملة مع التحرير)
+   ============================================================ */
 class RouteManager {
 
     constructor() {
@@ -389,9 +389,6 @@ class RouteManager {
         console.log("RouteManager: finishCurrentRoute called for index:", this.activeRouteIndex);
         if (this.activeRouteIndex === -1) return;
 
-        MAP.modeRouteAdd = false; 
-        MAP.setCursor("grab");
-
         const rt = this.routes[this.activeRouteIndex];
 
         if (rt.poly) rt.poly.setMap(null);
@@ -399,33 +396,7 @@ class RouteManager {
 
         if (rt.points.length >= 2) {
             console.log("RouteManager: Route has enough points, rendering.");
-            rt.poly = new google.maps.Polyline({
-                map: this.map,
-                path: rt.points,
-                strokeColor: rt.color,
-                strokeWeight: rt.weight,
-                strokeOpacity: rt.opacity,
-                zIndex: 10
-            });
-
-            rt.poly.addListener("mouseover", () => {
-                if (!this.cardPinned) this.openRouteCard(this.activeRouteIndex, true);
-            });
-
-            rt.poly.addListener("mouseout", () => {
-                if (!this.cardPinned && this.infoWin) {
-                    setTimeout(() => {
-                        if (!this.cardPinned && this.infoWin) {
-                            this.infoWin.close();
-                        }
-                    }, 150);
-                }
-            });
-
-            rt.poly.addListener("click", () => {
-                this.openRouteCard(this.activeRouteIndex, false);
-            });
-
+            this.renderRoute(this.activeRouteIndex);
             bus.emit("persist");
         } else {
             console.log("RouteManager: Not enough points, removing route.");
@@ -433,6 +404,8 @@ class RouteManager {
         }
 
         this.activeRouteIndex = -1;
+        MAP.modeRouteAdd = false;
+        MAP.setCursor("grab");
     }
 
     createNewRoute() {
@@ -621,20 +594,6 @@ class RouteManager {
             zIndex: 10
         });
 
-        rt.poly.addListener("mouseover", () => {
-            if (!this.cardPinned) this.openRouteCard(routeIndex, true);
-        });
-
-        rt.poly.addListener("mouseout", () => {
-            if (!this.cardPinned && this.infoWin) {
-                setTimeout(() => {
-                    if (!this.cardPinned && this.infoWin) {
-                        this.infoWin.close();
-                    }
-                }, 150);
-            }
-        });
-
         rt.poly.addListener("click", () => {
             this.openRouteCard(routeIndex, false);
         });
@@ -659,7 +618,7 @@ class RouteManager {
             direction: rtl;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
             max-width: 95vw;
-            width: 320px;
+            width: 360px;
             overflow: hidden;
         `;
         const headerStyle = `
@@ -671,6 +630,12 @@ class RouteManager {
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         `;
         const bodyStyle = `padding: 20px;`;
+        const footerStyle = `
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        `;
+
         const html = `
         <div style="${cardStyle}">
             <div style="${headerStyle}">
@@ -682,11 +647,35 @@ class RouteManager {
                     <span><b>المسافة:</b> ${dist}</span>
                     <span><b>الوقت:</b> ${dur}</span>
                 </div>
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Cairo', sans-serif;">ملاحظات:</p>
-                <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 10px; min-height: 40px; font-size: 14px; line-height: 1.6; font-family: 'Cairo', sans-serif;">
-                    ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
-                </div>
+                ${isEditable ? `
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
+                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;"></div>
+                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
+                        <input id="route-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">ملاحظات:</label>
+                        <textarea id="route-notes" rows="3" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
+                    </div>
+                ` : `
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Cairo', sans-serif;">ملاحظات:</p>
+                    <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 10px; min-height: 40px; font-size: 14px; line-height: 1.6; font-family: 'Cairo', sans-serif;">
+                        ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
+                    </div>
+                `}
             </div>
+            ${isEditable ? `
+                <div style="${footerStyle}">
+                    <div style="display:flex;gap:8px; flex-wrap: wrap;">
+                        <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 100px;">حفظ</button>
+                        <button id="route-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px;">حذف</button>
+                        <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px;">إغلاق</button>
+                    </div>
+                </div>
+            ` : ''}
         </div>`;
 
         if (!this.infoWin) this.infoWin = new google.maps.InfoWindow({ maxWidth: 400 });
@@ -707,13 +696,59 @@ class RouteManager {
     }
 
     attachRouteCardEvents(routeIndex, hoverOnly) {
-        if (hoverOnly) return;
+        if (hoverOnly || !MAP.editMode) return;
+
         const rt = this.routes[routeIndex];
+        const saveBtn = document.getElementById("route-save");
+        const delBtn = document.getElementById("route-delete");
         const closeBtn = document.getElementById("route-close");
-        if (closeBtn) closeBtn.addEventListener("click", () => {
-            this.infoWin.close();
-            this.cardPinned = false;
-        });
+
+        const colEl = document.getElementById("route-color");
+        const weightEl = document.getElementById("route-weight");
+        const opEl = document.getElementById("route-opacity");
+        const opValEl = document.getElementById("route-opacity-val");
+        const notesEl = document.getElementById("route-notes");
+
+        if (opEl) {
+            opEl.addEventListener("input", () => {
+                if (opValEl) opValEl.textContent = opEl.value + "%";
+            });
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener("click", () => {
+                rt.color = colEl.value;
+                rt.weight = Utils.clamp(+weightEl.value, 1, 20);
+                rt.opacity = Utils.clamp(+opEl.value, 0, 100) / 100;
+                rt.notes = notesEl.value.trim();
+
+                rt.poly.setOptions({
+                    strokeColor: rt.color,
+                    strokeWeight: rt.weight,
+                    strokeOpacity: rt.opacity
+                });
+
+                bus.emit("persist");
+                this.infoWin.close();
+                this.cardPinned = false;
+                bus.emit("toast", "تم حفظ تعديلات المسار");
+            });
+        }
+
+        if (delBtn) {
+            delBtn.addEventListener("click", () => {
+                if (!confirm(`حذف المسار ${routeIndex + 1}؟`)) return;
+                this.removeRoute(routeIndex);
+                bus.emit("toast", "تم حذف المسار");
+            });
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener("click", () => {
+                this.infoWin.close();
+                this.cardPinned = false;
+            });
+        }
     }
 
     exportState() {
@@ -769,15 +804,15 @@ class RouteManager {
     }
 }
 
-// هذا هو السطر المهم الذي يجب أن يكون صحيحًا
 const ROUTES = new RouteManager();
 
 /* ============================================================
    PolygonManager — إدارة المضلعات + بطاقات Glass
 ============================================================ */
+
 /* ============================================================
    PolygonManager — إدارة المضلعات + بطاقات Glass (مُصلح)
-============================================================ */
+   ============================================================ */
 class PolygonManager {
 
     constructor() {
@@ -920,18 +955,19 @@ class PolygonManager {
             }
         });
 
-        poly.polygon.addListener("mouseover", () => {
-            if (!this.cardPinned) this.openCard(this.polygons.indexOf(poly), true);
-        });
-        poly.polygon.addListener("mouseout", () => {
-            if (!this.cardPinned && this.infoWin) {
-                setTimeout(() => {
-                    if (!this.cardPinned && this.infoWin) {
-                        this.infoWin.close();
-                    }
-                }, 150);
-            }
-        });
+        // تم حذف مستمعي mouseover و mouseout من هنا
+        // poly.polygon.addListener("mouseover", () => {
+        //     if (!this.cardPinned) this.openCard(this.polygons.indexOf(poly), true);
+        // });
+        // poly.polygon.addListener("mouseout", () => {
+        //     if (!this.cardPinned && this.infoWin) {
+        //         setTimeout(() => {
+        //             if (!this.cardPinned && this.infoWin) {
+        //                 this.infoWin.close();
+        //             }
+        //         }, 150);
+        //     }
+        // });
     }
 
     enterEditMode(index) {
