@@ -290,11 +290,6 @@ const MAP = new MapController();
 ============================================================ */
 
 /* ============================================================
-   LocationManager — إدارة المواقع (نسخة مبسطة ومُصلحة)
-   ============================================================ */
-
-
-/* ============================================================
    LocationManager — إدارة المواقع + بطاقات Glass (نسخة مُصلحة بالكامل)
    ============================================================ */
 class LocationManager {
@@ -334,7 +329,8 @@ class LocationManager {
 
     onMapReady() {
         if (!this.shareMode && this.items.length === 0) {
-            this.loadDefaultLocations();
+            // استدعاء الدالة الجديدة التي تنتظر تحميل المكتبة
+            this.waitForGmpMarkersAndLoad();
         }
 
         // مستمع النقر على الخريطة لإضافة موقع جديد
@@ -368,6 +364,17 @@ class LocationManager {
             bus.emit("persist"); 
             bus.emit("toast", "تمت إضافة موقع جديد");
         });
+    }
+
+    // *** الدالة الجديدة لحل المشكلة ***
+    waitForGmpMarkersAndLoad() {
+        if (typeof google.maps.marker !== 'undefined' && typeof google.maps.marker.AdvancedMarkerElement !== 'undefined') {
+            // المكتبة تم تحميلها، يمكننا الآن تحميل المواقع
+            this.loadDefaultLocations();
+        } else {
+            // المكتبة لم تتحمل بعد، انتظر 100 ميلي ثانية وحاول مرة أخرى
+            setTimeout(() => this.waitForGmpMarkersAndLoad(), 100);
+        }
     }
 
     loadDefaultLocations() { 
@@ -442,7 +449,6 @@ class LocationManager {
             circle
         };
 
-        // الأسطر التي تسبب الخطأ، وهي الآن داخل الدالة بشكل صحيح
         this.attachListeners(item);
         this.items.push(item);
         return item;
@@ -579,7 +585,6 @@ class LocationManager {
         google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachCardEvents(item, hoverOnly));
     }
 
-    // تم تصحيح هذه الدالة بالكامل
     attachCardEvents(item, hoverOnly = false) {
         const closeBtn = document.getElementById("loc-close");
         if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); });
