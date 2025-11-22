@@ -290,13 +290,62 @@ const MAP = new MapController();
 ============================================================ */
 
 /* ============================================================
-   LocationManager — المواقع + بطاقات Glass (متجاوبة بالكامل)
+   LocationManager — المواقع + بطاقات Glass (مع نظام أيقونات متقدم)
    ============================================================ */
 class LocationManager {
 
     constructor() {
-        this.items = []; this.map = null; this.shareMode = false; this.editMode = true;
-        bus.on("map:ready", map => { this.map = map; this.shareMode = MAP.shareMode; this.editMode = MAP.editMode; this.onMapReady(); });
+        this.items = []; 
+        this.map = null; 
+        this.shareMode = false; 
+        this.editMode = true;
+
+        // === تعديل 1: توسيع قائمة الأيقونات وتصنيفها ===
+        this.availableIcons = [
+            { value: 'default', label: '🔵 دائرة افتراضية' },
+            { value: 'place', label: '📍 مكان عام' },
+            { value: 'warning', label: '⚠️ تحذير عام' },
+            { value: 'report_problem', label: '🚨 خطر' },
+            { value: 'gpp_maybe', label: '🔶 منطقة مشبوهة' },
+            { value: 'gpp_good', label: '🟢 منطقة آمنة' },
+            { value: 'local_police', label: '👮 مركز شرطة' },
+            { value: 'security', label: '🛡️ رجل أمن' },
+            { value: 'directions_car', label: '🚗 دورية أمنية' },
+            { value: 'local_hospital', label: '🏥 مستشفى' },
+            { value: 'local_pharmacy', label: '💊 صيدلية' },
+            { value: 'emergency', label: '🚑 طوارئ' },
+            { value: 'local_fire_department', label: '🚒 إطفاء' },
+            { value: 'health_and_safety', label: '🚑 سلامة' },
+            { value: 'traffic', label: '🚦 حركة مرور' },
+            { value: 'report', label: '📊 حادث مروري' },
+            { value: 'gps_fixed', label: '📍 كاميرا مراقبة' },
+            { value: 'not_listed_location', label: '📍 نقطة تفتيش' },
+            { value: 'block', label: '🚧 طريق مغلق' },
+            { value: 'do_not_step', label: '🚷 ممنوع المرور' },
+            { value: 'school', label: '🏫 مدرسة' },
+            { value: 'apartment', label: '🏢 مجمع سكني' },
+            { value: 'business', label: '🏢 مبنى تجاري' },
+            { value: 'shopping_cart', label: '🛒 مركز تسوق' },
+            { value: 'restaurant', label: '🍽 مطعم' },
+            { value: 'gas_station', label: '⛽ محطة وقود' },
+            { value: 'hotel', label: '🏨 فندق' },
+            { value: 'atm', label: '💵 صراف آلي' },
+            { value: 'bank', label: '🏦 بنك' },
+            { value: 'parking', label: '🅿️ موقف سيارات' },
+            { value: 'airport', label: '✈️ مطار' },
+            { value: 'train', label: '🚉 محطة قطار' },
+            { value: 'castle', label: '🏰 موقع أثري' },
+            { value: 'park', label: '🌳 حديقة أو منتزه' },
+            { value: 'festival', label: '🎉 فعالية' },
+            { value: 'mosque', label: '🕌 مسجد' }
+        ];
+
+        bus.on("map:ready", map => { 
+            this.map = map; 
+            this.shareMode = MAP.shareMode; 
+            this.editMode = MAP.editMode; 
+            this.onMapReady(); 
+        });
         bus.on("state:load", st => this.applyState(st));
         bus.on("state:save", () => this.exportState());
     }
@@ -305,17 +354,119 @@ class LocationManager {
         if (!this.shareMode && this.items.length === 0) this.loadDefaultLocations();
         this.map.addListener("click", e => {
             if (!MAP.modeAdd || this.shareMode) return;
-            this.addItem({ id: "d" + Date.now() + Math.random(), lat: e.latLng.lat(), lng: e.latLng.lng(), radius: 22, color: "#ff0000", fillOpacity: 0.3, recipients: [] });
-            MAP.modeAdd = false; UI.showDefaultUI(); bus.emit("persist"); bus.emit("toast", "تمت إضافة موقع جديد");
+            
+            // === تعديل 2: إنشاء موقع مؤقت بأيقونة افتراضية ===
+            const tempData = { 
+                id: "d" + Date.now() + Math.random(), 
+                lat: e.latLng.lat(), 
+                lng: e.latLng.lng(), 
+                radius: 22, 
+                color: "#ff0000", 
+                fillOpacity: 0.3, 
+                recipients: [],
+                name: "موقع جديد",
+                iconType: 'local_police' // أيقونة افتراضية للمواقع الجديدة
+            };
+            const tempItem = this.addItem(tempData);
+
+            // فتح كرت التحرير فورًا
+            this.openCard(tempItem, false);
         });
     }
 
-    loadDefaultLocations() { const LOCS = [{ name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134 }, { name: "الحبيب", lat: 24.709422313107773, lng: 46.59397105888831 }, { name: "راس النعامة", lat: 24.71033234430099, lng: 46.57294855439484 }, { name: "دوار صفار", lat: 24.724914620418065, lng: 46.573466184564616 }, { name: "بيت مبارك", lat: 24.73261214957373, lng: 46.57825334260031 }, { name: "غصيبة", lat: 24.74573909383749, lng: 46.56052051492614 }, { name: "دوار الروقية", lat: 24.742007409023923, lng: 46.56268048966995 }, { name: "ميدان الملك سلمان", lat: 24.736130683456725, lng: 46.584028930317025 }, { name: "المسار الرياضي المديد", lat: 24.735384906613607, lng: 46.58133312296764 }, { name: "نقطة الشلهوب", lat: 24.73524079555137, lng: 46.57779729574876 }, { name: "مواقف الأمن", lat: 24.73785440668389, lng: 46.577909186352535 }, { name: "كار بارك", lat: 24.73829475280005, lng: 46.577901024011375 }, { name: "م 9", lat: 24.73889215714233, lng: 46.580699315602104 }, { name: "دوار البلدية", lat: 24.739271712116125, lng: 46.581809386523894 }, { name: "دوار الضوء الخافت", lat: 24.739746153778835, lng: 46.58352836407099 }, { name: "مسار المشاة طريق الملك خالد الفرعي", lat: 24.74079938101476, lng: 46.586711589990585 }, { name: "بوابة سمحان", lat: 24.742132, lng: 46.569503 }, { name: "منطقة سمحان", lat: 24.740913, lng: 46.571891 }, { name: "دوار البجيري", lat: 24.737521, lng: 46.574069 }, { name: "إشارة البجيري", lat: 24.737662, lng: 46.575429 }]; LOCS.forEach(loc => this.addItem({ id: "d" + Date.now() + Math.random(), name: loc.name, lat: loc.lat, lng: loc.lng, radius: 22, color: "#ff0000", fillOpacity: 0.3, recipients: [] })); }
+    // === تعديل 3: تحديث المواقع الافتراضية لأيقونات أكثر منطقية ===
+    loadDefaultLocations() { 
+        const LOCS = [
+           loadDefaultLocations() { const LOCS = [{ name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134 }, { name: "الحبيب", lat: 24.709422313107773, lng: 46.59397105888831 }, { name: "راس النعامة", lat: 24.71033234430099, lng: 46.57294855439484 }, { name: "دوار صفار", lat: 24.724914620418065, lng: 46.573466184564616 }, { name: "بيت مبارك", lat: 24.73261214957373, lng: 46.57825334260031 }, { name: "غصيبة", lat: 24.74573909383749, lng: 46.56052051492614 }, { name: "دوار الروقية", lat: 24.742007409023923, lng: 46.56268048966995 }, { name: "ميدان الملك سلمان", lat: 24.736130683456725, lng: 46.584028930317025 }, { name: "المسار الرياضي المديد", lat: 24.735384906613607, lng: 46.58133312296764 }, { name: "نقطة الشلهوب", lat: 24.73524079555137, lng: 46.57779729574876 }, { name: "مواقف الأمن", lat: 24.73785440668389, lng: 46.577909186352535 }, { name: "كار بارك", lat: 24.73829475280005, lng: 46.577901024011375 }, { name: "م 9", lat: 24.73889215714233, lng: 46.580699315602104 }, { name: "دوار البلدية", lat: 24.739271712116125, lng: 46.581809386523894 }, { name: "دوار الضوء الخافت", lat: 24.739746153778835, lng: 46.58352836407099 }, { name: "مسار المشاة طريق الملك خالد الفرعي", lat: 24.74079938101476, lng: 46.586711589990585 }, { name: "بوابة سمحان", lat: 24.742132, lng: 46.569503 }, { name: "منطقة سمحان", lat: 24.740913, lng: 46.571891 }, { name: "دوار البجيري", lat: 24.737521, lng: 46.574069 }, { name: "إشارة البجيري", lat: 24.737662, lng: 46.575429 }]; LOCS.forEach(loc => this.addItem({ id: "d" + Date.now() + Math.random(), name: loc.name, lat: loc.lat, lng: loc.lng, radius: 22, color: "#ff0000", fillOpacity: 0.3, recipients: [] })); }
+        ]; 
+        LOCS.forEach(loc => this.addItem({ 
+            id: "d" + Date.now() + Math.random(), 
+            name: loc.name, 
+            lat: loc.lat, 
+            lng: loc.lng, 
+            radius: 22, 
+            color: "#ff0000", 
+            fillOpacity: 0.3, 
+            recipients: [],
+            iconType: loc.iconType
+        })); 
+    }
+
+    // === تعديل 4: تعديل دالة addItem لإنشاء دبوس أو دائرة ===
     addItem(data) {
-        const marker = new google.maps.marker.AdvancedMarkerElement({ position: { lat: data.lat, lng: data.lng }, map: this.map, content: document.createElement('div'), gmpDraggable: this.editMode && !this.shareMode });
-        const circle = new google.maps.Circle({ center: { lat: data.lat, lng: data.lng }, map: this.map, radius: data.radius || 22, strokeColor: data.color || "#ff0000", fillColor: data.color || "#ff0000", fillOpacity: data.fillOpacity || 0.3, strokeOpacity: 0.9, strokeWeight: 2, zIndex: 100 });
-        const item = { id: data.id, name: data.name || "نقطة", color: data.color, radius: data.radius, fillOpacity: data.fillOpacity || 0.3, recipients: data.recipients, marker, circle };
-        this.attachListeners(item); this.items.push(item); return item;
+        let markerContent;
+        let zIndex = 100;
+
+        if (data.iconType && data.iconType !== 'default') {
+            // إنشاء دبوس (Pin) مع أيقونة
+            const iconEl = document.createElement("i");
+            iconEl.className = 'material-icons';
+            iconEl.textContent = this.availableIcons.find(icon => icon.value === data.iconType)?.label.split(' ')[0] || 'place';
+            iconEl.style.color = 'white';
+            iconEl.style.fontSize = '20px';
+
+            markerContent = document.createElement("div");
+            markerContent.style.cssText = `
+                background-color: ${data.color || "#ff0000"};
+                width: 32px;
+                height: 32px;
+                border-radius: 50% 50% 50% 0;
+                transform: 'rotate(-45deg) translate(-8px, 8px)';
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            `;
+            markerContent.appendChild(iconEl);
+            zIndex = 101; // جعل الدبوس فوق الدائرة
+        } else {
+            // إنشاء دائرة بسيطة (أو محتوى فارغ) كعنصر تفاعلي
+            markerContent = document.createElement("div");
+            markerContent.style.cssText = `
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background-color: white;
+                border: 2px solid ${data.color || "#ff0000"};
+                cursor: pointer;
+            `;
+        }
+
+        const marker = new google.maps.marker.AdvancedMarkerElement({ 
+            position: { lat: data.lat, lng: data.lng }, 
+            map: this.map, 
+            content: markerContent, 
+            gmpDraggable: this.editMode && !this.shareMode,
+            zIndex: zIndex
+        });
+        
+        const circle = new google.maps.Circle({ 
+            center: { lat: data.lat, lng: data.lng }, 
+            map: this.map, 
+            radius: data.radius || 22, 
+            strokeColor: data.color || "#ff0000", 
+            fillColor: data.color || "#ff0000", 
+            fillOpacity: data.fillOpacity || 0.3, 
+            strokeOpacity: 0.9, 
+            strokeWeight: 2, 
+            zIndex: 100 
+        });
+
+        const item = { 
+            id: data.id, 
+            name: data.name || "نقطة", 
+            color: data.color, 
+            radius: data.radius, 
+            fillOpacity: data.fillOpacity || 0.3, 
+            recipients: data.recipients,
+            iconType: data.iconType || 'default', // تخزين نوع الأيقونة
+            marker, 
+            circle 
+        };
+        
+        this.attachListeners(item); 
+        this.items.push(item); 
+        return item;
     }
 
     attachListeners(item) {
@@ -331,7 +482,11 @@ class LocationManager {
         const recipientsHtml = item.recipients.map(r => Utils.escapeHTML(r)).join('<br>');
         const isEditable = !hoverOnly && MAP.editMode;
 
-        // === تعديل تجاوب الكرت ===
+        // === تعديل 5: بناء قائمة منسدلة للأيقونات ===
+        const iconOptions = this.availableIcons.map(icon => 
+            `<option value="${icon.value}" ${item.iconType === icon.value ? 'selected' : ''}>${icon.label}</option>`
+        ).join('');
+
         const cardStyle = `
             font-family: 'Cairo', sans-serif; 
             background: rgba(255, 255, 255, 0.95); 
@@ -342,8 +497,8 @@ class LocationManager {
             color: #333; 
             direction: rtl; 
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15); 
-            max-width: 90vw; /* تغيير */
-            width: 360px; /* تغيير */
+            max-width: 95vw; 
+            width: 360px; 
             overflow: hidden;
         `;
         const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2);`;
@@ -357,6 +512,25 @@ class LocationManager {
                 <img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;">
             </div>
             <div style="${bodyStyle}">
+                ${isEditable ? `
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">نوع الموقع:</label>
+                        <select id="loc-icon-type" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ddd; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px;">
+                            ${iconOptions}
+                        </select>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الاسم:</label>
+                        <input id="loc-name" type="text" value="${name}" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;">
+                    </div>
+                ` : `
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">نوع الموقع:</label>
+                        <div style="background: #f0f0f0; padding: 8px; border-radius: 6px; font-family: 'Cairo', sans-serif; font-size: 14px;">
+                            ${this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'دائرة افتراضية'}
+                        </div>
+                    </div>
+                `}
                 <p style="margin: 0 0 12px 0; font-size: 14px; color: #555; font-family: 'Cairo', sans-serif;">المستلمون:</p>
                 ${isEditable ? `
                     <textarea id="loc-rec" rows="3" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px;">${item.recipients.join("\n")}</textarea>
@@ -389,21 +563,121 @@ class LocationManager {
         google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachCardEvents(item, hoverOnly));
     }
 
+    // === تعديل 6: تحديث مستمعي الأحداث للتعامل مع تغيير الأيقونة ===
     attachCardEvents(item, hoverOnly) {
         const closeBtn = document.getElementById("loc-close");
         if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); });
         if (hoverOnly || !MAP.editMode) return;
-        const saveBtn = document.getElementById("loc-save"); const delBtn = document.getElementById("loc-delete");
-        const recEl = document.getElementById("loc-rec"); const colEl = document.getElementById("loc-color"); const radEl = document.getElementById("loc-radius");
-        const opEl = document.getElementById("loc-opacity"); const opValEl = document.getElementById("loc-opacity-val");
+        
+        const saveBtn = document.getElementById("loc-save"); 
+        const delBtn = document.getElementById("loc-delete");
+        const nameEl = document.getElementById("loc-name");
+        const iconEl = document.getElementById("loc-icon-type"); // عنصر اختيار الأيقونة
+        const recEl = document.getElementById("loc-rec"); 
+        const colEl = document.getElementById("loc-color"); 
+        const radEl = document.getElementById("loc-radius");
+        const opEl = document.getElementById("loc-opacity"); 
+        const opValEl = document.getElementById("loc-opacity-val");
+        
         if(opEl) { opEl.addEventListener("input", () => { if(opValEl) opValEl.textContent = opEl.value + "%"; }); }
-        if (saveBtn) saveBtn.addEventListener("click", () => { item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean); item.color = colEl.value; item.radius = Utils.clamp(+radEl.value, 5, 5000); item.fillOpacity = Utils.clamp(+opEl.value, 0, 100) / 100; item.circle.setOptions({ fillColor: item.color, strokeColor: item.color, radius: item.radius, fillOpacity: item.fillOpacity }); bus.emit("persist"); UI.forceCloseSharedInfoCard(); bus.emit("toast", "تم حفظ التعديلات"); });
-        if (delBtn) delBtn.addEventListener("click", () => { if (!confirm(`حذف "${item.name}"؟`)) return; item.marker.map = null; item.circle.setMap(null); this.items = this.items.filter(x => x.id !== item.id); UI.forceCloseSharedInfoCard(); bus.emit("persist"); bus.emit("toast", "تم حذف الموقع"); });
+        
+        if (saveBtn) {
+            saveBtn.addEventListener("click", () => {
+                // تحديث اسم المستلمين
+                item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
+                
+                // تحديث اسم الموقع
+                item.name = nameEl.value.trim();
+                
+                // === التعديل الأهم هنا: تحديث الأيقونة ===
+                const newIconType = iconEl.value;
+                if (item.iconType !== newIconType) {
+                    item.iconType = newIconType;
+                    let newContent;
+
+                    if (newIconType === 'default') {
+                        // العودة إلى الدائرة
+                        newContent = document.createElement("div");
+                        newContent.style.cssText = `
+                            width: 12px; height: 12px; border-radius: 50%;
+                            background-color: white; border: 2px solid ${item.color};
+                            cursor: pointer;
+                        `;
+                        item.marker.zIndex = 100;
+                    } else {
+                        // إنشاء دبوس جديد
+                        const iconEl = document.createElement("i");
+                        iconEl.className = 'material-icons';
+                        iconEl.textContent = this.availableIcons.find(icon => icon.value === newIconType)?.label.split(' ')[0] || 'place';
+                        iconEl.style.color = 'white';
+                        iconEl.style.fontSize = '20px';
+
+                        newContent = document.createElement("div");
+                        newContent.style.cssText = `
+                            background-color: ${item.color};
+                            width: 32px; height: 32px; border-radius: 50% 50% 50% 0;
+                            transform: 'rotate(-45deg) translate(-8px, 8px)';
+                            display: flex; align-items: center; justify-content: center;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                        `;
+                        newContent.appendChild(iconEl);
+                        item.marker.zIndex = 101;
+                    }
+                    item.marker.content = newContent;
+                }
+
+                // تحديث باقي الخصائص
+                item.color = colEl.value; 
+                item.radius = Utils.clamp(+radEl.value, 5, 5000); 
+                item.fillOpacity = Utils.clamp(+opEl.value, 0, 100) / 100; 
+                
+                item.circle.setOptions({ 
+                    fillColor: item.color, 
+                    strokeColor: item.color, 
+                    radius: item.radius, 
+                    fillOpacity: item.fillOpacity 
+                });
+
+                bus.emit("persist"); 
+                UI.forceCloseSharedInfoCard(); 
+                bus.emit("toast", "تم حفظ التعديلات"); 
+            });
+        }
+        
+        if (delBtn) delBtn.addEventListener("click", () => { 
+            if (!confirm(`حذف "${item.name}"؟`)) return; 
+            item.marker.map = null; 
+            item.circle.setMap(null); 
+            this.items = this.items.filter(x => x.id !== item.id); 
+            UI.forceCloseSharedInfoCard(); 
+            bus.emit("persist"); 
+            bus.emit("toast", "تم حذف الموقع"); 
+        });
     }
 
-    exportState() { return this.items.map(it => ({ id: it.id, name: it.name, lat: typeof it.marker.position.lat === 'function' ? it.marker.position.lat() : it.marker.position.lat, lng: typeof it.marker.position.lng === 'function' ? it.marker.position.lng() : it.marker.position.lng, color: it.color, radius: it.radius, fillOpacity: it.fillOpacity, recipients: it.recipients })); }
-    applyState(state) { if (!state || !state.locations) return; this.items.forEach(it => { it.marker.map = null; it.circle.setMap(null); }); this.items = []; state.locations.forEach(loc => this.addItem(loc)); }
+    // === تعديل 7: تصدير واستيراد نوع الأيقونة ===
+    exportState() { 
+        return this.items.map(it => ({ 
+            id: it.id, 
+            name: it.name, 
+            lat: typeof it.marker.position.lat === 'function' ? it.marker.position.lat() : it.marker.position.lat, 
+            lng: typeof it.marker.position.lng === 'function' ? it.marker.position.lng() : it.marker.position.lng, 
+            color: it.color, 
+            radius: it.radius, 
+            fillOpacity: it.fillOpacity, 
+            iconType: it.iconType, // تصدير نوع الأيقونة
+            recipients: it.recipients 
+        })); 
+    }
+    
+    applyState(state) { 
+        if (!state || !state.locations) return; 
+        this.items.forEach(it => { it.marker.map = null; it.circle.setMap(null); }); 
+        this.items = []; 
+        state.locations.forEach(loc => this.addItem(loc)); 
+    }
 }
+
 const LOCATIONS = new LocationManager();
 
 /* ============================================================
