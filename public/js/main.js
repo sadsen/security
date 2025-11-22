@@ -302,6 +302,23 @@ class LocationManager {
         this.map = null;
         this.shareMode = false;
         this.editMode = true;
+        
+        // إضافة قائمة الأيقونات المتاحة
+        this.availableIcons = [
+            { value: 'default', label: 'مكان عام place' },
+            { value: 'local_police', label: 'شرطة local_police' },
+            { value: 'security', label: 'أمن security' },
+            { value: 'traffic', label: 'مرور traffic' },
+            { value: 'apartment', label: 'مبنى apartment' },
+            { value: 'local_hospital', label: 'مستشفى local_hospital' },
+            { value: 'directions_car', label: 'سيارة directions_car' },
+            { value: 'parking', label: 'مواقف parking' },
+            { value: 'local_fire_department', label: 'إطفاء local_fire_department' },
+            { value: 'business', label: 'نشاط تجاري business' },
+            { value: 'report_problem', label: 'مشكلة report_problem' },
+            { value: 'report', label: 'تقرير report' },
+            { value: 'gpp_good', label: 'جيد gpp_good' }
+        ];
 
         bus.on("map:ready", map => {
             this.map = map;
@@ -314,114 +331,78 @@ class LocationManager {
     }
 
     onMapReady() {
-        // تم حذف مستمع النقر من هنا
-        // هذا المستمع الآن موجود في UIManager
         if (!this.shareMode && this.items.length === 0) {
             this.loadDefaultLocations();
         }
-    }
 
-    /* ============================================================
-   LocationManager — إدارة المواقع + بطاقات Glass (نسخة مُصلحة بالكامل)
-   ============================================================ */
-class LocationManager {
-
-    constructor() {
-        this.items = [];
-        this.map = null;
-        this.shareMode = false;
-        this.editMode = true;
-
-        bus.on("map:ready", map => {
-            this.map = map;
-            this.shareMode = MAP.shareMode;
-            this.editMode = MAP.editMode;
-            this.onMapReady();
-        });
-        bus.on("state:load", st => this.applyState(st));
-        bus.on("state:save", () => this.exportState());
-    }
-
-    onMapReady() {
-    if (!this.shareMode && this.items.length === 0) {
-        this.loadDefaultLocations();
-    }
-
-    // مستمع النقر على الخريطة لإضافة موقع جديد
-    this.map.addListener("click", e => {
-        // ... (الكود الحالي يبقى كما هو)
-    });
-
-    // مستمع النقر على الدائرة لفتح كرت المعلومات
-    this.map.addListener("click", e => {
-        // منع الحدث منع الانتشار
-        e.stopPropagation(); // هذا السطر هو المهم
-        if (!MAP.modeAdd || this.shareMode) return;
-
-        // البحث عن أقرب موقع في هذا الموقع
-        for (const item of this.items) {
-            const distance = google.maps.geometry.spherical.computeDistance(e.latLng, item.marker.position);
-            if (distance < 5) { // إذا كان النقر قريبًا من علامة موجودة
-                // إذا كان قريبًا، افتح الكرت
-                this.openCard(item, false);
-                return; // أوقف البحث
+        // مستمع النقر على الخريطة لإضافة موقع جديد
+        this.map.addListener("click", e => {
+            if (!MAP.modeAdd || this.shareMode) return;
+            
+            // البحث عن أقرب موقع في هذا الموقع
+            for (const item of this.items) {
+                const distance = google.maps.geometry.spherical.computeDistanceBetween(e.latLng, item.marker.position);
+                if (distance < 5) { // إذا كان النقر قريبًا من علامة موجودة
+                    // إذا كان قريبًا، افتح الكرت
+                    this.openCard(item, false);
+                    return; // أوقف البحث
+                }
             }
-        }
 
-        // إذا لم يتم العثور على أي علامة، أنشئ موقع جديد
-        this.addItem({ 
+            // إذا لم يتم العثور على أي علامة، أنشئ موقع جديد
+            this.addItem({ 
+                id: "d" + Date.now() + Math.random(), 
+                lat: e.latLng.lat(), 
+                lng: e.latLng.lng(), 
+                radius: 22, 
+                color: "#ff0000", 
+                fillOpacity: 0.3, 
+                recipients: [],
+                name: "موقع جديد"
+            });
+
+            MAP.modeAdd = false; 
+            UI.showDefaultUI(); 
+            bus.emit("persist"); 
+            bus.emit("toast", "تمت إضافة موقع جديد");
+        });
+    }
+
+    loadDefaultLocations() { 
+        const LOCS = [
+            { name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134, iconType: 'local_police' },
+            { name: "الحبيب", lat: 24.709422313107773, lng: 46.59397105888831, iconType: 'security' },
+            { name: "راس النعامة", lat: 24.71033234430099, lng: 46.57294855439484, iconType: 'local_police' },
+            { name: "دوار صفار", lat: 24.724914620418065, lng: 46.573466184564616, iconType: 'traffic' },
+            { name: "بيت مبارك", lat: 24.73261214957373, lng: 46.57825334260031, iconType: 'apartment' },
+            { name: "غصيبة", lat: 24.74573909383749, lng: 46.56052051492614, iconType: 'local_hospital' },
+            { name: "دوار الروقية", lat: 24.742007409023923, lng: 46.56268048966995, iconType: 'local_police' },
+            { name: "ميدان الملك سلمان", lat: 24.736130683456725, lng: 46.584028930317025, iconType: 'directions_car' },
+            { name: "المسار الرياضي المديد", lat: 24.735384906613607, lng: 46.58133312296764, iconType: 'parking' },
+            { name: "نقطة الشلهوب", lat: 24.73524079555137, lng: 46.57779729574876, iconType: 'local_fire_department' },
+            { name: "مواقف الأمن", lat: 24.73785440668389, lng: 46.577909186352535, iconType: 'security' },
+            { name: "كار بارك", lat: 24.73829475280005, lng: 46.577901024011375, iconType: 'parking' },
+            { name: "م 9", lat: 24.73889215714233, lng: 46.580699315602104, iconType: 'business' },
+            { name: "دوار البلدية", lat: 24.739271712116125, lng: 46.581809386523894, iconType: 'local_police' },
+            { name: "دوار الضوء الخافت", lat: 24.739746153778835, lng: 46.58352836407099, iconType: 'report_problem' },
+            { name: "مسار المشاة طريق الملك خالد الفرعي", lat: 24.74079938101476, lng: 46.586711589990585, iconType: 'report' },
+            { name: "بوابة سمحان", lat: 24.742132, lng: 46.569503, iconType: 'local_police' },
+            { name: "منطقة سمحان", lat: 24.740913, lng: 46.571891, iconType: 'gpp_good' },
+            { name: "دوار البجيري", lat: 24.737521, lng: 46.574069, iconType: 'local_police' },
+            { name: "إشارة البجيري", lat: 24.737662, lng: 46.575429, iconType: 'report_problem' }
+        ]; 
+        LOCS.forEach(loc => this.addItem({ 
             id: "d" + Date.now() + Math.random(), 
-            lat: e.latLng.lat(), 
-            lng: e.latLng.lng(), 
+            name: loc.name, 
+            lat: loc.lat, 
+            lng: loc.lng, 
             radius: 22, 
             color: "#ff0000", 
             fillOpacity: 0.3, 
-            recipients: [] 
-            name: "موقع جديد"
-        });
-
-        // ... (باقي الكود كما هو)
-        MAP.modeAdd = false; 
-        UI.showDefaultUI(); 
-        bus.emit("persist"); 
-        bus.emit("toast", "تمت إضافة موقع جديد");
-    });
-}
-   loadDefaultLocations() { 
-    const LOCS = [
-        { name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134, iconType: 'local_police' },
-        { name: "الحبيب", lat: 24.709422313107773, lng: 46.59397105888831, iconType: 'security' },
-        { name: "راس النعامة", lat: 24.71033234430099, lng: 46.57294855439484, iconType: 'local_police' },
-        { name: "دوار صفار", lat: 24.724914620418065, lng: 46.573466184564616, iconType: 'traffic' },
-        { name: "بيت مبارك", lat: 24.73261214957373, lng: 46.57825334260031, iconType: 'apartment' },
-        { name: "غصيبة", lat: 24.74573909383749, lng: 46.56052051492614, iconType: 'local_hospital' },
-        { name: "دوار الروقية", lat: 24.742007409023923, lng: 46.56268048966995, iconType: 'local_police' },
-        { name: "ميدان الملك سلمان", lat: 24.736130683456725, lng: 46.584028930317025, iconType: 'directions_car' },
-        { name: "المسار الرياضي المديد", lat: 24.735384906613607, lng: 46.58133312296764, iconType: 'parking' },
-        { name: "نقطة الشلهوب", lat: 24.73524079555137, lng: 46.57779729574876, iconType: 'local_fire_department' },
-        { name: "مواقف الأمن", lat: 24.73785440668389, lng: 46.577909186352535, iconType: 'security' },
-        { name: "كار بارك", lat: 24.73829475280005, lng: 46.577901024011375, iconType: 'parking' },
-        { name: "م 9", lat: 24.73889215714233, lng: 46.580699315602104, iconType: 'business' },
-        { name: "دوار البلدية", lat: 24.739271712116125, lng: 46.581809386523894, iconType: 'local_police' },
-        { name: "دوار الضوء الخافت", lat: 24.739746153778835, lng: 46.58352836407099, iconType: 'report_problem' },
-        { name: "مسار المشاة طريق الملك خالد الفرعي", lat: 24.74079938101476, lng: 46.586711589990585, iconType: 'report' },
-        { name: "بوابة سمحان", lat: 24.742132, lng: 46.569503, iconType: 'local_police' },
-        { name: "منطقة سمحان", lat: 24.740913, lng: 46.571891, iconType: 'gpp_good' },
-        { name: "دوار البجيري", lat: 24.737521, lng: 46.574069, iconType: 'local_police' },
-        { name: "إشارة البجيري", lat: 24.737662, lng: 46.575429, iconType: 'report_problem' }
-    ]; 
-    LOCS.forEach(loc => this.addItem({ 
-        id: "d" + Date.now() + Math.random(), 
-        name: loc.name, 
-        lat: loc.lat, 
-        lng: loc.lng, 
-        radius: 22, 
-        color: "#ff0000", 
-        fillOpacity: 0.3, 
-        recipients: [],
-        iconType: loc.iconType 
-    })); 
-}
+            recipients: [],
+            iconType: loc.iconType 
+        })); 
+    }
     
     addItem(data) {
         // إنشاء علامة موقع (marker)
@@ -451,7 +432,7 @@ class LocationManager {
             name: data.name || "نقطة",
             color: data.color,
             radius: data.radius,
-            مستلمون: data.recipients,
+            recipients: data.recipients, // تصحيح من "مستلمون" إلى "recipients"
             iconType: data.iconType || 'default',
             usePin: data.usePin || false,
             showCircle: data.showCircle || true,
@@ -555,6 +536,10 @@ class LocationManager {
                         <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الاسم:</label>
                         <input id="loc-name" type="text" value="${name}" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;">
                     </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">المستلمون:</label>
+                        <textarea id="loc-rec" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;min-height:80px;resize:vertical;">${item.recipients.join('\n')}</textarea>
+                    </div>
                 ` : `
                     <div style="margin-bottom:14px;">
                         <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">نوع الموقع:</label>
@@ -562,10 +547,11 @@ class LocationManager {
                             ${this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'مكان عام'}
                         </div>
                     </div>
-                ` : `
-                    <p style="margin: 0 0 12px 0; font-size: 14px; color: #555; font-family: 'Cairo', sans-serif;">المستلمون:</p>
-                    <div style="background: rgba(66, 133, 244, 0.1); padding: 10px; border-radius: 10px; min-height: 50px; font-size: 14px; line-height: 1.6; font-family: 'Cairo', sans-serif;">
-                        ${recipientsHtml || '<span style="color: #888;">لا يوجد مستلمين</span>'}
+                    <div style="margin-bottom:14px;">
+                        <p style="margin: 0 0 12px 0; font-size: 14px; color: #555; font-family: 'Cairo', sans-serif;">المستلمون:</p>
+                        <div style="background: rgba(66, 133, 244, 0.1); padding: 10px; border-radius: 10px; min-height: 50px; font-size: 14px; line-height: 1.6; font-family: 'Cairo', sans-serif;">
+                            ${recipientsHtml || '<span style="color: #888;">لا يوجد مستلمين</span>'}
+                        </div>
                     </div>
                 `}
             </div>
@@ -593,54 +579,21 @@ class LocationManager {
     }
 
     attachCardEvents(item, hoverOnly = false) {
-    const closeBtn = document.getElementById("loc-close");
-    if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); });
-    if (hoverOnly || !MAP.editMode) return;
+        const closeBtn = document.getElementById("loc-close");
+        if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); });
+        if (hoverOnly || !MAP.editMode) return;
 
-    const saveBtn = document.getElementById("loc-save");
-    const delBtn = document.getElementById("loc-delete");
-    const nameEl = document.getElementById("loc-name");
-    const recEl = document.getElementById("loc-rec");
-    const colEl = document.getElementById("loc-color");
-    const radEl = document.getElementById("loc-radius");
-    const opEl = document.getElementById("loc-opacity");
-    const opValEl = document.getElementById("loc-opacity-val");
+        const saveBtn = document.getElementById("loc-save");
+        const delBtn = document.getElementById("loc-delete");
+        const nameEl = document.getElementById("loc-name");
+        const recEl = document.getElementById("loc-rec");
+        const colEl = document.getElementById("loc-color");
+        const radEl = document.getElementById("loc-radius");
+        const opEl = document.getElementById("loc-opacity");
+        const opValEl = document.getElementById("loc-opacity-val");
+        const iconTypeEl = document.getElementById("loc-icon-type");
 
-    if (opEl) { opEl.addEventListener("input", () => { if(opValEl) opValEl.textContent = opEl.value + "%"; }); }
-
-    if (saveBtn) {
-        saveBtn.addEventListener("click", () => {
-            item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
-            item.name = nameEl.value.trim();
-            item.color = colEl.value;
-            item.radius = Utils.clamp(+radEl.value, 5, 5000);
-            item.fillOpacity = Utils.clamp(+opEl.value, 0, 100) / 100;
-            item.circle.setOptions({
-                fillColor: item.color,
-                strokeColor: item.color,
-                radius: item.radius,
-                fillOpacity: item.fillOpacity
-            });
-
-            bus.emit("persist");
-            UI.forceCloseSharedInfoCard();
-            bus.emit("toast", "تم حفظ التعديلات");
-        });
-    }
-
-    if (delBtn) {
-        delBtn.addEventListener("click", () => {
-            if (!confirm(`حذف "${item.name}"؟`)) return;
-            item.marker.map = null;
-            item.circle.setMap(null);
-            this.items = this.items.filter(x => x.id !== item.id);
-            UI.forceCloseSharedInfoCard();
-            bus.emit("persist");
-            bus.emit("بهذه المشكلة في `main.js`:
-            bus.emit("toast", "تم حذف الموقع");
-        });
-    }
-}
+        if (opEl) { opEl.addEventListener("input", () => { if(opValEl) opValEl.textContent = opEl.value + "%"; }); }
 
         if (saveBtn) {
             saveBtn.addEventListener("click", () => {
@@ -648,6 +601,9 @@ class LocationManager {
                 item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
                 // تحديث اسم الموقع
                 item.name = nameEl.value.trim();
+                
+                // تحديث نوع الأيقونة
+                item.iconType = iconTypeEl.value;
                 
                 // تحديث خصائص العلامة
                 item.color = colEl.value;
@@ -661,6 +617,9 @@ class LocationManager {
                     radius: item.radius,
                     fillOpacity: item.fillOpacity
                 });
+                
+                // تحديث محتوى العلامة
+                item.marker.content = this.buildMarkerContent(item);
 
                 bus.emit("persist");
                 UI.forceCloseSharedInfoCard();
