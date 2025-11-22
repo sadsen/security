@@ -343,13 +343,50 @@ class LocationManager {
     }
 
     onMapReady() {
-        // تم حذف مستمع النقر من هنا
-        // هذا المستمع الآن موجود في UIManager
-        if (!this.shareMode && this.items.length === 0) {
-            this.loadDefaultLocations();
-        }
+    if (!this.shareMode && this.items.length === 0) {
+        this.loadDefaultLocations();
     }
 
+    // مستمع النقر على الخريطة لإضافة موقع جديد
+    this.map.addListener("click", e => {
+        // ... (الكود الحالي يبقى كما هو)
+    });
+
+    // مستمع النقر على الدائرة لفتح كرت المعلومات
+    this.map.addListener("click", e => {
+        // منع الحدث منع الانتشار
+        e.stopPropagation(); // هذا السطر هو المهم
+        if (!MAP.modeAdd || this.shareMode) return;
+
+        // البحث عن أقرب موقع في هذا الموقع
+        for (const item of this.items) {
+            const distance = google.maps.geometry.spherical.computeDistance(e.latLng, item.marker.position);
+            if (distance < 5) { // إذا كان النقر قريبًا من علامة موجودة
+                // إذا كان قريبًا، افتح الكرت
+                this.openCard(item, false);
+                return; // أوقف البحث
+            }
+        }
+
+        // إذا لم يتم العثور على أي علامة، أنشئ موقع جديد
+        this.addItem({ 
+            id: "d" + Date.now() + Math.random(), 
+            lat: e.latLng.lat(), 
+            lng: e.latLng.lng(), 
+            radius: 22, 
+            color: "#ff0000", 
+            fillOpacity: 0.3, 
+            recipients: [] 
+            name: "موقع جديد"
+        });
+
+        // ... (باقي الكود كما هو)
+        MAP.modeAdd = false; 
+        UI.showDefaultUI(); 
+        bus.emit("persist"); 
+        bus.emit("toast", "تمت إضافة موقع جديد");
+    });
+}
    loadDefaultLocations() { 
     const LOCS = [
         { name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134, iconType: 'local_police' },
@@ -555,25 +592,55 @@ class LocationManager {
         google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachCardEvents(item, hoverOnly));
     }
 
-    attachCardEvents(item, hoverOnly) {
-        const closeBtn = document.getElementById("loc-close");
-        if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); });
-        if (hoverOnly || !MAP.editMode) return;
+    attachCardEvents(item, hoverOnly = false) {
+    const closeBtn = document.getElementById("loc-close");
+    if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); });
+    if (hoverOnly || !MAP.editMode) return;
 
-        const saveBtn = document.getElementById("loc-save");
-        const delBtn = document.getElementById("loc-delete");
-        const nameEl = document.getElementById("loc-name");
-        const recEl = document.getElementById("loc-rec");
-        const colEl = document.getElementById("loc-color");
-        const radEl = document.getElementById("loc-radius");
-        const opEl = document.getElementById("loc-opacity");
-        const opValEl = document.getElementById("loc-opacity-val");
+    const saveBtn = document.getElementById("loc-save");
+    const delBtn = document.getElementById("loc-delete");
+    const nameEl = document.getElementById("loc-name");
+    const recEl = document.getElementById("loc-rec");
+    const colEl = document.getElementById("loc-color");
+    const radEl = document.getElementById("loc-radius");
+    const opEl = document.getElementById("loc-opacity");
+    const opValEl = document.getElementById("loc-opacity-val");
 
-        if (opEl) {
-            opEl.addEventListener("input", () => {
-                if (opValEl) opValEl.textContent = opEl.value + "%";
+    if (opEl) { opEl.addEventListener("input", () => { if(opValEl) opValEl.textContent = opEl.value + "%"; }); }
+
+    if (saveBtn) {
+        saveBtn.addEventListener("click", () => {
+            item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
+            item.name = nameEl.value.trim();
+            item.color = colEl.value;
+            item.radius = Utils.clamp(+radEl.value, 5, 5000);
+            item.fillOpacity = Utils.clamp(+opEl.value, 0, 100) / 100;
+            item.circle.setOptions({
+                fillColor: item.color,
+                strokeColor: item.color,
+                radius: item.radius,
+                fillOpacity: item.fillOpacity
             });
-        }
+
+            bus.emit("persist");
+            UI.forceCloseSharedInfoCard();
+            bus.emit("toast", "تم حفظ التعديلات");
+        });
+    }
+
+    if (delBtn) {
+        delBtn.addEventListener("click", () => {
+            if (!confirm(`حذف "${item.name}"؟`)) return;
+            item.marker.map = null;
+            item.circle.setMap(null);
+            this.items = this.items.filter(x => x.id !== item.id);
+            UI.forceCloseSharedInfoCard();
+            bus.emit("persist");
+            bus.emit("بهذه المشكلة في `main.js`:
+            bus.emit("toast", "تم حذف الموقع");
+        });
+    }
+}
 
         if (saveBtn) {
             saveBtn.addEventListener("click", () => {
