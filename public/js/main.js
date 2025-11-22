@@ -290,62 +290,13 @@ const MAP = new MapController();
 ============================================================ */
 
 /* ============================================================
-   LocationManager — المواقع + بطاقات Glass (مع نظام أيقونات متقدم)
+   LocationManager — المواقع + بطاقات Glass (مع مفتاح تبديل الشكل)
    ============================================================ */
 class LocationManager {
 
     constructor() {
-        this.items = []; 
-        this.map = null; 
-        this.shareMode = false; 
-        this.editMode = true;
-
-        // === تعديل 1: توسيع قائمة الأيقونات وتصنيفها ===
-        this.availableIcons = [
-            { value: 'default', label: '🔵 دائرة افتراضية' },
-            { value: 'place', label: '📍 مكان عام' },
-            { value: 'warning', label: '⚠️ تحذير عام' },
-            { value: 'report_problem', label: '🚨 خطر' },
-            { value: 'gpp_maybe', label: '🔶 منطقة مشبوهة' },
-            { value: 'gpp_good', label: '🟢 منطقة آمنة' },
-            { value: 'local_police', label: '👮 مركز شرطة' },
-            { value: 'security', label: '🛡️ رجل أمن' },
-            { value: 'directions_car', label: '🚗 دورية أمنية' },
-            { value: 'local_hospital', label: '🏥 مستشفى' },
-            { value: 'local_pharmacy', label: '💊 صيدلية' },
-            { value: 'emergency', label: '🚑 طوارئ' },
-            { value: 'local_fire_department', label: '🚒 إطفاء' },
-            { value: 'health_and_safety', label: '🚑 سلامة' },
-            { value: 'traffic', label: '🚦 حركة مرور' },
-            { value: 'report', label: '📊 حادث مروري' },
-            { value: 'gps_fixed', label: '📍 كاميرا مراقبة' },
-            { value: 'not_listed_location', label: '📍 نقطة تفتيش' },
-            { value: 'block', label: '🚧 طريق مغلق' },
-            { value: 'do_not_step', label: '🚷 ممنوع المرور' },
-            { value: 'school', label: '🏫 مدرسة' },
-            { value: 'apartment', label: '🏢 مجمع سكني' },
-            { value: 'business', label: '🏢 مبنى تجاري' },
-            { value: 'shopping_cart', label: '🛒 مركز تسوق' },
-            { value: 'restaurant', label: '🍽 مطعم' },
-            { value: 'gas_station', label: '⛽ محطة وقود' },
-            { value: 'hotel', label: '🏨 فندق' },
-            { value: 'atm', label: '💵 صراف آلي' },
-            { value: 'bank', label: '🏦 بنك' },
-            { value: 'parking', label: '🅿️ موقف سيارات' },
-            { value: 'airport', label: '✈️ مطار' },
-            { value: 'train', label: '🚉 محطة قطار' },
-            { value: 'castle', label: '🏰 موقع أثري' },
-            { value: 'park', label: '🌳 حديقة أو منتزه' },
-            { value: 'festival', label: '🎉 فعالية' },
-            { value: 'mosque', label: '🕌 مسجد' }
-        ];
-
-        bus.on("map:ready", map => { 
-            this.map = map; 
-            this.shareMode = MAP.shareMode; 
-            this.editMode = MAP.editMode; 
-            this.onMapReady(); 
-        });
+        this.items = []; this.map = null; this.shareMode = false; this.editMode = true;
+        bus.on("map:ready", map => { this.map = map; this.shareMode = MAP.shareMode; this.editMode = MAP.editMode; this.onMapReady(); });
         bus.on("state:load", st => this.applyState(st));
         bus.on("state:save", () => this.exportState());
     }
@@ -354,27 +305,11 @@ class LocationManager {
         if (!this.shareMode && this.items.length === 0) this.loadDefaultLocations();
         this.map.addListener("click", e => {
             if (!MAP.modeAdd || this.shareMode) return;
-            
-            // === تعديل 2: إنشاء موقع مؤقت بأيقونة افتراضية ===
-            const tempData = { 
-                id: "d" + Date.now() + Math.random(), 
-                lat: e.latLng.lat(), 
-                lng: e.latLng.lng(), 
-                radius: 22, 
-                color: "#ff0000", 
-                fillOpacity: 0.3, 
-                recipients: [],
-                name: "موقع جديد",
-                iconType: 'local_police' // أيقونة افتراضية للمواقع الجديدة
-            };
-            const tempItem = this.addItem(tempData);
-
-            // فتح كرت التحرير فورًا
-            this.openCard(tempItem, false);
+            this.addItem({ id: "d" + Date.now() + Math.random(), lat: e.latLng.lat(), lng: e.latLng.lng(), radius: 22, color: "#ff0000", fillOpacity: 0.3, recipients: [], usePin: false }); // بشكل افتراضي، استخدم الدائرة
+            MAP.modeAdd = false; UI.showDefaultUI(); bus.emit("persist"); bus.emit("toast", "تمت إضافة موقع جديد");
         });
     }
 
-    // === تعديل 3: تحديث المواقع الافتراضية لأيقونات أكثر منطقية ===
     loadDefaultLocations() { 
     const LOCS = [
         { name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134, iconType: 'local_police' },
@@ -406,16 +341,16 @@ class LocationManager {
         radius: 22, 
         color: "#ff0000", 
         fillOpacity: 0.3, 
-        iconType: loc.iconType, // تمت إضافة نوع الأيقونة
-        recipients: [] 
+        recipients: [],
+        iconType: loc.iconType 
     })); 
-}
-    // === تعديل 4: تعديل دالة addItem لإنشاء دبوس أو دائرة ===
+} // تمت إضافة القوس الإغلاق المفقود هنا
+
     addItem(data) {
         let markerContent;
         let zIndex = 100;
 
-        if (data.iconType && data.iconType !== 'default') {
+        if (data.usePin) {
             // إنشاء دبوس (Pin) مع أيقونة
             const iconEl = document.createElement("i");
             iconEl.className = 'material-icons';
@@ -477,7 +412,8 @@ class LocationManager {
             radius: data.radius, 
             fillOpacity: data.fillOpacity || 0.3, 
             recipients: data.recipients,
-            iconType: data.iconType || 'default', // تخزين نوع الأيقونة
+            iconType: data.iconType || 'default',
+            usePin: data.usePin || false, // حفظ اختيار الشكل
             marker, 
             circle 
         };
@@ -500,7 +436,7 @@ class LocationManager {
         const recipientsHtml = item.recipients.map(r => Utils.escapeHTML(r)).join('<br>');
         const isEditable = !hoverOnly && MAP.editMode;
 
-        // === تعديل 5: بناء قائمة منسدلة للأيقونات ===
+        // بناء قائمة منسدلة للأيقونات
         const iconOptions = this.availableIcons.map(icon => 
             `<option value="${icon.value}" ${item.iconType === icon.value ? 'selected' : ''}>${icon.label}</option>`
         ).join('');
@@ -538,6 +474,14 @@ class LocationManager {
                         </select>
                     </div>
                     <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شكل العلامة:</label>
+                        <label class="switch">
+                            <input type="checkbox" id="loc-use-pin" ${item.usePin ? 'checked' : ''}>
+                            <span class="slider round"></span>
+                            <span style="margin-right: 10px;">دبوس</span>
+                        </label>
+                    </div>
+                    <div style="margin-bottom:14px;">
                         <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الاسم:</label>
                         <input id="loc-name" type="text" value="${name}" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;">
                     </div>
@@ -545,7 +489,13 @@ class LocationManager {
                     <div style="margin-bottom:14px;">
                         <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">نوع الموقع:</label>
                         <div style="background: #f0f0f0; padding: 8px; border-radius: 6px; font-family: 'Cairo', sans-serif; font-size: 14px;">
-                            ${this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'دائرة افتراضية'}
+                            ${this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'مكان عام'}
+                        </div>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شكل العلامة:</label>
+                        <div style="background: #f0f0f0; padding: 8px; border-radius: 6px; font-family: 'Cairo', sans-serif; font-size: 14px;">
+                            ${item.usePin ? 'دبوس' : 'دائرة'}
                         </div>
                     </div>
                 `}
@@ -581,7 +531,6 @@ class LocationManager {
         google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachCardEvents(item, hoverOnly));
     }
 
-    // === تعديل 6: تحديث مستمعي الأحداث للتعامل مع تغيير الأيقونة ===
     attachCardEvents(item, hoverOnly) {
         const closeBtn = document.getElementById("loc-close");
         if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); });
@@ -590,7 +539,8 @@ class LocationManager {
         const saveBtn = document.getElementById("loc-save"); 
         const delBtn = document.getElementById("loc-delete");
         const nameEl = document.getElementById("loc-name");
-        const iconEl = document.getElementById("loc-icon-type"); // عنصر اختيار الأيقونة
+        const iconEl = document.getElementById("loc-icon-type");
+        const usePinEl = document.getElementById("loc-use-pin"); // عنصر مفتاح التبديل
         const recEl = document.getElementById("loc-rec"); 
         const colEl = document.getElementById("loc-color"); 
         const radEl = document.getElementById("loc-radius");
@@ -601,32 +551,22 @@ class LocationManager {
         
         if (saveBtn) {
             saveBtn.addEventListener("click", () => {
-                // تحديث اسم المستلمين
-                item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
-                
+                // تحديث المستلمين
+                item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean); 
                 // تحديث اسم الموقع
                 item.name = nameEl.value.trim();
                 
-                // === التعديل الأهم هنا: تحديث الأيقونة ===
-                const newIconType = iconEl.value;
-                if (item.iconType !== newIconType) {
-                    item.iconType = newIconType;
+                // === التعديل الأهم هنا: التعامل مع تغيير الشكل ===
+                const newUsePinState = usePinEl.checked;
+                if (item.usePin !== newUsePinState) {
+                    item.usePin = newUsePinState;
                     let newContent;
 
-                    if (newIconType === 'default') {
-                        // العودة إلى الدائرة
-                        newContent = document.createElement("div");
-                        newContent.style.cssText = `
-                            width: 12px; height: 12px; border-radius: 50%;
-                            background-color: white; border: 2px solid ${item.color};
-                            cursor: pointer;
-                        `;
-                        item.marker.zIndex = 100;
-                    } else {
+                    if (newUsePinState) {
                         // إنشاء دبوس جديد
                         const iconEl = document.createElement("i");
                         iconEl.className = 'material-icons';
-                        iconEl.textContent = this.availableIcons.find(icon => icon.value === newIconType)?.label.split(' ')[0] || 'place';
+                        iconEl.textContent = this.availableIcons.find(icon => icon.value === item.iconType)?.label.split(' ')[0] || 'place';
                         iconEl.style.color = 'white';
                         iconEl.style.fontSize = '20px';
 
@@ -640,10 +580,26 @@ class LocationManager {
                         `;
                         newContent.appendChild(iconEl);
                         item.marker.zIndex = 101;
+                    } else {
+                        // إنشاء دائرة جديدة
+                        newContent = document.createElement("div");
+                        newContent.style.cssText = `
+                            width: 12px; height: 12px; border-radius: 50%;
+                            background-color: white; border: 2px solid ${item.color};
+                            cursor: pointer;
+                        `;
+                        item.marker.zIndex = 100;
                     }
                     item.marker.content = newContent;
                 }
 
+                // تحديث نوع الأيقونة
+                item.iconType = iconEl.value;
+                const iconMarker = item.marker.content.querySelector('i');
+                if(iconMarker) {
+                    iconMarker.textContent = this.availableIcons.find(icon => icon.value === item.iconType)?.label.split(' ')[0] || 'place';
+                }
+                
                 // تحديث باقي الخصائص
                 item.color = colEl.value; 
                 item.radius = Utils.clamp(+radEl.value, 5, 5000); 
@@ -673,7 +629,6 @@ class LocationManager {
         });
     }
 
-    // === تعديل 7: تصدير واستيراد نوع الأيقونة ===
     exportState() { 
         return this.items.map(it => ({ 
             id: it.id, 
@@ -683,7 +638,8 @@ class LocationManager {
             color: it.color, 
             radius: it.radius, 
             fillOpacity: it.fillOpacity, 
-            iconType: it.iconType, // تصدير نوع الأيقونة
+            iconType: it.iconType,
+            usePin: it.usePin, // تصدير اختيار الشكل
             recipients: it.recipients 
         })); 
     }
