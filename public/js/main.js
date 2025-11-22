@@ -292,6 +292,7 @@ const MAP = new MapController();
 /* ============================================================
    LocationManager — إدارة المواقع (نسخة مبسطة ومُصلحة)
    ============================================================ */
+
 /* ============================================================
    LocationManager — إدارة المواقع + بطاقات Glass (نسخة مُصلحة بالكامل)
    ============================================================ */
@@ -357,7 +358,7 @@ class LocationManager {
                 radius: 22, 
                 color: "#ff0000", 
                 fillOpacity: 0.3, 
-                recipients: [],
+                recipients: [], // <-- تم إضافة الفاصلة هنا
                 name: "موقع جديد"
             });
 
@@ -463,7 +464,7 @@ class LocationManager {
                 width: 32px;
                 height: 32px;
                 border-radius: 50% 50% 50% 0;
-                transform: 'rotate(-45deg) translate(-8px, 8px)';
+                transform: rotate(-45deg) translate(-8px, 8px);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -668,8 +669,6 @@ class LocationManager {
 }
 
 const LOCATIONS = new LocationManager();
-
-    addItem(data) {
         // إنشاء علامة موقع (marker)
         const marker = new google.maps.marker.AdvancedMarkerElement({
             position: { lat: data.lat, lng: data.lng },
