@@ -131,18 +131,62 @@
     </div>
   </div>
 
-  <div id="toolbar">
-    <!-- تم استبدال أزرار الخريطة بـ زر الطبقات -->
-    <button id="btn-layers" class="btn" aria-pressed="false">طبقات</button>
-    <button id="btn-add" class="btn" aria-pressed="false">إضافة موقع</button>
-    <button id="btn-polygon" class="btn" aria-pressed="false">مضلع</button>
-    <button id="btn-route" class="btn" aria-pressed="false">مسار</button>
-    <button id="btn-draw-finish" class="btn" style="display: none;">إنهاء الرسم</button>
-    <button id="btn-route-clear" class="btn" aria-pressed="false">مسح المسار</button>
-    <button id="btn-edit" class="btn" aria-pressed="true">تحرير</button>
-    <button id="btn-share" class="btn"><span class="label">مشاركة</span></button>
-  </div>
+    <div id="toolbar">
+    <!-- أضف هذه القاعدة إلى قسم <style> في أعلى الصفحة -->
+    <style>
+      .btn i {
+        margin-left: 6px; /* إضافة مسافة بين الأيقونة والنص */
+        font-size: 18px; /* حجم الأيقونة */
+        vertical-align: middle; /* محاذاة الأيقونة مع النص عموديًا */
+      }
+    </style>
 
+    <!-- زر الطبقات -->
+    <button id="btn-layers" class="btn" aria-pressed="false" title="إظهار وإخفاء طبقات الخريطة">
+      <i class="material-icons">layers</i>
+      طبقات
+    </button>
+    <!-- زر إضافة موقع -->
+    <button id="btn-add" class="btn" aria-pressed="false" title="إضافة موقع جديد على الخريطة">
+      <i class="material-icons">add_location</i>
+      إضافة موقع
+    </button>
+    <!-- زر المضلع -->
+    <button id="btn-polygon" class="btn" aria-pressed="false" title="رسم مضلع على الخريطة">
+      <i class="material-icons">polyline</i>
+      مضلع
+    </button>
+    <!-- زر المسار -->
+    <button id="btn-route" class="btn" aria-pressed="false" title="رسم مسار على الخريطة">
+      <i class="material-icons">route</i>
+      مسار
+    </button>
+    <!-- زر القياس -->
+    <button id="btn-measure" class="btn" aria-pressed="false" title="قياس مسافة أو مساحة">
+      <i class="material-icons">straighten</i>
+      قياس
+    </button>
+    <!-- زر إنهاء الرسم -->
+    <button id="btn-draw-finish" class="btn" style="display: none;" title="إنهاء الرسم الحالي">
+      <i class="material-icons">check</i>
+      إنهاء الرسم
+    </button>
+    <!-- زر مسح المسار -->
+    <button id="btn-route-clear" class="btn" aria-pressed="false" title="مسح المسار النشط">
+      <i class="material-icons">delete_sweep</i>
+      مسح المسار
+    </button>
+    <!-- زر التحرير -->
+    <button id="btn-edit" class="btn" aria-pressed="true" title="تبديل وضع التحرير">
+      <i class="material-icons">edit</i>
+      تحرير
+    </button>
+    <!-- زر المشاركة -->
+    <button id="btn-share" class="btn" title="مشاركة رابط الخريطة الحالية">
+      <i class="material-icons">share</i>
+      <span class="label">مشاركة</span>
+    </button>
+  </div>
   <div id="mode-badge"></div>
   <div id="toast"></div>
   
