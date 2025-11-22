@@ -376,22 +376,40 @@ class LocationManager {
 
     // === تعديل 3: تحديث المواقع الافتراضية لأيقونات أكثر منطقية ===
     loadDefaultLocations() { 
-        const LOCS = [
-           loadDefaultLocations() { const LOCS = [{ name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134 }, { name: "الحبيب", lat: 24.709422313107773, lng: 46.59397105888831 }, { name: "راس النعامة", lat: 24.71033234430099, lng: 46.57294855439484 }, { name: "دوار صفار", lat: 24.724914620418065, lng: 46.573466184564616 }, { name: "بيت مبارك", lat: 24.73261214957373, lng: 46.57825334260031 }, { name: "غصيبة", lat: 24.74573909383749, lng: 46.56052051492614 }, { name: "دوار الروقية", lat: 24.742007409023923, lng: 46.56268048966995 }, { name: "ميدان الملك سلمان", lat: 24.736130683456725, lng: 46.584028930317025 }, { name: "المسار الرياضي المديد", lat: 24.735384906613607, lng: 46.58133312296764 }, { name: "نقطة الشلهوب", lat: 24.73524079555137, lng: 46.57779729574876 }, { name: "مواقف الأمن", lat: 24.73785440668389, lng: 46.577909186352535 }, { name: "كار بارك", lat: 24.73829475280005, lng: 46.577901024011375 }, { name: "م 9", lat: 24.73889215714233, lng: 46.580699315602104 }, { name: "دوار البلدية", lat: 24.739271712116125, lng: 46.581809386523894 }, { name: "دوار الضوء الخافت", lat: 24.739746153778835, lng: 46.58352836407099 }, { name: "مسار المشاة طريق الملك خالد الفرعي", lat: 24.74079938101476, lng: 46.586711589990585 }, { name: "بوابة سمحان", lat: 24.742132, lng: 46.569503 }, { name: "منطقة سمحان", lat: 24.740913, lng: 46.571891 }, { name: "دوار البجيري", lat: 24.737521, lng: 46.574069 }, { name: "إشارة البجيري", lat: 24.737662, lng: 46.575429 }]; LOCS.forEach(loc => this.addItem({ id: "d" + Date.now() + Math.random(), name: loc.name, lat: loc.lat, lng: loc.lng, radius: 22, color: "#ff0000", fillOpacity: 0.3, recipients: [] })); }
-        ]; 
-        LOCS.forEach(loc => this.addItem({ 
-            id: "d" + Date.now() + Math.random(), 
-            name: loc.name, 
-            lat: loc.lat, 
-            lng: loc.lng, 
-            radius: 22, 
-            color: "#ff0000", 
-            fillOpacity: 0.3, 
-            recipients: [],
-            iconType: loc.iconType
-        })); 
-    }
-
+    const LOCS = [
+        { name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134, iconType: 'local_police' },
+        { name: "الحبيب", lat: 24.709422313107773, lng: 46.59397105888831, iconType: 'security' },
+        { name: "راس النعامة", lat: 24.71033234430099, lng: 46.57294855439484, iconType: 'local_police' },
+        { name: "دوار صفار", lat: 24.724914620418065, lng: 46.573466184564616, iconType: 'traffic' },
+        { name: "بيت مبارك", lat: 24.73261214957373, lng: 46.57825334260031, iconType: 'apartment' },
+        { name: "غصيبة", lat: 24.74573909383749, lng: 46.56052051492614, iconType: 'local_hospital' },
+        { name: "دوار الروقية", lat: 24.742007409023923, lng: 46.56268048966995, iconType: 'local_police' },
+        { name: "ميدان الملك سلمان", lat: 24.736130683456725, lng: 46.584028930317025, iconType: 'directions_car' },
+        { name: "المسار الرياضي المديد", lat: 24.735384906613607, lng: 46.58133312296764, iconType: 'parking' },
+        { name: "نقطة الشلهوب", lat: 24.73524079555137, lng: 46.57779729574876, iconType: 'local_fire_department' },
+        { name: "مواقف الأمن", lat: 24.73785440668389, lng: 46.577909186352535, iconType: 'security' },
+        { name: "كار بارك", lat: 24.73829475280005, lng: 46.577901024011375, iconType: 'parking' },
+        { name: "م 9", lat: 24.73889215714233, lng: 46.580699315602104, iconType: 'business' },
+        { name: "دوار البلدية", lat: 24.739271712116125, lng: 46.581809386523894, iconType: 'local_police' },
+        { name: "دوار الضوء الخافت", lat: 24.739746153778835, lng: 46.58352836407099, iconType: 'report_problem' },
+        { name: "مسار المشاة طريق الملك خالد الفرعي", lat: 24.74079938101476, lng: 46.586711589990585, iconType: 'report' },
+        { name: "بوابة سمحان", lat: 24.742132, lng: 46.569503, iconType: 'local_police' },
+        { name: "منطقة سمحان", lat: 24.740913, lng: 46.571891, iconType: 'gpp_good' },
+        { name: "دوار البجيري", lat: 24.737521, lng: 46.574069, iconType: 'local_police' },
+        { name: "إشارة البجيري", lat: 24.737662, lng: 46.575429, iconType: 'report_problem' }
+    ]; 
+    LOCS.forEach(loc => this.addItem({ 
+        id: "d" + Date.now() + Math.random(), 
+        name: loc.name, 
+        lat: loc.lat, 
+        lng: loc.lng, 
+        radius: 22, 
+        color: "#ff0000", 
+        fillOpacity: 0.3, 
+        iconType: loc.iconType, // تمت إضافة نوع الأيقونة
+        recipients: [] 
+    })); 
+}
     // === تعديل 4: تعديل دالة addItem لإنشاء دبوس أو دائرة ===
     addItem(data) {
         let markerContent;
