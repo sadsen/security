@@ -248,6 +248,16 @@ class MapController {
             bus.emit("map:bounds");
         });
 
+        // *** الإضافة الجديدة: ربط حدث النقر لزر وضع العرض ***
+        const displayModeBtn = document.getElementById('display-mode-btn');
+        if (displayModeBtn) {
+            displayModeBtn.addEventListener('click', () => {
+                this.toggleDisplayMode();
+            });
+        } else {
+            console.error("Error: Button with ID 'display-mode-btn' not found!");
+        }
+
         this.waitForGmpMarkersAndEmit();
     }
 
