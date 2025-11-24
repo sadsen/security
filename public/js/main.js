@@ -334,25 +334,20 @@ class LocationManager {
 
     onMapReady() {
         if (!this.shareMode && this.items.length === 0) {
-            // استدعاء الدالة الجديدة التي تنتظر تحميل المكتبة
             this.waitForGmpMarkersAndLoad();
         }
 
-        // مستمع النقر على الخريطة لإضافة موقع جديد
         this.map.addListener("click", e => {
             if (!MAP.modeAdd || this.shareMode) return;
             
-            // البحث عن أقرب موقع في هذا الموقع
             for (const item of this.items) {
                 const distance = google.maps.geometry.spherical.computeDistanceBetween(e.latLng, item.marker.position);
-                if (distance < 5) { // إذا كان النقر قريبًا من علامة موجودة
-                    // إذا كان قريبًا، افتح الكرت
+                if (distance < 5) { 
                     this.openCard(item, false);
-                    return; // أوقف البحث
+                    return; 
                 }
             }
 
-            // إذا لم يتم العثور على أي علامة، أنشئ موقع جديد
             this.addItem({ 
                 id: "d" + Date.now() + Math.random(), 
                 lat: e.latLng.lat(), 
@@ -371,7 +366,6 @@ class LocationManager {
         });
     }
 
-    // *** دالة الانتظار لضمان تحميل المكتبة ***
     waitForGmpMarkersAndLoad() {
         if (typeof google.maps.marker !== 'undefined' && typeof google.maps.marker.AdvancedMarkerElement !== 'undefined') {
             this.loadDefaultLocations();
@@ -383,7 +377,7 @@ class LocationManager {
     loadDefaultLocations() { 
         const LOCS = [
             { name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134, iconType: 'local_police' },
-           { name: "طريق الملك فيصل", lat: 24.736501294584695, lng: 46.576545241653285, iconType: 'local_police' },
+            { name: "طريق الملك فيصل", lat: 24.736501294584695, lng: 46.576545241653285, iconType: 'local_police' },
             { name: "الحبيب", lat: 24.709422313107773, lng: 46.59397105888831, iconType: 'security' },
             { name: "راس النعامة", lat: 24.71033234430099, lng: 46.57294855439484, iconType: 'local_police' },
             { name: "دوار صفار", lat: 24.724914620418065, lng: 46.573466184564616, iconType: 'traffic' },
@@ -418,7 +412,6 @@ class LocationManager {
     }
     
     addItem(data) {
-        // إنشاء علامة موقع (marker)
         const marker = new google.maps.marker.AdvancedMarkerElement({
             position: { lat: data.lat, lng: data.lng },
             map: this.map,
@@ -426,7 +419,6 @@ class LocationManager {
             gmpDraggable: this.editMode && !this.shareMode
         });
 
-        // إنشاء دائرة
         const circle = new google.maps.Circle({
             center: { lat: data.lat, lng: data.lng },
             map: this.map,
@@ -461,7 +453,6 @@ class LocationManager {
         let markerContent;
 
         if (data.usePin) {
-            // هذا الجزء خاص بالأيقونات (مثل الشرطة والمستشفى) - يبقى كما هو
             const iconEl = document.createElement("i");
             iconEl.className = 'material-icons';
             iconEl.textContent = this.availableIcons.find(icon => icon.value === data.iconType)?.label.split(' ')[0] || 'place';
@@ -482,15 +473,12 @@ class LocationManager {
             `;
             markerContent.appendChild(iconEl);
         } else {
-            // *** هنا التعديل ***
-            // تم جعل العلامة شفافة تماماً وبدون حدود
-            // هذا سيبقي العلامة موجودة برمجياً (للسحب والإفلات) لكنها مخفية بصرياً
             markerContent = document.createElement("div");
             markerContent.style.cssText = `
                 width: 16px;
                 height: 16px;
-                background-color: transparent; /* خلفية شفافة */
-                border: none; /* بدون حدود */
+                background-color: transparent; 
+                border: none;
                 cursor: pointer;
             `;
         }
@@ -506,80 +494,126 @@ class LocationManager {
         item.circle.addListener("click", () => this.openCard(item, false));
     }
 
+    // *** هنا التعديل الجذري لتصميم الكرت الزجاجي ***
     openCard(item, hoverOnly = false) {
         const name = Utils.escapeHTML(item.name);
         const recipientsHtml = item.recipients.map(r => Utils.escapeHTML(r)).join('<br>');
         const isEditable = !hoverOnly && MAP.editMode;
 
+        // ستايل الكرت الزجاجي بالكامل
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.65); /* خلفية شبه شفافة */
+            backdrop-filter: blur(16px); /* تأثير الضبابية الزجاجي */
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.5); /* حدود بيضاء خفيفة */
             padding: 0;
-            color: #333;
+            color: #1f2937;
             direction: rtl;
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15); /* ظل ناعم */
             max-width: 95vw;
-            width: 360px;
+            width: 350px;
             overflow: hidden;
+            transition: all 0.3s ease;
         `;
-        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2);`;
-        const bodyStyle = `padding: 20px;`;
-        const footerStyle = `padding: 12px 20px; background: rgba(255, 200, 0.6); border-top: 1px solid rgba(255, 255, 255, 0.2);`;
+
+        // ستايل الهيدر الشفاف
+        const headerStyle = `
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 16px 24px; 
+            background: rgba(255, 255, 255, 0.1); 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        `;
+
+        // ستايل جسم الكرت
+        const bodyStyle = `padding: 24px;`;
+        
+        // ستايل الفوتر (للأزرار)
+        const footerStyle = `
+            padding: 16px 24px; 
+            background: rgba(255, 255, 255, 0.2); 
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+        `;
+
+        // ستايل الحقول (شفافة لتناسب الزجاج)
+        const inputStyle = `
+            width: 100%; 
+            padding: 10px; 
+            border-radius: 12px; 
+            border: 1px solid rgba(255, 255, 255, 0.6); 
+            background: rgba(255, 255, 255, 0.5); 
+            box-sizing: border-box; 
+            font-family: 'Cairo', sans-serif; 
+            font-size: 14px; 
+            outline: none;
+            transition: 0.2s;
+            color: #333;
+        `;
+        
+        const labelStyle = `font-size:12px; display:block; margin-bottom:6px; font-family: 'Cairo', sans-serif; font-weight: 600; color: #4b5563;`;
 
         const html = `
         <div style="${cardStyle}">
             <div style="${headerStyle}">
-                <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: 700;">${name}</h3>
-                <img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;">
+                <!-- ترتيب العناصر لليمين: اللوجو أولاً لأنه RTL -->
+                <img src="img/logo.png" style="width: 40px; height: 40px; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: 700; color: #111;">${name}</h3>
             </div>
+            
             <div style="${bodyStyle}">
                 ${isEditable ? `
-                    <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">نوع الموقع:</label>
-                        <select id="loc-icon-type" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ddd; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px;">
+                    <div style="margin-bottom:16px;">
+                        <label style="${labelStyle}">نوع الموقع:</label>
+                        <select id="loc-icon-type" style="${inputStyle}">
                             ${this.availableIcons.map(icon => `<option value="${icon.value}" ${item.iconType === icon.value ? 'selected' : ''}>${icon.label}</option>`).join('')}
                         </select>
                     </div>
-                    <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الاسم:</label>
-                        <input id="loc-name" type="text" value="${name}" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;">
+                    <div style="margin-bottom:16px;">
+                        <label style="${labelStyle}">الاسم:</label>
+                        <input id="loc-name" type="text" value="${name}" style="${inputStyle}">
                     </div>
-                    <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">المستلمون:</label>
-                        <textarea id="loc-rec" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;min-height:80px;resize:vertical;">${item.recipients.join('\n')}</textarea>
+                    <div style="margin-bottom:16px;">
+                        <label style="${labelStyle}">الملاحظات / المستلمون:</label>
+                        <textarea id="loc-rec" style="${inputStyle} min-height:80px; resize:vertical;">${item.recipients.join('\n')}</textarea>
                     </div>
                 ` : `
-                    <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">نوع الموقع:</label>
-                        <div style="background: #f0f0f0; padding: 10px; border-radius: 10px; min-height: 50px; font-size: 14px; line-height: 1.6; font-family: 'Cairo', sans-serif;">
+                    <div style="margin-bottom:16px;">
+                        <label style="${labelStyle}">نوع الموقع:</label>
+                        <div style="background: rgba(255,255,255,0.4); padding: 12px; border-radius: 12px; font-size: 14px; border: 1px solid rgba(255,255,255,0.3);">
                             ${this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'مكان عام'}
                         </div>
                     </div>
-                    <div style="margin-bottom:14px;">
-                        <p style="margin: 0 0 12px 0; font-size: 14px; color: #555; font-family: 'Cairo', sans-serif;">المستلمون:</p>
-                        <div style="background: rgba(66, 133, 244, 0.1); padding: 10px; border-radius: 10px; min-height: 50px; font-size: 14px; line-height: 1.6; font-family: 'Cairo', sans-serif;">
-                            ${recipientsHtml || '<span style="color: #888;">لا يوجد مستلمين</span>'}
+                    <div style="margin-bottom:16px;">
+                        <p style="margin: 0 0 8px 0; font-size: 13px; font-weight:600; color: #555; font-family: 'Cairo', sans-serif;">التفاصيل:</p>
+                        <div style="background: rgba(66, 133, 244, 0.08); padding: 12px; border-radius: 12px; font-size: 14px; line-height: 1.6; border: 1px solid rgba(66, 133, 244, 0.1);">
+                            ${recipientsHtml || '<span style="color: #777;">لا توجد تفاصيل إضافية</span>'}
                         </div>
                     </div>
                 `}
             </div>
             ${isEditable ? `
                 <div style="${footerStyle}">
-                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="loc-color" type="color" value="${item.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;"></div>
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الحجم:</label><input id="loc-radius" type="number" value="${item.radius}" min="5" max="5000" step="5" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
+                    <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap: wrap;">
+                        <div style="flex:1; min-width: 100px;">
+                            <label style="${labelStyle}">اللون:</label>
+                            <input id="loc-color" type="color" value="${item.color}" style="width:100%; height:36px; border:none; background:none; cursor:pointer;">
+                        </div>
+                        <div style="flex:1; min-width: 100px;">
+                            <label style="${labelStyle}">الحجم (متر):</label>
+                            <input id="loc-radius" type="number" value="${item.radius}" min="5" max="5000" step="5" style="${inputStyle}">
+                        </div>
                     </div>
-                    <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شفافية التعبئة: <span id="loc-opacity-val">${Math.round(item.fillOpacity * 100)}%</span></label>
-                        <input id="loc-opacity" type="range" min="0" max="100" value="${Math.round(item.fillOpacity * 100)}" style="width:100%;">
+                    <div style="margin-bottom:20px;">
+                        <label style="${labelStyle}">الشفافية: <span id="loc-opacity-val">${Math.round(item.fillOpacity * 100)}%</span></label>
+                        <input id="loc-opacity" type="range" min="0" max="100" value="${Math.round(item.fillOpacity * 100)}" style="width:100%; accent-color: #4285f4;">
                     </div>
-                    <div style="display:flex;gap:8px; flex-wrap: wrap;">
-                        <button id="loc-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 100px;">حفظ</button>
-                        <button id="loc-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px;">حذف</button>
-                        <button id="loc-close" style="flex:1;background:rgba(0,0,0,0.05);color:#333;border:1px solid #ddd;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px;">إغلاق</button>
+                    <div style="display:flex; gap:10px;">
+                        <button id="loc-save" style="flex:2; background: linear-gradient(135deg, #4285f4, #3b71ca); color:white; border:none; border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif; box-shadow: 0 4px 10px rgba(66, 133, 244, 0.3);">حفظ</button>
+                        <button id="loc-delete" style="flex:1; background: rgba(233, 66, 53, 0.1); color:#d93025; border:1px solid rgba(233, 66, 53, 0.3); border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">حذف</button>
+                        <button id="loc-close" style="flex:1; background: rgba(0,0,0,0.05); color:#444; border:1px solid rgba(0,0,0,0.1); border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">إغلاق</button>
                     </div>
                 </div>
             ` : ''}
