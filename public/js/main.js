@@ -500,100 +500,154 @@ class LocationManager {
         const recipientsHtml = item.recipients.map(r => Utils.escapeHTML(r)).join('<br>');
         const isEditable = !hoverOnly && MAP.editMode;
 
-        // ستايل الكرت الزجاجي بالكامل
+        // --- تصميم الزجاج المحسن ---
+        // لاحظ تقليل الشفافية في rgba إلى 0.65 واستخدام backdrop-filter
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
-            background: rgba(255, 255, 255, 0.65); /* خلفية شبه شفافة */
-            backdrop-filter: blur(16px); /* تأثير الضبابية الزجاجي */
-            -webkit-backdrop-filter: blur(16px);
-            border-radius: 24px;
-            border: 1px solid rgba(255, 255, 255, 0.5); /* حدود بيضاء خفيفة */
+            background: rgba(255, 255, 255, 0.60); /* شفافية عالية لتظهر الخريطة */
+            backdrop-filter: blur(12px); /* تمويه الخلفية (الخريطة) */
+            -webkit-backdrop-filter: blur(12px); /* لمتصفح سفاري */
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.4); /* حدود بيضاء خفيفة */
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15); /* ظل ناعم */
             padding: 0;
-            color: #1f2937;
+            color: #333;
             direction: rtl;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15); /* ظل ناعم */
-            max-width: 95vw;
-            width: 350px;
+            width: 340px;
+            max-width: 90vw;
             overflow: hidden;
-            transition: all 0.3s ease;
+            position: relative;
         `;
 
-        // ستايل الهيدر الشفاف
+        // هيدر شفاف
         const headerStyle = `
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
-            padding: 16px 24px; 
-            background: rgba(255, 255, 255, 0.1); 
+            padding: 12px 16px; 
+            background: rgba(255, 255, 255, 0.2); 
             border-bottom: 1px solid rgba(255, 255, 255, 0.3);
         `;
 
-        // ستايل جسم الكرت
-        const bodyStyle = `padding: 24px;`;
+        const bodyStyle = `padding: 16px;`;
         
-        // ستايل الفوتر (للأزرار)
         const footerStyle = `
-            padding: 16px 24px; 
-            background: rgba(255, 255, 255, 0.2); 
+            padding: 12px 16px; 
+            background: rgba(255, 255, 255, 0.25); 
             border-top: 1px solid rgba(255, 255, 255, 0.3);
         `;
 
-        // ستايل الحقول (شفافة لتناسب الزجاج)
+        // زر إغلاق (X) مدمج
+        const closeIconStyle = `
+            cursor: pointer; 
+            padding: 4px; 
+            border-radius: 50%; 
+            color: #666; 
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // تنسيق الحقول لتبدو زجاجية
         const inputStyle = `
             width: 100%; 
-            padding: 10px; 
-            border-radius: 12px; 
-            border: 1px solid rgba(255, 255, 255, 0.6); 
-            background: rgba(255, 255, 255, 0.5); 
+            padding: 8px 12px; 
+            border-radius: 10px; 
+            border: 1px solid rgba(255, 255, 255, 0.5); 
+            background: rgba(255, 255, 255, 0.4); 
             box-sizing: border-box; 
             font-family: 'Cairo', sans-serif; 
-            font-size: 14px; 
+            font-size: 13px; 
             outline: none;
-            transition: 0.2s;
-            color: #333;
+            color: #222;
         `;
-        
-        const labelStyle = `font-size:12px; display:block; margin-bottom:6px; font-family: 'Cairo', sans-serif; font-weight: 600; color: #4b5563;`;
+
+        const labelStyle = `font-size:11px; display:block; margin-bottom:4px; font-weight: 700; color: #444;`;
 
         const html = `
         <div style="${cardStyle}">
             <div style="${headerStyle}">
-                <!-- ترتيب العناصر لليمين: اللوجو أولاً لأنه RTL -->
-                <img src="img/logo.png" style="width: 40px; height: 40px; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: 700; color: #111;">${name}</h3>
+                <div style="display:flex; align-items:center; gap: 8px;">
+                     <!-- زر الإغلاق المدمج -->
+                    <div id="loc-close-x" style="${closeIconStyle}" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='transparent'">
+                        <i class="material-icons" style="font-size: 18px;">close</i>
+                    </div>
+                    <img src="img/logo.png" style="width: 32px; height: 32px; border-radius: 50%;">
+                </div>
+                <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700;">${name}</h3>
             </div>
             
             <div style="${bodyStyle}">
                 ${isEditable ? `
-                    <div style="margin-bottom:16px;">
+                    <!-- وضع التحرير -->
+                    <div style="margin-bottom:12px;">
                         <label style="${labelStyle}">نوع الموقع:</label>
                         <select id="loc-icon-type" style="${inputStyle}">
                             ${this.availableIcons.map(icon => `<option value="${icon.value}" ${item.iconType === icon.value ? 'selected' : ''}>${icon.label}</option>`).join('')}
                         </select>
                     </div>
-                    <div style="margin-bottom:16px;">
+                    <div style="margin-bottom:12px;">
                         <label style="${labelStyle}">الاسم:</label>
                         <input id="loc-name" type="text" value="${name}" style="${inputStyle}">
                     </div>
-                    <div style="margin-bottom:16px;">
-                        <label style="${labelStyle}">الملاحظات / المستلمون:</label>
-                        <textarea id="loc-rec" style="${inputStyle} min-height:80px; resize:vertical;">${item.recipients.join('\n')}</textarea>
+                    <div style="margin-bottom:12px;">
+                        <label style="${labelStyle}">تفاصيل:</label>
+                        <textarea id="loc-rec" style="${inputStyle} min-height:60px; resize:vertical;">${item.recipients.join('\n')}</textarea>
                     </div>
                 ` : `
-                    <div style="margin-bottom:16px;">
-                        <label style="${labelStyle}">نوع الموقع:</label>
-                        <div style="background: rgba(255,255,255,0.4); padding: 12px; border-radius: 12px; font-size: 14px; border: 1px solid rgba(255,255,255,0.3);">
-                            ${this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'مكان عام'}
+                    <!-- وضع العرض -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                        <div style="flex:1;">
+                             <label style="${labelStyle}">نوع الموقع:</label>
+                             <div style="background: rgba(255,255,255,0.5); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight:600;">
+                                ${this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'مكان عام'}
+                             </div>
                         </div>
                     </div>
-                    <div style="margin-bottom:16px;">
-                        <p style="margin: 0 0 8px 0; font-size: 13px; font-weight:600; color: #555; font-family: 'Cairo', sans-serif;">التفاصيل:</p>
-                        <div style="background: rgba(66, 133, 244, 0.08); padding: 12px; border-radius: 12px; font-size: 14px; line-height: 1.6; border: 1px solid rgba(66, 133, 244, 0.1);">
-                            ${recipientsHtml || '<span style="color: #777;">لا توجد تفاصيل إضافية</span>'}
+                    <div>
+                        <label style="${labelStyle}">التفاصيل:</label>
+                        <div style="background: rgba(255,255,255,0.3); padding: 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; min-height: 40px; border: 1px solid rgba(255,255,255,0.2);">
+                            ${recipientsHtml || '<span style="color: #666; font-style: italic;">لا توجد تفاصيل إضافية</span>'}
                         </div>
                     </div>
                 `}
             </div>
+            ${isEditable ? `
+                <div style="${footerStyle}">
+                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+                        <div style="flex:1;">
+                            <label style="${labelStyle}">اللون:</label>
+                            <input id="loc-color" type="color" value="${item.color}" style="width:100%; height:30px; border:none; background:none; cursor:pointer;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="${labelStyle}">المدى:</label>
+                            <input id="loc-radius" type="number" value="${item.radius}" min="5" max="5000" step="5" style="${inputStyle}">
+                        </div>
+                    </div>
+                    <div style="margin-bottom:12px;">
+                       <label style="${labelStyle}">الشفافية: <span id="loc-opacity-val">${Math.round(item.fillOpacity * 100)}%</span></label>
+                       <input id="loc-opacity" type="range" min="0" max="100" value="${Math.round(item.fillOpacity * 100)}" style="width:100%; accent-color: #555;">
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button id="loc-save" style="flex:2; background: rgba(33, 150, 243, 0.8); color:white; border:none; border-radius: 8px; padding:8px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">حفظ</button>
+                        <button id="loc-delete" style="flex:1; background: rgba(244, 67, 54, 0.1); color:#d32f2f; border:1px solid rgba(244, 67, 54, 0.3); border-radius: 8px; padding:8px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">حذف</button>
+                    </div>
+                </div>
+            ` : ''}
+        </div>`;
+
+        UI.openSharedInfoCard(html, item.marker.position, !hoverOnly);
+        
+        // ربط الأحداث (Events)
+        google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => {
+            this.attachCardEvents(item, hoverOnly);
+            
+            // ربط زر الإغلاق الجديد (X)
+            const closeX = document.getElementById("loc-close-x");
+            if(closeX) closeX.addEventListener("click", () => UI.forceCloseSharedInfoCard());
+        });
+    }
             ${isEditable ? `
                 <div style="${footerStyle}">
                     <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap: wrap;">
