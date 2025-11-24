@@ -392,6 +392,7 @@ class LocationManager {
     loadDefaultLocations() { 
         const LOCS = [
             { name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134, iconType: 'local_police' },
+           { name: "طريق الملك فيصل", lat: 24.736501294584695, lng: 46.576545241653285, iconType: 'local_police' },
             { name: "الحبيب", lat: 24.709422313107773, lng: 46.59397105888831, iconType: 'security' },
             { name: "راس النعامة", lat: 24.71033234430099, lng: 46.57294855439484, iconType: 'local_police' },
             { name: "دوار صفار", lat: 24.724914620418065, lng: 46.573466184564616, iconType: 'traffic' },
