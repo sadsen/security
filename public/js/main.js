@@ -316,19 +316,9 @@ class LocationManager {
         
         // إضافة قائمة الأيقونات المتاحة
         this.availableIcons = [
-            { value: 'default', label: 'مكان عام place' },
-            { value: 'local_police', label: 'شرطة local_police' },
-            { value: 'security', label: 'أمن security' },
-            { value: 'traffic', label: 'مرور traffic' },
-            { value: 'apartment', label: 'مبنى apartment' },
-            { value: 'local_hospital', label: 'مستشفى local_hospital' },
-            { value: 'directions_car', label: 'سيارة directions_car' },
-            { value: 'parking', label: 'مواقف parking' },
-            { value: 'local_fire_department', label: 'إطفاء local_fire_department' },
-            { value: 'business', label: 'نشاط تجاري business' },
-            { value: 'report_problem', label: 'موقع مخصص' },
-            { value: 'report', label: 'موقع مخصص1' },
-            { value: 'gpp_good', label: 'موقع مخصص2' }
+            { value: 'report_problem', label: 'نقطة فرز' },
+            { value: 'report', label: 'تنظيم مروري' },
+            { value: 'gpp_good', label: 'نقطة ثابتة' }
         ];
 
         bus.on("map:ready", map => {
