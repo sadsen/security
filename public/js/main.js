@@ -149,14 +149,11 @@ class MapController {
     constructor() {
         this.map = null;
         this.trafficLayer = null;
-        this.bicyclingLayer = null;
-        this.transitLayer = null;
+        this.bicyclingLayer = null; // طبقة جديدة
+        this.transitLayer = null;     // طبقة جديدة
 
         this.editMode = true;
         this.shareMode = false;
-
-        // --- خاصية جديدة لتتبع وضع العرض ---
-        this.displayMode = false;
 
         this.centerDefault = { lat: 24.7399, lng: 46.5731 };
         this.zoomDefault = 15;
@@ -248,35 +245,28 @@ class MapController {
             bus.emit("map:bounds");
         });
 
-        // *** الإضافة الجديدة: ربط حدث النقر لزر وضع العرض ***
-        const displayModeBtn = document.getElementById('display-mode-btn');
-        if (displayModeBtn) {
-            displayModeBtn.addEventListener('click', () => {
-                this.toggleDisplayMode();
-            });
-        } else {
-            console.error("Error: Button with ID 'display-mode-btn' not found!");
-        }
-
+        // *** التعديل الجديد: استدعاء دالة الانتظار بدلاً من إطلاق الحدث مباشرة ***
         this.waitForGmpMarkersAndEmit();
     }
 
+    // *** الدالة الجديدة التي تنتظر تحميل المكتبة ***
     waitForGmpMarkersAndEmit() {
         if (typeof google.maps.marker !== 'undefined' && typeof google.maps.marker.AdvancedMarkerElement !== 'undefined') {
+            // المكتبة تم تحميلها، الآن يمكننا إطلاق الحدث بأمان
             console.log("gmp-markers library is ready. Emitting 'map:ready' event.");
             bus.emit("map:ready", this.map);
         } else {
+            // المكتبة لم تتحمل بعد، انتظر 100 ميلي ثانية وحاول مرة أخرى
             console.log("Waiting for gmp-markers library...");
             setTimeout(() => this.waitForGmpMarkersAndEmit(), 100);
         }
     }
 
-    // === الدوال الأساسية للخريطة ===
     setRoadmap() { this.map.setMapTypeId("roadmap"); }
     setSatellite() { this.map.setMapTypeId("hybrid"); }
-    setTerrain() { this.map.setMapTypeId("terrain"); }
-    setDarkMode() { this.map.setMapTypeId("dark"); }
-    setSilverMode() { this.map.setMapTypeId("silver"); }
+    setTerrain() { this.map.setMapTypeId("terrain"); } // دالة جديدة
+    setDarkMode() { this.map.setMapTypeId("dark"); }   // دالة جديدة
+    setSilverMode() { this.map.setMapTypeId("silver"); } // دالة جديدة
 
     toggleTraffic() {
         if (this.trafficLayer.getMap()) {
@@ -286,7 +276,7 @@ class MapController {
         }
     }
 
-    toggleBicycling() {
+    toggleBicycling() { // دالة جديدة
         if (this.bicyclingLayer.getMap()) {
             this.bicyclingLayer.setMap(null);
         } else {
@@ -294,7 +284,7 @@ class MapController {
         }
     }
 
-    toggleTransit() {
+    toggleTransit() { // دالة جديدة
         if (this.transitLayer.getMap()) {
             this.transitLayer.setMap(null);
         } else {
@@ -304,50 +294,6 @@ class MapController {
 
     setCursor(c) {
         this.map.setOptions({ draggableCursor: c });
-    }
-
-    // === === الدالة الجديدة لتبديل وضع العرض === === //
-    toggleDisplayMode() {
-        const uiContainer = document.getElementById('ui-container'); // تأكد من أن واجهة المستخدم داخل هذا العنصر
-        const mapContainer = document.getElementById('map');
-
-        // عكس حالة العرض
-        this.displayMode = !this.displayMode;
-
-        // تحديث وضع التحرير بناءً على وضع العرض
-        this.editMode = !this.displayMode;
-
-        if (this.displayMode) {
-            // تفعيل وضع العرض (عرض كامل)
-            if (uiContainer) {
-                uiContainer.style.display = 'none';
-            }
-            mapContainer.style.position = 'fixed';
-            mapContainer.style.top = '0';
-            mapContainer.style.left = '0';
-            mapContainer.style.width = '100vw';
-            mapContainer.style.height = '100vh';
-            mapContainer.style.zIndex = '9999';
-        } else {
-            // إلغاء تفعيل وضع العرض (العودة للوضع الطبيعي)
-            if (uiContainer) {
-                uiContainer.style.display = '';
-            }
-            mapContainer.style.position = '';
-            mapContainer.style.top = '';
-            mapContainer.style.left = '';
-            mapContainer.style.width = '';
-            mapContainer.style.height = '';
-            mapContainer.style.zIndex = '';
-        }
-
-        // إخبار خرائط جوجل بتحديث حجم الخريطة
-        setTimeout(() => {
-            google.maps.event.trigger(this.map, 'resize');
-        }, 200);
-
-        // إطلاق حدث لإعلام باقي أجزاء التطبيق بتغير الوضع
-        bus.emit("mode:change", { editMode: this.editMode, displayMode: this.displayMode });
     }
 }
 
