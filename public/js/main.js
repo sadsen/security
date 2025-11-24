@@ -316,6 +316,7 @@ class LocationManager {
         
         // إضافة قائمة الأيقونات المتاحة
         this.availableIcons = [
+            { value: 'report_problem', label: '-' },
             { value: 'report_problem', label: 'نقطة فرز' },
             { value: 'report', label: 'تنظيم مروري' },
             { value: 'gpp_good', label: 'نقطة ثابتة' }
