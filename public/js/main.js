@@ -816,8 +816,8 @@ class RouteManager {
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
             background: rgba(20, 20, 20, 0.95);
-            backdrop-filter: blur(20px) saturate(1.8);
-            -webkit-backdrop-filter: blur(20px) saturate(1.8);
+            backdrop-filter: blur(40px) saturate(1.8);
+            -webkit-backdrop-filter: blur(40px) saturate(1.8);
             border-radius: 20px;
             border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 0;
