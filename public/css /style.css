@@ -34,6 +34,7 @@ html, body {
   -webkit-backdrop-filter: blur(12px);
 }
 
+/* --- الأزرار النصية العادية --- */
 .btn {
   height: 34px;
   padding: 0 12px;
@@ -64,6 +65,45 @@ html, body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* --- === === === === === === === === === === --- */
+/* --- الأزرار التي تحتوي على أيقونات فقط --- */
+/* --- === === === === === === === === === === --- */
+.icon-btn {
+  width: 34px; /* عرض ثابت ليكون مربعًا */
+  height: 34px; /* نفس ارتفاع الزر العادي */
+  padding: 0; /* إزالة الحشو الداخلي */
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+  display: flex; /* لمحاذاة الأيقونة في المنتصف */
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.icon-btn:hover {
+    background: rgba(255, 255, 255, .15);
+}
+
+.icon-btn[aria-pressed="true"] {
+  background: rgba(66, 133, 244, 0.8);
+  border-color: rgba(66, 133, 244, 0.9);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* تنسيق الأيقونة داخل الزر */
+.icon-btn .material-icons {
+  font-size: 20px; /* حجم الأيقونة */
+  color: #fff; /* لون الأيقونة */
+}
+
 
 /* Badge for Edit/View Mode */
 .badge {
