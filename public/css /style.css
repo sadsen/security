@@ -15,7 +15,7 @@ html, body {
   z-index: 1;
 }
 
-/* Toolbar Styles */
+/* --- Toolbar Styles --- */
 .toolbar {
   position: fixed;
   top: calc(env(safe-area-inset-top, 0px) + 12px);
@@ -66,9 +66,7 @@ html, body {
   cursor: not-allowed;
 }
 
-/* --- === === === === === === === === === === --- */
 /* --- الأزرار التي تحتوي على أيقونات فقط --- */
-/* --- === === === === === === === === === === --- */
 .icon-btn {
   width: 34px; /* عرض ثابت ليكون مربعًا */
   height: 34px; /* نفس ارتفاع الزر العادي */
@@ -121,22 +119,78 @@ html, body {
   border-color: rgba(234, 67, 53, 0.9);
 }
 
-/* Google Maps InfoWindow Customization */
-.gm-style-iw button.gm-ui-hover-effect {
-  display: none !important; /* إخفاء زر الإغلاق الافتراضي */
+/* --- وضع العرض (Presentation Mode) --- */
+/* الفئة التي تخفي العناصر */
+body.presentation-mode .hide-on-presentation {
+    display: none !important;
 }
 
-.gm-style-iw-d {
-  overflow: visible !important; /* السماح للظلال بالظهور خارج الكرت */
+/* زر الخروج العائم */
+#btn-exit-presentation {
+    display: none; /* مخفي افتراضياً */
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 99999;
+    background-color: rgba(231, 76, 60, 0.9); /* لون أحمر */
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-family: 'Tajawal', sans-serif;
+    font-weight: bold;
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
 }
-.gm-style .gm-style-iw-c {
-    padding: 0 !important;
-    border-radius: 18px !important;
-    background-color: transparent !important;
+
+#btn-exit-presentation:hover {
+    background-color: #c0392b;
+    transform: translateX(-50%) scale(1.05);
+}
+
+/* إظهار زر الخروج فقط عند تفعيل الوضع */
+body.presentation-mode #btn-exit-presentation {
+    display: flex;
+}
+
+/* --- تعديلات نافذة معلومات خرائط جوجل (Glassmorphism Fix) --- */
+/* إزالة الخلفية البيضاء والظل من الحاوية الرئيسية */
+.gm-style-iw, 
+.gm-style-iw-c {
+    background: none !important;
     box-shadow: none !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
 }
 
-/* Toast Notification Styles */
+/* إخفاء زر الإغلاق الافتراضي (X) الخاص بجوجل */
+.gm-ui-hover-effect {
+    display: none !important;
+}
+
+/* إخفاء السهم/الذيل الأبيض أسفل النافذة */
+.gm-style-iw-tc,
+.gm-style-iw-tc::after, 
+.gm-style-iw-t::after {
+    background: none !important;
+    box-shadow: none !important;
+    display: none !important;
+}
+
+/* إصلاح التمرير الداخلي */
+.gm-style-iw-d {
+    overflow: visible !important;
+    max-height: none !important;
+    background: none !important;
+}
+
+/* --- Toast Notification Styles --- */
 #toast {
   position: fixed;
   bottom: -100px; /* يبدأ من خارج الشاشة */
