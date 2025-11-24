@@ -637,18 +637,7 @@ class LocationManager {
             ` : ''}
         </div>`;
 
-        UI.openSharedInfoCard(html, item.marker.position, !hoverOnly);
-        
-        // ربط الأحداث (Events)
-        google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => {
-            this.attachCardEvents(item, hoverOnly);
-            
-            // ربط زر الإغلاق الجديد (X)
-            const closeX = document.getElementById("loc-close-x");
-            if(closeX) closeX.addEventListener("click", () => UI.forceCloseSharedInfoCard());
-        });
-    }
-            ${isEditable ? `
+       ${isEditable ? `
                 <div style="${footerStyle}">
                     <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap: wrap;">
                         <div style="flex:1; min-width: 100px;">
