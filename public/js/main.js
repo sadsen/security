@@ -494,22 +494,20 @@ class LocationManager {
         item.circle.addListener("click", () => this.openCard(item, false));
     }
 
-    // *** هنا التعديل الجذري لتصميم الكرت الزجاجي ***
     openCard(item, hoverOnly = false) {
         const name = Utils.escapeHTML(item.name);
         const recipientsHtml = item.recipients.map(r => Utils.escapeHTML(r)).join('<br>');
         const isEditable = !hoverOnly && MAP.editMode;
 
         // --- تصميم الزجاج المحسن ---
-        // لاحظ تقليل الشفافية في rgba إلى 0.65 واستخدام backdrop-filter
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
-            background: rgba(255, 255, 255, 0.60); /* شفافية عالية لتظهر الخريطة */
-            backdrop-filter: blur(12px); /* تمويه الخلفية (الخريطة) */
-            -webkit-backdrop-filter: blur(12px); /* لمتصفح سفاري */
+            background: rgba(255, 255, 255, 0.60);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.4); /* حدود بيضاء خفيفة */
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15); /* ظل ناعم */
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
             padding: 0;
             color: #333;
             direction: rtl;
@@ -519,7 +517,6 @@ class LocationManager {
             position: relative;
         `;
 
-        // هيدر شفاف
         const headerStyle = `
             display: flex; 
             justify-content: space-between; 
@@ -537,7 +534,6 @@ class LocationManager {
             border-top: 1px solid rgba(255, 255, 255, 0.3);
         `;
 
-        // زر إغلاق (X) مدمج
         const closeIconStyle = `
             cursor: pointer; 
             padding: 4px; 
@@ -549,7 +545,6 @@ class LocationManager {
             justify-content: center;
         `;
 
-        // تنسيق الحقول لتبدو زجاجية
         const inputStyle = `
             width: 100%; 
             padding: 8px 12px; 
@@ -608,159 +603,7 @@ class LocationManager {
                     <div>
                         <label style="${labelStyle}">التفاصيل:</label>
                         <div style="background: rgba(255,255,255,0.3); padding: 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; min-height: 40px; border: 1px solid rgba(255,255,255,0.2);">
-                            ${recipientsHtml || '<span style="color: #666; font-style: italic;">لا توجد تفاصيل إضافية</span>'}
-                        </div>
-                    </div>
-                `}
-            </div>
-            ${isEditable ? `
-                <div style="${footerStyle}">
-                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
-                        <div style="flex:1;">
-                            <label style="${labelStyle}">اللون:</label>
-                            <input id="loc-color" type="color" value="${item.color}" style="width:100%; height:30px; border:none; background:none; cursor:pointer;">
-                        </div>
-                        <div style="flex:1;">
-                            <label style="${labelStyle}">المدى:</label>
-                            <input id="loc-radius" type="number" value="${item.radius}" min="5" max="5000" step="5" style="${inputStyle}">
-                        </div>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                       <label style="${labelStyle}">الشفافية: <span id="loc-opacity-val">${Math.round(item.fillOpacity * 100)}%</span></label>
-                       <input id="loc-opacity" type="range" min="0" max="100" value="${Math.round(item.fillOpacity * 100)}" style="width:100%; accent-color: #555;">
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <button id="loc-save" style="flex:2; background: rgba(33, 150, 243, 0.8); color:white; border:none; border-radius: 8px; padding:8px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">حفظ</button>
-                        <button id="loc-delete" style="flex:1; background: rgba(244, 67, 54, 0.1); color:#d32f2f; border:1px solid rgba(244, 67, 54, 0.3); border-radius: 8px; padding:8px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">حذف</button>
-                    </div>
-                </div>
-            ` : ''}
-        </div>`;
-
-        UI.openSharedInfoCard(html, item.marker.position, !hoverOnly);
-        
-        // ربط الأحداث (Events)
-        google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => {
-            this.attachCardEvents(item, hoverOnly);
-            
-            // ربط زر الإغلاق الجديد (X)
-            const closeX = document.getElementById("loc-close-x");
-            if(closeX) closeX.addEventListener("click", () => UI.forceCloseSharedInfoCard());
-        });
-    }
-
-       ${isEditable ? `
-                <div style="${footerStyle}">
-                    <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 100px;">
-                            <label style="${labelStyle}">اللون:</label>
-                            <input id="loc-color" type="color" value="${item.color}" style="width:100%; height:36px; border:none; background:none; cursor:pointer;">
-                        </div>
-                        <div style="flex:1; min-width: 100px;">
-                            <label style="${labelStyle}">الحجم (متر):</label>
-                            <input id="loc-radius" type="number" value="${item.radius}" min="5" max="5000" step="5" style="${inputStyle}">
-                        </div>
-                    </div>
-                    <div style="margin-bottom:20px;">
-                        <label style="${labelStyle}">الشفافية: <span id="loc-opacity-val">${Math.round(item.fillOpacity * 100)}%</span></label>
-                        <input id="loc-opacity" type="range" min="0" max="100" value="${Math.round(item.fillOpacity * 100)}" style="width:100%; accent-color: #4285f4;">
-                    </div>
-                    <div style="display:flex; gap:10px;">
-                        <button id="loc-save" style="flex:2; background: linear-gradient(135deg, #4285f4, #3b71ca); color:white; border:none; border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif; box-shadow: 0 4px 10px rgba(66, 133, 244, 0.3);">حفظ</button>
-                        <button id="loc-delete" style="flex:1; background: rgba(233, 66, 53, 0.1); color:#d93025; border:1px solid rgba(233, 66, 53, 0.3); border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">حذف</button>
-                        <button id="loc-close" style="flex:1; background: rgba(0,0,0,0.05); color:#444; border:1px solid rgba(0,0,0,0.1); border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">إغلاق</button>
-                    </div>
-                </div>
-            ` : ''}
-        </div>`;
-
-        UI.openSharedInfoCard(html, item.marker.position, !hoverOnly);
-        google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachCardEvents(item, hoverOnly));
-    }
-
-    attachCardEvents(item, hoverOnly = false) {
-        const closeBtn = document.getElementById("loc-close");
-        if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); });
-        if (hoverOnly || !MAP.editMode) return;
-
-        const saveBtn = document.getElementById("loc-save");
-        const delBtn = document.getElementById("loc-delete");
-        const nameEl = document.getElementById("loc-name");
-        const recEl = document.getElementById("loc-rec");
-        const colEl = document.getElementById("loc-color");
-        const radEl = document.getElementById("loc-radius");
-        const opEl = document.getElementById("loc-opacity");
-        const opValEl = document.getElementById("loc-opacity-val");
-        const iconTypeEl = document.getElementById("loc-icon-type");
-
-        if (opEl) { opEl.addEventListener("input", () => { if(opValEl) opValEl.textContent = opEl.value + "%"; }); }
-
-        if (saveBtn) {
-            saveBtn.addEventListener("click", () => {
-                item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
-                item.name = nameEl.value.trim();
-                item.iconType = iconTypeEl.value;
-                item.color = colEl.value;
-                item.radius = Utils.clamp(+radEl.value, 5, 5000);
-                item.fillOpacity = Utils.clamp(+opEl.value, 0, 100) / 100;
-
-                item.circle.setOptions({
-                    fillColor: item.color,
-                    strokeColor: item.color,
-                    radius: item.radius,
-                    fillOpacity: item.fillOpacity
-                });
-                
-                item.marker.content = this.buildMarkerContent(item);
-
-                bus.emit("persist");
-                UI.forceCloseSharedInfoCard();
-                bus.emit("toast", "تم حفظ التعديلات");
-            });
-        }
-
-        if (delBtn) {
-            delBtn.addEventListener("click", () => {
-                if (!confirm(`حذف "${item.name}"؟`)) return;
-                item.marker.map = null;
-                item.circle.setMap(null);
-                this.items = this.items.filter(x => x.id !== item.id);
-                UI.forceCloseSharedInfoCard();
-                bus.emit("persist");
-                bus.emit("toast", "تم حذف الموقع");
-            });
-        }
-    }
-
-    exportState() {
-        return this.items.map(it => ({
-            id: it.id,
-            name: it.name,
-            lat: typeof it.marker.position.lat === 'function' ? it.marker.position.lat() : it.marker.position.lat,
-            lng: it.marker.position.lng,
-            color: it.color,
-            radius: it.radius,
-            fillOpacity: it.fillOpacity,
-            iconType: it.iconType,
-            usePin: it.usePin,
-            showCircle: it.showCircle,
-            recipients: it.recipients
-        }));
-    }
-
-    applyState(state) {
-        if (!state || !state.locations) return;
-        this.items.forEach(it => {
-            it.marker.map = null;
-            it.circle.setMap(null);
-        });
-        this.items = [];
-        state.locations.forEach(loc => this.addItem(loc));
-    }
-}
-
-const LOCATIONS = new LocationManager();
-
+                            $
 /* ============================================================
    RouteManager — إدارة المسارات + بطاقات Glass (تصميم موحد)
 ============================================================ */
