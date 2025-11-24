@@ -499,7 +499,7 @@ class LocationManager {
         const recipientsHtml = item.recipients.map(r => Utils.escapeHTML(r)).join('<br>');
         const isEditable = !hoverOnly && MAP.editMode;
 
-        // --- تصميم الزجاج المحسن ---
+        // --- الأنماط (CSS Styles) ---
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
             background: rgba(255, 255, 255, 0.60);
@@ -560,6 +560,82 @@ class LocationManager {
 
         const labelStyle = `font-size:11px; display:block; margin-bottom:4px; font-weight: 700; color: #444;`;
 
+        // --- بناء المحتوى (فصلنا الأجزاء لتجنب أخطاء الأقواس) ---
+
+        // 1. خيارات القائمة المنسدلة
+        const optionsHtml = this.availableIcons.map(icon => 
+            `<option value="${icon.value}" ${item.iconType === icon.value ? 'selected' : ''}>${icon.label}</option>`
+        ).join('');
+
+        // 2. محتوى الجسم (Body)
+        let bodyContent = '';
+        if (isEditable) {
+            bodyContent = `
+                <div style="margin-bottom:12px;">
+                    <label style="${labelStyle}">نوع الموقع:</label>
+                    <select id="loc-icon-type" style="${inputStyle}">
+                        ${optionsHtml}
+                    </select>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="${labelStyle}">الاسم:</label>
+                    <input id="loc-name" type="text" value="${name}" style="${inputStyle}">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="${labelStyle}">تفاصيل:</label>
+                    <textarea id="loc-rec" style="${inputStyle} min-height:60px; resize:vertical;">${item.recipients.join('\n')}</textarea>
+                </div>
+            `;
+        } else {
+            // أيقونة مختارة للعرض
+            const selectedLabel = this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'مكان عام';
+            bodyContent = `
+                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                    <div style="flex:1;">
+                            <label style="${labelStyle}">نوع الموقع:</label>
+                            <div style="background: rgba(255,255,255,0.5); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight:600;">
+                            ${selectedLabel}
+                            </div>
+                    </div>
+                </div>
+                <div>
+                    <label style="${labelStyle}">التفاصيل:</label>
+                    <div style="background: rgba(255,255,255,0.3); padding: 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; min-height: 40px; border: 1px solid rgba(255,255,255,0.2);">
+                        ${recipientsHtml || '<span style="color: #666; font-style: italic;">لا توجد تفاصيل إضافية</span>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 3. محتوى الفوتر (Footer)
+        let footerContent = '';
+        if (isEditable) {
+            footerContent = `
+                <div style="${footerStyle}">
+                    <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap: wrap;">
+                        <div style="flex:1; min-width: 100px;">
+                            <label style="${labelStyle}">اللون:</label>
+                            <input id="loc-color" type="color" value="${item.color}" style="width:100%; height:36px; border:none; background:none; cursor:pointer;">
+                        </div>
+                        <div style="flex:1; min-width: 100px;">
+                            <label style="${labelStyle}">الحجم (متر):</label>
+                            <input id="loc-radius" type="number" value="${item.radius}" min="5" max="5000" step="5" style="${inputStyle}">
+                        </div>
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <label style="${labelStyle}">الشفافية: <span id="loc-opacity-val">${Math.round(item.fillOpacity * 100)}%</span></label>
+                        <input id="loc-opacity" type="range" min="0" max="100" value="${Math.round(item.fillOpacity * 100)}" style="width:100%; accent-color: #4285f4;">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button id="loc-save" style="flex:2; background: linear-gradient(135deg, #4285f4, #3b71ca); color:white; border:none; border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif; box-shadow: 0 4px 10px rgba(66, 133, 244, 0.3);">حفظ</button>
+                        <button id="loc-delete" style="flex:1; background: rgba(233, 66, 53, 0.1); color:#d93025; border:1px solid rgba(233, 66, 53, 0.3); border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">حذف</button>
+                        <button id="loc-close" style="flex:1; background: rgba(0,0,0,0.05); color:#444; border:1px solid rgba(0,0,0,0.1); border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">إغلاق</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- تجميع الكود النهائي ---
         const html = `
         <div style="${cardStyle}">
             <div style="${headerStyle}">
@@ -574,39 +650,102 @@ class LocationManager {
             </div>
             
             <div style="${bodyStyle}">
-                ${isEditable ? `
-                    <!-- وضع التحرير -->
-                    <div style="margin-bottom:12px;">
-                        <label style="${labelStyle}">نوع الموقع:</label>
-                        <select id="loc-icon-type" style="${inputStyle}">
-                            ${this.availableIcons.map(icon => `<option value="${icon.value}" ${item.iconType === icon.value ? 'selected' : ''}>${icon.label}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="${labelStyle}">الاسم:</label>
-                        <input id="loc-name" type="text" value="${name}" style="${inputStyle}">
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="${labelStyle}">تفاصيل:</label>
-                        <textarea id="loc-rec" style="${inputStyle} min-height:60px; resize:vertical;">${item.recipients.join('\n')}</textarea>
-                    </div>
-                ` : `
-                    <!-- وضع العرض -->
-                    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-                        <div style="flex:1;">
-                             <label style="${labelStyle}">نوع الموقع:</label>
-                             <div style="background: rgba(255,255,255,0.5); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight:600;">
-                                ${this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'مكان عام'}
-                             </div>
-                        </div>
-                    </div>
-                    <div>
-                        <label style="${labelStyle}">التفاصيل:</label>
-                        <div style="background: rgba(255,255,255,0.3); padding: 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; min-height: 40px; border: 1px solid rgba(255,255,255,0.2);">
-                            $
-/* ============================================================
-   RouteManager — إدارة المسارات + بطاقات Glass (تصميم موحد)
-============================================================ */
+                ${bodyContent}
+            </div>
+            ${footerContent}
+        </div>`;
+
+        UI.openSharedInfoCard(html, item.marker.position, !hoverOnly);
+        
+        google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => {
+            this.attachCardEvents(item, hoverOnly);
+            const closeX = document.getElementById("loc-close-x");
+            if(closeX) closeX.addEventListener("click", () => UI.forceCloseSharedInfoCard());
+        });
+    }
+
+    attachCardEvents(item, hoverOnly = false) {
+        const closeBtn = document.getElementById("loc-close");
+        if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); });
+        if (hoverOnly || !MAP.editMode) return;
+
+        const saveBtn = document.getElementById("loc-save");
+        const delBtn = document.getElementById("loc-delete");
+        const nameEl = document.getElementById("loc-name");
+        const recEl = document.getElementById("loc-rec");
+        const colEl = document.getElementById("loc-color");
+        const radEl = document.getElementById("loc-radius");
+        const opEl = document.getElementById("loc-opacity");
+        const opValEl = document.getElementById("loc-opacity-val");
+        const iconTypeEl = document.getElementById("loc-icon-type");
+
+        if (opEl) { opEl.addEventListener("input", () => { if(opValEl) opValEl.textContent = opEl.value + "%"; }); }
+
+        if (saveBtn) {
+            saveBtn.addEventListener("click", () => {
+                item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
+                item.name = nameEl.value.trim();
+                item.iconType = iconTypeEl.value;
+                item.color = colEl.value;
+                item.radius = Utils.clamp(+radEl.value, 5, 5000);
+                item.fillOpacity = Utils.clamp(+opEl.value, 0, 100) / 100;
+
+                item.circle.setOptions({
+                    fillColor: item.color,
+                    strokeColor: item.color,
+                    radius: item.radius,
+                    fillOpacity: item.fillOpacity
+                });
+                
+                item.marker.content = this.buildMarkerContent(item);
+
+                bus.emit("persist");
+                UI.forceCloseSharedInfoCard();
+                bus.emit("toast", "تم حفظ التعديلات");
+            });
+        }
+
+        if (delBtn) {
+            delBtn.addEventListener("click", () => {
+                if (!confirm(`حذف "${item.name}"؟`)) return;
+                item.marker.map = null;
+                item.circle.setMap(null);
+                this.items = this.items.filter(x => x.id !== item.id);
+                UI.forceCloseSharedInfoCard();
+                bus.emit("persist");
+                bus.emit("toast", "تم حذف الموقع");
+            });
+        }
+    }
+
+    exportState() {
+        return this.items.map(it => ({
+            id: it.id,
+            name: it.name,
+            lat: typeof it.marker.position.lat === 'function' ? it.marker.position.lat() : it.marker.position.lat,
+            lng: it.marker.position.lng,
+            color: it.color,
+            radius: it.radius,
+            fillOpacity: it.fillOpacity,
+            iconType: it.iconType,
+            usePin: it.usePin,
+            showCircle: it.showCircle,
+            recipients: it.recipients
+        }));
+    }
+
+    applyState(state) {
+        if (!state || !state.locations) return;
+        this.items.forEach(it => {
+            it.marker.map = null;
+            it.circle.setMap(null);
+        });
+        this.items = [];
+        state.locations.forEach(loc => this.addItem(loc));
+    }
+}
+
+const LOCATIONS = new LocationManager();
 
 /* ============================================================
    RouteManager — إدارة المسارات + بطاقات Glass (متجاوبة بالكامل)
