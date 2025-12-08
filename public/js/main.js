@@ -6,7 +6,7 @@
    • دعم هواتف iOS + Android بدون فقد بيانات
    • State آمنة 100%
    • ShareMode يعمل فعلياً
-   • Glass UI كامل للمواقع والمسارات
+   • Glass UI كامل للمواقع والمسارات والمضلعات
    ============================================================ */
 
 
@@ -130,13 +130,11 @@ const Utils = {
         return `${h} ساعة ${r} دقيقة`;
     },
 
-    // === هذه هي الدالة الجديدة التي يجب إضافتها ===
     formatArea(meters) {
         if (!meters) return "0 م²";
         if (meters >= 1000000) {
             return (meters / 1000000).toFixed(2) + " كم²";
         }
-        // استخدام toLocaleString لتنسيق الأرقام الكبيرة (مثل 500,000)
         return Math.round(meters).toLocaleString('ar-SA') + " م²";
     }
 };
@@ -149,8 +147,8 @@ class MapController {
     constructor() {
         this.map = null;
         this.trafficLayer = null;
-        this.bicyclingLayer = null; // طبقة جديدة
-        this.transitLayer = null;     // طبقة جديدة
+        this.bicyclingLayer = null;
+        this.transitLayer = null;
 
         this.editMode = true;
         this.shareMode = false;
@@ -160,6 +158,7 @@ class MapController {
 
         this.modeAdd = false;
         this.modeRouteAdd = false;
+        this.modePolygonAdd = false;
 
         window.MapController = this;
     }
@@ -264,9 +263,9 @@ class MapController {
 
     setRoadmap() { this.map.setMapTypeId("roadmap"); }
     setSatellite() { this.map.setMapTypeId("hybrid"); }
-    setTerrain() { this.map.setMapTypeId("terrain"); } // دالة جديدة
-    setDarkMode() { this.map.setMapTypeId("dark"); }   // دالة جديدة
-    setSilverMode() { this.map.setMapTypeId("silver"); } // دالة جديدة
+    setTerrain() { this.map.setMapTypeId("terrain"); }
+    setDarkMode() { this.map.setMapTypeId("dark"); }
+    setSilverMode() { this.map.setMapTypeId("silver"); }
 
     toggleTraffic() {
         if (this.trafficLayer.getMap()) {
@@ -276,7 +275,7 @@ class MapController {
         }
     }
 
-    toggleBicycling() { // دالة جديدة
+    toggleBicycling() {
         if (this.bicyclingLayer.getMap()) {
             this.bicyclingLayer.setMap(null);
         } else {
@@ -284,7 +283,7 @@ class MapController {
         }
     }
 
-    toggleTransit() { // دالة جديدة
+    toggleTransit() {
         if (this.transitLayer.getMap()) {
             this.transitLayer.setMap(null);
         } else {
@@ -302,10 +301,6 @@ const MAP = new MapController();
 /* ============================================================
    LocationManager — المواقع + بطاقات Glass (تصميم موحد)
 ============================================================ */
-
-/* ============================================================
-   LocationManager — إدارة المواقع + بطاقات Glass (نسخة مُصلحة بالكامل)
-   ============================================================ */
 class LocationManager {
 
     constructor() {
@@ -314,7 +309,6 @@ class LocationManager {
         this.shareMode = false;
         this.editMode = true;
         
-        // إضافة قائمة الأيقونات المتاحة
         this.availableIcons = [
             { value: 'report_problem', label: '-' },
             { value: 'report_problem', label: 'نقطة فرز' },
@@ -502,7 +496,7 @@ class LocationManager {
         // --- الأنماط (CSS Styles) ---
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
-            background: rgba(255, 255, 255, 0.60);
+            background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-radius: 20px;
@@ -513,8 +507,13 @@ class LocationManager {
             direction: rtl;
             width: 340px;
             max-width: 90vw;
-            overflow: hidden;
             position: relative;
+            
+            /* إعداد Flexbox للتمرير */
+            display: flex;
+            flex-direction: column;
+            max-height: 70vh; /* تحديد أقصى ارتفاع */
+            overflow: hidden; /* للحفاظ على الزوايا الدائرية */
         `;
 
         const headerStyle = `
@@ -524,14 +523,20 @@ class LocationManager {
             padding: 12px 16px; 
             background: rgba(255, 255, 255, 0.2); 
             border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            flex-shrink: 0; /* منع تقلص الرأس */
         `;
 
-        const bodyStyle = `padding: 16px;`;
+        const bodyStyle = `
+            padding: 16px;
+            overflow-y: auto; /* تمكين التمرير العمودي */
+            flex: 1; /* تعبئة المساحة المتبقية */
+        `;
         
         const footerStyle = `
             padding: 12px 16px; 
             background: rgba(255, 255, 255, 0.25); 
             border-top: 1px solid rgba(255, 255, 255, 0.3);
+            flex-shrink: 0; /* منع تقلص التذييل */
         `;
 
         const closeIconStyle = `
@@ -559,8 +564,6 @@ class LocationManager {
         `;
 
         const labelStyle = `font-size:11px; display:block; margin-bottom:4px; font-weight: 700; color: #444;`;
-
-        // --- بناء المحتوى (فصلنا الأجزاء لتجنب أخطاء الأقواس) ---
 
         // 1. خيارات القائمة المنسدلة
         const optionsHtml = this.availableIcons.map(icon => 
@@ -640,7 +643,6 @@ class LocationManager {
         <div style="${cardStyle}">
             <div style="${headerStyle}">
                 <div style="display:flex; align-items:center; gap: 8px;">
-                     <!-- زر الإغلاق المدمج -->
                     <div id="loc-close-x" style="${closeIconStyle}" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='transparent'">
                         <i class="material-icons" style="font-size: 18px;">close</i>
                     </div>
@@ -872,7 +874,6 @@ class RouteManager {
         const path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points;
         rt.poly = new google.maps.Polyline({ map: this.map, path, strokeColor: rt.color, strokeWeight: rt.weight, strokeOpacity: rt.opacity, zIndex: 10 });
         
-        // استخدام موقع الماوس لفتح النافذة في مكان النقر بدلاً من المركز
         rt.poly.addListener("mouseover", (e) => { 
             if (!UI.infoWindowPinned) this.openRouteCard(routeIndex, true, e.latLng); 
         });
@@ -881,79 +882,84 @@ class RouteManager {
     }
 
     openRouteCard(routeIndex, hoverOnly = false, position = null) {
-    const rt = this.routes[routeIndex];
-    const dist = Utils.formatDistance(rt.distance);
-    const dur = Utils.formatDuration(rt.duration);
-    const notes = Utils.escapeHTML(rt.notes || "");
-    const isEditable = !hoverOnly && MAP.editMode;
+        const rt = this.routes[routeIndex];
+        const dist = Utils.formatDistance(rt.distance);
+        const dur = Utils.formatDuration(rt.duration);
+        const notes = Utils.escapeHTML(rt.notes || "");
+        const isEditable = !hoverOnly && MAP.editMode;
 
-    // === تم تحديث الأنماط لتوسيع النافذة وتحسين تأثير الزجاج والشفافية ===
-    const cardStyle = `
-        font-family: 'Cairo', sans-serif;
-        background: rgba(30, 30, 30, 0.5); /* زيادة الشفافية (كانت 0.75) */
-        backdrop-filter: blur(12px) saturate(1.5);
-        -webkit-backdrop-filter: blur(12px) saturate(1.5);
-        border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        padding: 0;
-        color: #f0f0f0;
-        direction: rtl;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        max-width: 90vw;
-        width: 380px; /* توسيع العرض أكثر */
-        overflow: hidden;
-    `;
-    const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);`;
-    const bodyStyle = `padding: 16px;`;
-    const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.08);`;
+        // === تم تحديث الأنماط لتوسيع النافذة وتحسين تأثير الزجاج والشفافية ===
+        const cardStyle = `
+            font-family: 'Cairo', sans-serif;
+            background: rgba(30, 30, 30, 0.75); /* زيادة الشفافية */
+            backdrop-filter: blur(12px) saturate(1.5);
+            -webkit-backdrop-filter: blur(12px) saturate(1.5);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 0;
+            color: #f0f0f0;
+            direction: rtl;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 90vw;
+            width: 380px;
+            position: relative;
 
-    const html = `
-    <div style="${cardStyle}">
-        <div style="${headerStyle}">
-            <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;">معلومات المسار ${routeIndex + 1}</h3>
-            <img src="img/logo.png" style="width: 30px; height: 30px; border-radius: 6px;">
-        </div>
-        <div style="${bodyStyle}">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-family: 'Cairo', sans-serif;">
-                <span><b>المسافة:</b> ${dist}</span>
-                <span><b>الوقت:</b> ${dur}</span>
+            /* إعداد Flexbox للتمرير */
+            display: flex;
+            flex-direction: column;
+            max-height: 70vh; /* تحديد أقصى ارتفاع */
+            overflow: hidden; /* للحفاظ على الزوايا الدائرية */
+        `;
+        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08); flex-shrink: 0;`;
+        const bodyStyle = `padding: 16px; overflow-y: auto; flex: 1;`;
+        const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.08); flex-shrink: 0;`;
+
+        const html = `
+        <div style="${cardStyle}">
+            <div style="${headerStyle}">
+                <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;">معلومات المسار ${routeIndex + 1}</h3>
+                <img src="img/logo.png" style="width: 30px; height: 30px; border-radius: 6px;">
+            </div>
+            <div style="${bodyStyle}">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-family: 'Cairo', sans-serif;">
+                    <span><b>المسافة:</b> ${dist}</span>
+                    <span><b>الوقت:</b> ${dur}</span>
+                </div>
+                ${isEditable ? `
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
+                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:30px;border:none;border-radius:6px;cursor:pointer;"></div>
+                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
+                        <input id="route-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">ملاحظات:</label>
+                        <textarea id="route-notes" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
+                    </div>
+                ` : `
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Cairo', sans-serif;">ملاحظات:</p>
+                    <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Cairo', sans-serif;">
+                        ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
+                    </div>
+                `}
             </div>
             ${isEditable ? `
-                <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
-                    <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:30px;border:none;border-radius:6px;cursor:pointer;"></div>
-                    <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
+                <div style="${footerStyle}">
+                    <div style="display:flex;gap:8px; flex-wrap: wrap;">
+                        <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 90px; font-size: 14px;">حفظ</button>
+                        <button id="route-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">حذف</button>
+                        <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">إغلاق</button>
+                    </div>
                 </div>
-                <div style="margin-bottom:14px;">
-                    <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
-                    <input id="route-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
-                </div>
-                <div style="margin-bottom:14px;">
-                    <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">ملاحظات:</label>
-                    <textarea id="route-notes" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
-                </div>
-            ` : `
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Cairo', sans-serif;">ملاحظات:</p>
-                <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Cairo', sans-serif;">
-                    ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
-                </div>
-            `}
-        </div>
-        ${isEditable ? `
-            <div style="${footerStyle}">
-                <div style="display:flex;gap:8px; flex-wrap: wrap;">
-                    <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 90px; font-size: 14px;">حفظ</button>
-                    <button id="route-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">حذف</button>
-                    <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">إغلاق</button>
-                </div>
-            </div>
-        ` : ''}
-    </div>`;
+            ` : ''}
+        </div>`;
 
-    // استخدام الموضع المحدد (مكان النقر) إذا توفر، وإلا نستخدم المركز
-    const cardPosition = position || this.getRouteCenter(rt);
-    UI.openSharedInfoCard(html, cardPosition, !hoverOnly);
-    google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
-}
+        const cardPosition = position || this.getRouteCenter(rt);
+        UI.openSharedInfoCard(html, cardPosition, !hoverOnly);
+        google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
+    }
 
     getRouteCenter(rt) {
         const path = rt.poly.getPath();
@@ -1001,9 +1007,6 @@ class RouteManager {
 }
 
 const ROUTES = new RouteManager();
-/* ============================================================
-   PolygonManager — إدارة المضلعات + بطاقات Glass
-============================================================ */
 
 /* ============================================================
    PolygonManager — إدارة المضلعات + بطاقات Glass (متجاوبة بالكامل)
@@ -1046,7 +1049,7 @@ class PolygonManager {
     addPolygonEditListeners(poly, index) {
         poly.polygon.addListener("click", (e) => {
             if (this.editingPolygonIndex === index) { this.insertVertex(poly, index, e.latLng); }
-            else { this.openCard(this.polygons.indexOf(poly), false, e.latLng); } // تمرير موقع النقر
+            else { this.openCard(this.polygons.indexOf(poly), false, e.latLng); }
         });
     }
     enterEditMode(index) {
@@ -1072,9 +1075,9 @@ class PolygonManager {
         UI.showDefaultUI();
         bus.emit("toast", "تم الخروج من وضع تحرير المضلع");
     }
-    insertVertex(poly, index, latLng) { /* ... (لا تغيير هنا) ... */ }
-    deleteVertex(poly, index, vertexIndex) { /* ... (لا تغيير هنا) ... */ }
-    distanceToSegment(point, segStart, segEnd) { /* ... (لا تغيير هنا) ... */ }
+    insertVertex(poly, index, latLng) { /* ... */ }
+    deleteVertex(poly, index, vertexIndex) { /* ... */ }
+    distanceToSegment(point, segStart, segEnd) { /* ... */ }
 
     openCard(polyIndex, hoverOnly = false, position = null) {
         const poly = this.polygons[polyIndex];
@@ -1084,10 +1087,10 @@ class PolygonManager {
         const area = google.maps.geometry.spherical.computeArea(poly.points);
         const areaText = Utils.formatArea(area);
 
-        // === تعديل تجاوب الكرت ===
+        // === تعديل تجاوب الكرت (مشابه للمواقع والمسارات) ===
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
-            background: rgba(255, 255, 255, 0.75); /* شفافية أكبر للمضلعات */
+            background: rgba(255, 255, 255, 0.85); /* شفافية أكبر للمضلعات */
             backdrop-filter: blur(15px) saturate(1.8);
             -webkit-backdrop-filter: blur(15px) saturate(1.8);
             border-radius: 20px;
@@ -1096,13 +1099,19 @@ class PolygonManager {
             color: #333;
             direction: rtl;
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-            max-width: 90vw; /* تغيير */
-            width: 380px; /* تغيير */
-            overflow: hidden;
+            max-width: 90vw;
+            width: 380px;
+            position: relative;
+
+            /* إعداد Flexbox للتمرير */
+            display: flex;
+            flex-direction: column;
+            max-height: 70vh; /* تحديد أقصى ارتفاع */
+            overflow: hidden; /* للحفاظ على الزوايا الدائرية */
         `;
-        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2);`;
-        const bodyStyle = `padding: 20px;`;
-        const footerStyle = `padding: 12px 20px; background: rgba(255, 255, 255, 0.6); border-top: 1px solid rgba(255, 255, 255, 0.2);`;
+        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2); flex-shrink: 0;`;
+        const bodyStyle = `padding: 20px; overflow-y: auto; flex: 1;`;
+        const footerStyle = `padding: 12px 20px; background: rgba(255, 255, 255, 0.6); border-top: 1px solid rgba(255, 255, 255, 0.2); flex-shrink: 0;`;
 
         const html = `
         <div style="${cardStyle}">
@@ -1190,13 +1199,7 @@ class PolygonManager {
 }
 
 const POLYGONS = new PolygonManager();
-/* ============================================================
-   StateManager — النظام الرئيس لحفظ واسترجاع state
-============================================================ */
-/* ============================================================
-   StateManager — إدارة حفظ واسترجاع الحالة
-============================================================ */
-/* ============================================================
+
 /* ============================================================
    StateManager — إدارة حفظ واسترجاع الحالة (مُصلح)
 ============================================================ */
@@ -1335,12 +1338,6 @@ class StateManager {
 const STATE = new StateManager();
 
 
-/* ============================================================
-   ShareManager — محاولة اختصار + fallback تلقائي
-============================================================ */
-/* ============================================================
-   ShareManager — نسخ آمن مع تحقق من طول الرابط
-============================================================ */
 /* ============================================================
    ShareManager — نسخ آمن مع ضغط البيانات
 ============================================================ */
@@ -1554,12 +1551,7 @@ class MeasureManager {
     }
 }
 
-// هذا السطر مهم جدًا لإنشاء نسخة من الكلاس
 const MEASURE = new MeasureManager();
-
-/* ============================================================
-   UIManager — واجهة المستخدم
-============================================================ */
 
 /* ============================================================
    UIManager — واجهة المستخدم (مع نافذة معلومات متجاوبة بالكامل)
@@ -1593,41 +1585,14 @@ class UIManager {
 
     initializeUI() {
         console.log("UI: initializeUI() called.");
-
-        // === إصلاح: حقن CSS لجعل حاوية نافذة المعلومات شفافة وإخفاء زر الإغلاق الافتراضي ===
-        const style = document.createElement('style');
-        style.innerHTML = `
-            /* إزالة الخلفية البيضاء والظل الافتراضي من نافذة المعلومات */
-            .gm-style-iw-c {
-                background: transparent !important;
-                box-shadow: none !important;
-                padding: 0 !important;
-                border-radius: 0 !important;
-            }
-            /* السماح للمحتوى بالظهور خارج الحدود إذا لزم الأمر */
-            .gm-style-iw-d {
-                overflow: visible !important;
-                max-height: none !important;
-                padding: 0 !important;
-            }
-            /* إخفاء السهم الصغير أسفل النافذة */
-            .gm-style-iw-tc {
-                display: none !important;
-            }
-            /* إخفاء زر الإغلاق (X) الافتراضي من جوجل */
-            .gm-ui-hover-effect {
-                display: none !important;
-            }
-        `;
-        document.head.appendChild(style);
-
         if (MAP.shareMode) {
             this.applyShareMode();
         }
 
-        // إنشاء نافذة المعلومات
-        // ملاحظة: maxWidth سيتم تجاوزه في دالة openSharedInfoCard
-        this.sharedInfoWindow = new google.maps.InfoWindow();
+        // === التعديل الرئيسي هنا ===
+        // إنشاء نافذة المعلومات بعرض متجاوب
+        const maxWidth = Math.min(window.innerWidth * 0.9, 400);
+        this.sharedInfoWindow = new google.maps.InfoWindow({ maxWidth: maxWidth });
 
         MAP.map.addListener("click", () => {
             this.closeSharedInfoCard();
@@ -1751,14 +1716,24 @@ class UIManager {
         this.sharedInfoWindow.setContent(content);
         this.sharedInfoWindow.setPosition(position);
         
-        // === تحديث الخيارات لحل مشاكل العرض ===
+        // ضبط خيارات إضافية للنافذة للتحكم في الحجم والموضع
         this.sharedInfoWindow.setOptions({
-            maxWidth: 450, // توسيع الحد الأقصى للعرض
-            pixelOffset: new google.maps.Size(0, -65), // رفع النافذة للأعلى (رقم سالب) لعدم تغطية المسار
-            zIndex: 1000
+            maxWidth: 400, // تحديد أقصى عرض للنافذة
+            pixelOffset: new google.maps.Size(0, -65), // انحراف للأعلى (خاصة للمسارات)
+            zIndex: 1000 // التأكد من أنها فوق العناصر الأخرى
         });
         
         this.sharedInfoWindow.open({ map: MAP.map });
+        
+        // === إخفاء زر الإغلاق (X) الافتراضي بعد تحميل النافذة ===
+        google.maps.event.addListenerOnce(this.sharedInfoWindow, 'domready', () => {
+            // البحث عن زر الإغلاق داخل نافذة المعلومات وإخفاؤه
+            const closeBtn = document.querySelector('.gm-style-iw button[title="Close"]');
+            if (closeBtn) {
+                closeBtn.style.display = 'none';
+            }
+        });
+        
         this.infoWindowPinned = isPinned;
     }
    
