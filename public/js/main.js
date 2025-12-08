@@ -871,32 +871,36 @@ class RouteManager {
         if (rt.poly) rt.poly.setMap(null);
         const path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points;
         rt.poly = new google.maps.Polyline({ map: this.map, path, strokeColor: rt.color, strokeWeight: rt.weight, strokeOpacity: rt.opacity, zIndex: 10 });
-        rt.poly.addListener("mouseover", () => { if (!UI.infoWindowPinned) this.openRouteCard(routeIndex, true); });
+        
+        // استخدام موقع الماوس لفتح النافذة في مكان النقر بدلاً من المركز
+        rt.poly.addListener("mouseover", (e) => { 
+            if (!UI.infoWindowPinned) this.openRouteCard(routeIndex, true, e.latLng); 
+        });
         rt.poly.addListener("mouseout", () => { UI.closeSharedInfoCard(); });
-        rt.poly.addListener("click", () => this.openRouteCard(routeIndex, false));
+        rt.poly.addListener("click", (e) => this.openRouteCard(routeIndex, false, e.latLng));
     }
 
-    openRouteCard(routeIndex, hoverOnly = false) {
+    openRouteCard(routeIndex, hoverOnly = false, position = null) {
     const rt = this.routes[routeIndex];
     const dist = Utils.formatDistance(rt.distance);
     const dur = Utils.formatDuration(rt.duration);
     const notes = Utils.escapeHTML(rt.notes || "");
     const isEditable = !hoverOnly && MAP.editMode;
 
-    // === تم تحديث الأنماط لتوسيع النافذة وتحسين تأثير الزجاج ===
+    // === تم تحديث الأنماط لتوسيع النافذة وتحسين تأثير الزجاج والشفافية ===
     const cardStyle = `
         font-family: 'Cairo', sans-serif;
-        background: rgba(10, 10, 10, 0.75); /* زيادة التعتيم قليلاً لتحسين القراءة */
-        backdrop-filter: blur(20px) saturate(1.8);
-        -webkit-backdrop-filter: blur(20px) saturate(1.8);
+        background: rgba(30, 30, 30, 0.5); /* زيادة الشفافية (كانت 0.75) */
+        backdrop-filter: blur(12px) saturate(1.5);
+        -webkit-backdrop-filter: blur(12px) saturate(1.5);
         border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.15);
         padding: 0;
         color: #f0f0f0;
         direction: rtl;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         max-width: 90vw;
-        width: 360px; /* توسيع العرض كما هو مطلوب */
+        width: 380px; /* توسيع العرض أكثر */
         overflow: hidden;
     `;
     const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);`;
@@ -945,9 +949,9 @@ class RouteManager {
         ` : ''}
     </div>`;
 
-    // === استخدام UIManager لفتح النافذة ===
-    const routeCenter = this.getRouteCenter(rt);
-    UI.openSharedInfoCard(html, routeCenter, !hoverOnly);
+    // استخدام الموضع المحدد (مكان النقر) إذا توفر، وإلا نستخدم المركز
+    const cardPosition = position || this.getRouteCenter(rt);
+    UI.openSharedInfoCard(html, cardPosition, !hoverOnly);
     google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
 }
 
@@ -1042,7 +1046,7 @@ class PolygonManager {
     addPolygonEditListeners(poly, index) {
         poly.polygon.addListener("click", (e) => {
             if (this.editingPolygonIndex === index) { this.insertVertex(poly, index, e.latLng); }
-            else { this.openCard(this.polygons.indexOf(poly), false); }
+            else { this.openCard(this.polygons.indexOf(poly), false, e.latLng); } // تمرير موقع النقر
         });
     }
     enterEditMode(index) {
@@ -1072,7 +1076,7 @@ class PolygonManager {
     deleteVertex(poly, index, vertexIndex) { /* ... (لا تغيير هنا) ... */ }
     distanceToSegment(point, segStart, segEnd) { /* ... (لا تغيير هنا) ... */ }
 
-    openCard(polyIndex, hoverOnly = false) {
+    openCard(polyIndex, hoverOnly = false, position = null) {
         const poly = this.polygons[polyIndex];
         const isEditingShape = this.editingPolygonIndex === polyIndex;
         const isEditable = !hoverOnly && MAP.editMode && !isEditingShape;
@@ -1083,9 +1087,9 @@ class PolygonManager {
         // === تعديل تجاوب الكرت ===
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px) saturate(1.8);
-            -webkit-backdrop-filter: blur(20px) saturate(1.8);
+            background: rgba(255, 255, 255, 0.75); /* شفافية أكبر للمضلعات */
+            backdrop-filter: blur(15px) saturate(1.8);
+            -webkit-backdrop-filter: blur(15px) saturate(1.8);
             border-radius: 20px;
             border: 1px solid rgba(255, 255, 255, 0.3);
             padding: 0;
@@ -1093,7 +1097,7 @@ class PolygonManager {
             direction: rtl;
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
             max-width: 90vw; /* تغيير */
-            width: 360px; /* تغيير */
+            width: 380px; /* تغيير */
             overflow: hidden;
         `;
         const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2);`;
@@ -1139,7 +1143,7 @@ class PolygonManager {
             ` : ''}
         </div>`;
 
-        UI.openSharedInfoCard(html, this.getPolygonCenter(poly), !hoverOnly);
+        UI.openSharedInfoCard(html, position || this.getPolygonCenter(poly), !hoverOnly);
         google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachCardEvents(polyIndex, hoverOnly));
     }
 
@@ -1749,8 +1753,8 @@ class UIManager {
         
         // === تحديث الخيارات لحل مشاكل العرض ===
         this.sharedInfoWindow.setOptions({
-            maxWidth: 400, // توسيع الحد الأقصى للعرض
-            pixelOffset: new google.maps.Size(0, -45), // رفع النافذة للأعلى (رقم سالب) لعدم تغطية المسار
+            maxWidth: 450, // توسيع الحد الأقصى للعرض
+            pixelOffset: new google.maps.Size(0, -65), // رفع النافذة للأعلى (رقم سالب) لعدم تغطية المسار
             zIndex: 1000
         });
         
