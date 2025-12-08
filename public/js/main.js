@@ -1736,16 +1736,24 @@ class UIManager {
     }
 
     openSharedInfoCard(content, position, isPinned = false) {
-        // أغلق النافذة الحالية دائمًا قبل فتح نافذة جديدة
-        this.sharedInfoWindow.close();
-        
-        this.sharedInfoWindow.setContent(content);
-        this.sharedInfoWindow.setPosition(position);
-        this.sharedInfoWindow.open({ map: MAP.map });
-        
-        this.infoWindowPinned = isPinned;
-    }
-
+    // أغلق النافذة الحالية دائمًا قبل فتح نافذة جديدة
+    this.sharedInfoWindow.close();
+    
+    this.sharedInfoWindow.setContent(content);
+    this.sharedInfoWindow.setPosition(position);
+    
+    // ضبط خيارات إضافية للنافذة للتحكم في الحجم والموضع
+    this.sharedInfoWindow.setOptions({
+        maxWidth: 300, // تحديد أقصى عرض للنافذة
+        pixelOffset: new google.maps.Size(0, -10), // انحراف بسيط للأعلى
+        zIndex: 1000 // التأكد من أنها فوق العناصر الأخرى
+    });
+    
+    this.sharedInfoWindow.open({ map: MAP.map });
+    
+    this.infoWindowPinned = isPinned;
+}
+   
     closeSharedInfoCard() {
         if (this.sharedInfoWindow && !this.infoWindowPinned) {
             this.sharedInfoWindow.close();
