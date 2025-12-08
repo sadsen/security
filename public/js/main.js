@@ -883,20 +883,20 @@ class RouteManager {
     const notes = Utils.escapeHTML(rt.notes || "");
     const isEditable = !hoverOnly && MAP.editMode;
 
-    // === تعديل تجاوب الكرت ===
+    // === تم تحديث الأنماط لتوسيع النافذة وتحسين تأثير الزجاج ===
     const cardStyle = `
         font-family: 'Cairo', sans-serif;
-        background: rgba(10, 10, 10, 0.6); /* شفافية عالية جدًا */
-        backdrop-filter: blur(20px) saturate(1.5); /* تأثير زجاجي قوي */
-        -webkit-backdrop-filter: blur(20px) saturate(1.5);
+        background: rgba(10, 10, 10, 0.75); /* زيادة التعتيم قليلاً لتحسين القراءة */
+        backdrop-filter: blur(20px) saturate(1.8);
+        -webkit-backdrop-filter: blur(20px) saturate(1.8);
         border-radius: 16px;
-        border: none; /* === إزالة الإطار الأبيض === */
+        border: 1px solid rgba(255, 255, 255, 0.1);
         padding: 0;
         color: #f0f0f0;
         direction: rtl;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
         max-width: 90vw;
-        width: 320px; /* === توسيع العرض === */
+        width: 360px; /* توسيع العرض كما هو مطلوب */
         overflow: hidden;
     `;
     const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);`;
@@ -945,8 +945,7 @@ class RouteManager {
         ` : ''}
     </div>`;
 
-    // === استدعاء النافذة مع تحديد الموضع ===
-    // سنقوم بتحديد الموضع في UIManager لمنع التغطية
+    // === استخدام UIManager لفتح النافذة ===
     const routeCenter = this.getRouteCenter(rt);
     UI.openSharedInfoCard(html, routeCenter, !hoverOnly);
     google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
@@ -1590,14 +1589,41 @@ class UIManager {
 
     initializeUI() {
         console.log("UI: initializeUI() called.");
+
+        // === إصلاح: حقن CSS لجعل حاوية نافذة المعلومات شفافة وإخفاء زر الإغلاق الافتراضي ===
+        const style = document.createElement('style');
+        style.innerHTML = `
+            /* إزالة الخلفية البيضاء والظل الافتراضي من نافذة المعلومات */
+            .gm-style-iw-c {
+                background: transparent !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                border-radius: 0 !important;
+            }
+            /* السماح للمحتوى بالظهور خارج الحدود إذا لزم الأمر */
+            .gm-style-iw-d {
+                overflow: visible !important;
+                max-height: none !important;
+                padding: 0 !important;
+            }
+            /* إخفاء السهم الصغير أسفل النافذة */
+            .gm-style-iw-tc {
+                display: none !important;
+            }
+            /* إخفاء زر الإغلاق (X) الافتراضي من جوجل */
+            .gm-ui-hover-effect {
+                display: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+
         if (MAP.shareMode) {
             this.applyShareMode();
         }
 
-        // === التعديل الرئيسي هنا ===
-        // إنشاء نافذة المعلومات بعرض متجاوب
-        const maxWidth = Math.min(window.innerWidth * 0.9, 400);
-        this.sharedInfoWindow = new google.maps.InfoWindow({ maxWidth: maxWidth });
+        // إنشاء نافذة المعلومات
+        // ملاحظة: maxWidth سيتم تجاوزه في دالة openSharedInfoCard
+        this.sharedInfoWindow = new google.maps.InfoWindow();
 
         MAP.map.addListener("click", () => {
             this.closeSharedInfoCard();
@@ -1721,24 +1747,14 @@ class UIManager {
         this.sharedInfoWindow.setContent(content);
         this.sharedInfoWindow.setPosition(position);
         
-        // ضبط خيارات إضافية للنافذة للتحكم في الحجم والموضع
+        // === تحديث الخيارات لحل مشاكل العرض ===
         this.sharedInfoWindow.setOptions({
-            maxWidth: 300, // تحديد أقصى عرض للنافذة
-            pixelOffset: new google.maps.Size(0, -10), // انحراف بسيط للأعلى
-            zIndex: 1000 // التأكد من أنها فوق العناصر الأخرى
+            maxWidth: 400, // توسيع الحد الأقصى للعرض
+            pixelOffset: new google.maps.Size(0, -45), // رفع النافذة للأعلى (رقم سالب) لعدم تغطية المسار
+            zIndex: 1000
         });
         
         this.sharedInfoWindow.open({ map: MAP.map });
-        
-        // === إخفاء زر الإغلاق (X) الافتراضي بعد تحميل النافذة ===
-        google.maps.event.addListenerOnce(this.sharedInfoWindow, 'domready', () => {
-            // البحث عن زر الإغلاق داخل نافذة المعلومات وإخفاؤه
-            const closeBtn = document.querySelector('.gm-style-iw button[title="Close"]');
-            if (closeBtn) {
-                closeBtn.style.display = 'none';
-            }
-        });
-        
         this.infoWindowPinned = isPinned;
     }
    
