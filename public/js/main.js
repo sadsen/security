@@ -877,99 +877,80 @@ class RouteManager {
     }
 
     openRouteCard(routeIndex, hoverOnly = false) {
-        const rt = this.routes[routeIndex];
-        const dist = Utils.formatDistance(rt.distance);
-        const dur = Utils.formatDuration(rt.duration);
-        const notes = Utils.escapeHTML(rt.notes || "");
-        const isEditable = !hoverOnly && MAP.editMode;
+    const rt = this.routes[routeIndex];
+    const dist = Utils.formatDistance(rt.distance);
+    const dur = Utils.formatDuration(rt.duration);
+    const notes = Utils.escapeHTML(rt.notes || "");
+    const isEditable = !hoverOnly && MAP.editMode;
 
-        // === تعديل تجاوب الكرت ===
-        const cardStyle = `
-            font-family: 'Cairo', sans-serif;
-            background: rgba(10, 10, 10, 0.6); /* شفافية عالية جدًا */
-            backdrop-filter: blur(20px) saturate(1.5); /* تأثير زجاجي قوي */
-            -webkit-backdrop-filter: blur(20px) saturate(1.5);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 0;
-            color: #f0f0f0;
-            direction: rtl;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-            max-width: 90vw;
-            width: 280px; /* حجم صغير */
-            overflow: hidden;
-        `;
-        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);`;
-        const bodyStyle = `padding: 14px;`; /* تقليل الحشو */
-        const footerStyle = `padding: 8px 14px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.08);`;
+    // === تعديل تجاوب الكرت ===
+    const cardStyle = `
+        font-family: 'Cairo', sans-serif;
+        background: rgba(10, 10, 10, 0.6); /* شفافية عالية جدًا */
+        backdrop-filter: blur(20px) saturate(1.5); /* تأثير زجاجي قوي */
+        -webkit-backdrop-filter: blur(20px) saturate(1.5);
+        border-radius: 16px;
+        border: none; /* === إزالة الإطار الأبيض === */
+        padding: 0;
+        color: #f0f0f0;
+        direction: rtl;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        max-width: 90vw;
+        width: 320px; /* === توسيع العرض === */
+        overflow: hidden;
+    `;
+    const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);`;
+    const bodyStyle = `padding: 16px;`;
+    const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.08);`;
 
-        const html = `
-        <div style="${cardStyle}">
-            <div style="${headerStyle}">
-                <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700;">معلومات المسار ${routeIndex + 1}</h3>
-                <img src="img/logo.png" style="width: 28px; height: 28px; border-radius: 6px;">
-            </div>
-            <div style="${bodyStyle}">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; font-family: 'Cairo', sans-serif;">
-                    <span><b>المسافة:</b> ${dist}</span>
-                    <span><b>الوقت:</b> ${dur}</span>
-                </div>
-                ${isEditable ? `
-                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 100px;"><label style="font-size:11px; display:block; margin-bottom:3px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:28px;border:none;border-radius:6px;cursor:pointer;"></div>
-                        <div style="flex:1; min-width: 100px;"><label style="font-size:11px; display:block; margin-bottom:3px; font-family: 'Cairo', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:6px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-size:11px; display:block; margin-bottom:3px; font-family: 'Cairo', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
-                        <input id="route-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-size:11px; display:block; margin-bottom:3px; font-family: 'Cairo', sans-serif;">ملاحظات:</label>
-                        <textarea id="route-notes" rows="2" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 13px; color: #333;">${notes}</textarea>
-                    </div>
-                ` : `
-                    <p style="margin: 0 0 6px 0; font-size: 13px; color: #ccc; font-family: 'Cairo', sans-serif;">ملاحظات:</p>
-                    <div style="background: rgba(52, 168, 83, 0.1); padding: 8px; border-radius: 8px; min-height: 36px; font-size: 13px; line-height: 1.5; font-family: 'Cairo', sans-serif;">
-                        ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
-                    </div>
-                `}
+    const html = `
+    <div style="${cardStyle}">
+        <div style="${headerStyle}">
+            <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;">معلومات المسار ${routeIndex + 1}</h3>
+            <img src="img/logo.png" style="width: 30px; height: 30px; border-radius: 6px;">
+        </div>
+        <div style="${bodyStyle}">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-family: 'Cairo', sans-serif;">
+                <span><b>المسافة:</b> ${dist}</span>
+                <span><b>الوقت:</b> ${dur}</span>
             </div>
             ${isEditable ? `
-                <div style="${footerStyle}">
-                    <div style="display:flex;gap:6px; flex-wrap: wrap;">
-                        <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:8px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px; font-size: 13px;">حفظ</button>
-                        <button id="route-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:10px;padding:8px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 60px; font-size: 13px;">حذف</button>
-                        <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:8px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 60px; font-size: 13px;">إغلاق</button>
-                    </div>
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
+                    <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:30px;border:none;border-radius:6px;cursor:pointer;"></div>
+                    <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
                 </div>
-            ` : ''}
-        </div>`;
+                <div style="margin-bottom:14px;">
+                    <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
+                    <input id="route-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">ملاحظات:</label>
+                    <textarea id="route-notes" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
+                </div>
+            ` : `
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Cairo', sans-serif;">ملاحظات:</p>
+                <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Cairo', sans-serif;">
+                    ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
+                </div>
+            `}
+        </div>
+        ${isEditable ? `
+            <div style="${footerStyle}">
+                <div style="display:flex;gap:8px; flex-wrap: wrap;">
+                    <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 90px; font-size: 14px;">حفظ</button>
+                    <button id="route-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">حذف</button>
+                    <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">إغلاق</button>
+                </div>
+            </div>
+        ` : ''}
+    </div>`;
 
-        // === حساب الموقع الأمثل للكرت لتجنب تغطية المسار ===
-        const routeCenter = this.getRouteCenter(rt);
-        const mapBounds = MAP.map.getBounds();
-        
-        let offsetX = 0.0002; // انحراف بسيط لليمين
-        let offsetY = 0.0002; // انحراف بسيط للأعلى
-        
-        // إذا كان المسار في النصف الأيمن من الخريطة، انقل الكرت لليسار
-        if (routeCenter.lng() > (mapBounds.getNorthEast().lng() + mapBounds.getSouthWest().lng()) / 2) {
-            offsetX = -0.0002;
-        }
-        
-        // إذا كان المسار في النصف العلوي من الخريطة، انقل الكرت للأسفل
-        if (routeCenter.lat() > (mapBounds.getNorthEast().lat() + mapBounds.getSouthWest().lat()) / 2) {
-            offsetY = -0.0002;
-        }
-        
-        const infoWindowPosition = new google.maps.LatLng(
-            routeCenter.lat() + offsetY,
-            routeCenter.lng() + offsetX
-        );
-
-        UI.openSharedInfoCard(html, infoWindowPosition, !hoverOnly);
-        google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
-    }
+    // === استدعاء النافذة مع تحديد الموضع ===
+    // سنقوم بتحديد الموضع في UIManager لمنع التغطية
+    const routeCenter = this.getRouteCenter(rt);
+    UI.openSharedInfoCard(html, routeCenter, !hoverOnly);
+    google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
+}
 
     getRouteCenter(rt) {
         const path = rt.poly.getPath();
