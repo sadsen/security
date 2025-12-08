@@ -876,32 +876,33 @@ class RouteManager {
         rt.poly.addListener("click", () => this.openRouteCard(routeIndex, false));
     }
 
-openRouteCard(routeIndex, hoverOnly = false) {
+ openRouteCard(routeIndex, hoverOnly = false) {
     const rt = this.routes[routeIndex];
     const dist = Utils.formatDistance(rt.distance);
     const dur = Utils.formatDuration(rt.duration);
     const notes = Utils.escapeHTML(rt.notes || "");
     const isEditable = !hoverOnly && MAP.editMode;
 
-    // === تعديل تجاوب الكرت ===
+    // === تعديل تجاوب الكرت لتحقيق التأثير الزجاجي ===
     const cardStyle = `
         font-family: 'Cairo', sans-serif;
-        background: rgba(20, 20, 20, 0.75); /* تم زيادة الشفافية (كان 0.95) */
-        backdrop-filter: blur(15px) saturate(1.2); /* تأثير زجاجي أخف */
-        -webkit-backdrop-filter: blur(15px) saturate(1.2);
+        background: rgba(10, 10, 10, 0.6); /* شفافية أعلى */
+        backdrop-filter: blur(20px) saturate(1.5); /* تأثير زجاجي أقوى */
+        -webkit-backdrop-filter: blur(20px) saturate(1.5);
         border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.2);
         padding: 0;
         color: #f0f0f0;
         direction: rtl;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         max-width: 90vw;
-        width: 280px; /* تم تصغير العرض (كان 360px) */
+        width: 280px;
         overflow: hidden;
     `;
-    const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);`;
-    const bodyStyle = `padding: 14px;`; /* تقليل الحشو */
-    const footerStyle = `padding: 8px 14px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.08);`;
+    
+    const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255, 255, 255, 0.1); border-bottom: 1px solid rgba(255, 255, 255, 0.1);`;
+    const bodyStyle = `padding: 14px;`;
+    const footerStyle = `padding: 8px 14px; background: rgba(255, 255, 255, 0.1); border-top: 1px solid rgba(255, 255, 255, 0.1);`;
 
     const html = `
     <div style="${cardStyle}">
@@ -945,37 +946,11 @@ openRouteCard(routeIndex, hoverOnly = false) {
         ` : ''}
     </div>`;
 
-    // === حساب الموقع الأمثل للكرت لتجنب تغطية المسار ===
+    // === استدعاء النافذة مع تحديد الموضع ===
+    // سنقوم بتحديد الموضع في UIManager لمنع التغطية
     const routeCenter = this.getRouteCenter(rt);
-    const mapBounds = MAP.map.getBounds();
-    
-    let offsetX = 0.0002; // انحراف بسيط لليمين
-    let offsetY = 0.0002; // انحراف بسيط للأعلى
-    
-    // إذا كان المسار في النصف الأيمن من الخريطة، انقل الكرت لليسار
-    if (routeCenter.lng() > (mapBounds.getNorthEast().lng() + mapBounds.getSouthWest().lng()) / 2) {
-        offsetX = -0.0002;
-    }
-    
-    // إذا كان المسار في النصف العلوي من الخريطة، انقل الكرت للأسفل
-    if (routeCenter.lat() > (mapBounds.getNorthEast().lat() + mapBounds.getSouthWest().lat()) / 2) {
-        offsetY = -0.0002;
-    }
-    
-    const infoWindowPosition = new google.maps.LatLng(
-        routeCenter.lat() + offsetY,
-        routeCenter.lng() + offsetX
-    );
-
-    UI.openSharedInfoCard(html, infoWindowPosition, !hoverOnly);
+    UI.openSharedInfoCard(html, routeCenter, !hoverOnly);
     google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
-}
-
-getRouteCenter(rt) {
-    const path = rt.poly.getPath();
-    const bounds = new google.maps.LatLngBounds();
-    for (let i = 0; i < path.getLength(); i++) { bounds.extend(path.getAt(i)); }
-    return bounds.getCenter();
 }
 
 attachRouteCardEvents(routeIndex, hoverOnly) {
@@ -1745,14 +1720,26 @@ class UIManager {
     // ضبط خيارات إضافية للنافذة للتحكم في الحجم والموضع
     this.sharedInfoWindow.setOptions({
         maxWidth: 300, // تحديد أقصى عرض للنافذة
-        pixelOffset: new google.maps.Size(0, -10), // انحراف بسيط للأعلى
+        // تحديد موقع النافذة بمسافة ثابتة من النقطة المحددة (لأسفل اليمين)
+        // هذا يمنع تغطية المسار
+        pixelOffset: new google.maps.Size(100, -50),
         zIndex: 1000 // التأكد من أنها فوق العناصر الأخرى
     });
     
     this.sharedInfoWindow.open({ map: MAP.map });
     
+    // === إخفاء زر الإغلاق (X) الافتراضي بعد تحميل النافذة ===
+    google.maps.event.addListenerOnce(this.sharedInfoWindow, 'domready', () => {
+        // البحث عن زر الإغلاق داخل نافذة المعلومات وإخفاؤه
+        const closeBtn = document.querySelector('.gm-style-iw button[title="Close"]');
+        if (closeBtn) {
+            closeBtn.style.display = 'none';
+        }
+    });
+    
     this.infoWindowPinned = isPinned;
 }
+   
    
     closeSharedInfoCard() {
         if (this.sharedInfoWindow && !this.infoWindowPinned) {
