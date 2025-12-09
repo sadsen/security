@@ -486,15 +486,29 @@ class LocationManager {
         return markerContent;
     }
 
-   attachListeners(item) {
-    item.marker.addListener("drag", () => item.circle.setCenter(item.marker.position));
-    item.marker.addListener("dragend", () => bus.emit("persist"));
-    item.circle.addListener("mouseover", () => { if (!UI.infoWindowPinned) this.openCard(item, true); });
-    item.circle.addListener("mouseout", () => { UI.closeSharedInfoCard(); });
-    item.circle.addListener("click", () => this.openCard(item, false));
-    
-    // تم حذف مستمع mousemove المسبب للمشكلة
-}
+    attachListeners(item) {
+        item.marker.addListener("drag", () => item.circle.setCenter(item.marker.position));
+        item.marker.addListener("dragend", () => bus.emit("persist"));
+        item.circle.addListener("mouseover", () => { if (!UI.infoWindowPinned) this.openCard(item, true); });
+        item.circle.addListener("mouseout", () => { UI.closeSharedInfoCard(); });
+        item.circle.addListener("click", () => this.openCard(item, false));
+        
+        // إضافة مستمع للنقر داخل الدائرة وليس فقط على حافتها
+        item.circle.addListener("mousemove", (e) => {
+            // تحقق مما إذا كان الماوس داخل الدائرة
+            const distance = google.maps.geometry.spherical.computeDistanceBetween(
+                e.latLng, 
+                item.circle.getCenter()
+            );
+            if (distance <= item.circle.getRadius()) {
+                // تغيير مؤشر الماوس للإشارة إلى أن المنطقة قابلة للنقر
+                MAP.map.setOptions({ draggableCursor: "pointer" });
+            } else {
+                // استعادة المؤشر الافتراضي
+                MAP.map.setOptions({ draggableCursor: "grab" });
+            }
+        });
+    }
 
     openCard(item, hoverOnly = false) {
         const name = Utils.escapeHTML(item.name);
@@ -515,9 +529,9 @@ class LocationManager {
             direction: rtl;
             width: 340px;
             max-width: 90vw;
-            max-height: 85vh;
-            overflow-y: auto;
-            overflow-x: hidden;
+            max-height: 85vh; /* زيادة الارتفاع الأقصى */
+            overflow-y: auto; /* تفعيل التمرير العمودي */
+            overflow-x: hidden; /* إخفاء التمرير الأفقي */
             position: relative;
         `;
 
@@ -536,7 +550,7 @@ class LocationManager {
             padding: 12px 16px; 
             background: rgba(255, 255, 255, 0.25); 
             border-top: 1px solid rgba(255, 255, 255, 0.3);
-            margin-top: auto;
+            margin-top: auto; /* دفع الفوتر للأسفل */
         `;
 
         const closeIconStyle = `
@@ -895,7 +909,7 @@ class RouteManager {
     // === تم تحديث الأنماط لتوسيع النافذة وتحسين تأثير الزجاج والشفافية ===
     const cardStyle = `
         font-family: 'Cairo', sans-serif;
-        background: rgba(30, 30, 30, 0.5);
+        background: rgba(30, 30, 30, 0.5); /* زيادة الشفافية (كانت 0.75) */
         backdrop-filter: blur(12px) saturate(1.5);
         -webkit-backdrop-filter: blur(12px) saturate(1.5);
         border-radius: 16px;
@@ -905,10 +919,10 @@ class RouteManager {
         direction: rtl;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         max-width: 90vw;
-        width: 380px;
-        max-height: 85vh;
-        overflow-y: auto;
-        overflow-x: hidden;
+        width: 380px; /* توسيع العرض أكثر */
+        max-height: 85vh; /* زيادة الارتفاع الأقصى */
+        overflow-y: auto; /* تفعيل التمرير العمودي */
+        overflow-x: hidden; /* إخفاء التمرير الأفقي */
     `;
     const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);`;
     const bodyStyle = `padding: 16px;`;
@@ -1053,7 +1067,7 @@ class PolygonManager {
     addPolygonEditListeners(poly, index) {
         poly.polygon.addListener("click", (e) => {
             if (this.editingPolygonIndex === index) { this.insertVertex(poly, index, e.latLng); }
-            else { this.openCard(this.polygons.indexOf(poly), false, e.latLng); }
+            else { this.openCard(this.polygons.indexOf(poly), false, e.latLng); } // تمرير موقع النقر
         });
     }
     enterEditMode(index) {
@@ -1094,7 +1108,7 @@ class PolygonManager {
         // === تعديل تجاوب الكرت ===
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
-            background: rgba(255, 255, 255, 0.75);
+            background: rgba(255, 255, 255, 0.75); /* شفافية أكبر للمضلعات */
             backdrop-filter: blur(15px) saturate(1.8);
             -webkit-backdrop-filter: blur(15px) saturate(1.8);
             border-radius: 20px;
@@ -1103,11 +1117,11 @@ class PolygonManager {
             color: #333;
             direction: rtl;
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-            max-width: 90vw;
-            width: 380px;
-            max-height: 85vh;
-            overflow-y: auto;
-            overflow-x: hidden;
+            max-width: 90vw; /* تغيير */
+            width: 380px; /* تغيير */
+            max-height: 85vh; /* زيادة الارتفاع الأقصى */
+            overflow-y: auto; /* تفعيل التمرير العمودي */
+            overflow-x: hidden; /* إخفاء التمرير الأفقي */
         `;
         const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2);`;
         const bodyStyle = `padding: 20px;`;
