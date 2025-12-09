@@ -492,6 +492,22 @@ class LocationManager {
         item.circle.addListener("mouseover", () => { if (!UI.infoWindowPinned) this.openCard(item, true); });
         item.circle.addListener("mouseout", () => { UI.closeSharedInfoCard(); });
         item.circle.addListener("click", () => this.openCard(item, false));
+        
+        // إضافة مستمع للنقر داخل الدائرة وليس فقط على حافتها
+        item.circle.addListener("mousemove", (e) => {
+            // تحقق مما إذا كان الماوس داخل الدائرة
+            const distance = google.maps.geometry.spherical.computeDistanceBetween(
+                e.latLng, 
+                item.circle.getCenter()
+            );
+            if (distance <= item.circle.getRadius()) {
+                // تغيير مؤشر الماوس للإشارة إلى أن المنطقة قابلة للنقر
+                MAP.map.setOptions({ draggableCursor: "pointer" });
+            } else {
+                // استعادة المؤشر الافتراضي
+                MAP.map.setOptions({ draggableCursor: "grab" });
+            }
+        });
     }
 
     openCard(item, hoverOnly = false) {
@@ -513,7 +529,9 @@ class LocationManager {
             direction: rtl;
             width: 340px;
             max-width: 90vw;
-            overflow: hidden;
+            max-height: 80vh; /* إضافة ارتفاع أقصى */
+            overflow-y: auto; /* تفعيل التمرير العمودي */
+            overflow-x: hidden; /* إخفاء التمرير الأفقي */
             position: relative;
         `;
 
@@ -524,6 +542,9 @@ class LocationManager {
             padding: 12px 16px; 
             background: rgba(255, 255, 255, 0.2); 
             border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            position: sticky; /* جعل الرأس ثابتًا عند التمرير */
+            top: 0;
+            z-index: 10;
         `;
 
         const bodyStyle = `padding: 16px;`;
@@ -532,6 +553,8 @@ class LocationManager {
             padding: 12px 16px; 
             background: rgba(255, 255, 255, 0.25); 
             border-top: 1px solid rgba(255, 255, 255, 0.3);
+            position: sticky; /* جعل التذييل ثابتًا عند التمرير */
+            bottom: 0;
         `;
 
         const closeIconStyle = `
@@ -901,11 +924,13 @@ class RouteManager {
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         max-width: 90vw;
         width: 380px; /* توسيع العرض أكثر */
-        overflow: hidden;
+        max-height: 80vh; /* إضافة ارتفاع أقصى */
+        overflow-y: auto; /* تفعيل التمرير العمودي */
+        overflow-x: hidden; /* إخفاء التمرير الأفقي */
     `;
-    const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);`;
+    const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08); position: sticky; top: 0; z-index: 10;`;
     const bodyStyle = `padding: 16px;`;
-    const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.08);`;
+    const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.08); position: sticky; bottom: 0;`;
 
     const html = `
     <div style="${cardStyle}">
@@ -1098,11 +1123,13 @@ class PolygonManager {
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
             max-width: 90vw; /* تغيير */
             width: 380px; /* تغيير */
-            overflow: hidden;
+            max-height: 80vh; /* إضافة ارتفاع أقصى */
+            overflow-y: auto; /* تفعيل التمرير العمودي */
+            overflow-x: hidden; /* إخفاء التمرير الأفقي */
         `;
-        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2);`;
+        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2); position: sticky; top: 0; z-index: 10;`;
         const bodyStyle = `padding: 20px;`;
-        const footerStyle = `padding: 12px 20px; background: rgba(255, 255, 255, 0.6); border-top: 1px solid rgba(255, 255, 255, 0.2);`;
+        const footerStyle = `padding: 12px 20px; background: rgba(255, 255, 255, 0.6); border-top: 1px solid rgba(255, 255, 255, 0.2); position: sticky; bottom: 0;`;
 
         const html = `
         <div style="${cardStyle}">
