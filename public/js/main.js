@@ -486,15 +486,15 @@ class LocationManager {
         return markerContent;
     }
 
-    attachListeners(item) {
-        item.marker.addListener("drag", () => item.circle.setCenter(item.marker.position));
-        item.marker.addListener("dragend", () => bus.emit("persist"));
-        item.circle.addListener("mouseover", () => { if (!UI.infoWindowPinned) this.openCard(item, true); });
-        item.circle.addListener("mouseout", () => { UI.closeSharedInfoCard(); });
-        item.circle.addListener("click", () => this.openCard(item, false));
-        
-        // === تم إزالة مستمع mousemove المسبب للخطأ ===
-    }
+   attachListeners(item) {
+    item.marker.addListener("drag", () => item.circle.setCenter(item.marker.position));
+    item.marker.addListener("dragend", () => bus.emit("persist"));
+    item.circle.addListener("mouseover", () => { if (!UI.infoWindowPinned) this.openCard(item, true); });
+    item.circle.addListener("mouseout", () => { UI.closeSharedInfoCard(); });
+    item.circle.addListener("click", () => this.openCard(item, false));
+    
+    // تم حذف مستمع mousemove المسبب للمشكلة
+}
 
     openCard(item, hoverOnly = false) {
         const name = Utils.escapeHTML(item.name);
