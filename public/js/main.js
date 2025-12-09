@@ -1,10 +1,9 @@
 'use strict';
 
 /* ============================================================
-   Diriyah Security Map – v26.0 (Google My Maps Exact Replica)
-   • نافذة رموز (Icon Picker) مطابقة 100% للتصميم الأصلي
-   • مكتبة أيقونات شاملة (مئات الرموز)
-   • وضع "دائرة جغرافية" خاص بدون دبوس
+   Diriyah Security Map – v27.0 (Circular Icons - My Maps Style)
+   • تغيير شكل الأيقونات إلى دوائر (بدلاً من الدمعة)
+   • تحسين مظهر الدبابيس لتطابق خرائطي
    ============================================================ */
 
 
@@ -138,7 +137,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v26.0 - Exact My Maps Replica");
+        console.log("Boot v27.0 - Circular Icons");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
@@ -462,30 +461,32 @@ class LocationManager {
                 width: 20px; height: 20px; background: transparent; cursor: pointer;
             `;
         } else {
-            // === وضع الدبوس (Google Pin Style) ===
+            // === وضع الأيقونة الدائرية (Google My Maps Circular Icon) ===
             container.className = 'custom-pin';
-            container.style.position = 'relative';
-            container.style.cursor = 'pointer';
+            container.style.cssText = `
+                width: 30px;
+                height: 30px;
+                background-color: ${data.color || "#42A5F5"};
+                border-radius: 50%;
+                border: 1px solid #ffffff;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                position: relative;
+                transform: translate(-50%, -50%); /* لتركيز الأيقونة في المنتصف */
+            `;
             
-            const color = data.color || "#42A5F5";
-            
-            // تصميم الدبوس المطابق لجوجل
+            const iconName = data.iconType === 'room' ? 'place' : data.iconType;
+
             container.innerHTML = `
-                <svg width="30" height="42" viewBox="0 0 30 42" style="filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); display: block;">
-                    <path fill="${color}" stroke="#000" stroke-width="0.1" d="M15 0C6.7 0 0 6.7 0 15c0 10 15 27 15 27s15-17 15-27C30 6.7 23.3 0 15 0z" />
-                </svg>
                 <i class="material-icons" style="
-                    position: absolute; 
-                    top: 14px; 
-                    left: 50%; 
-                    transform: translate(-50%, -50%); 
-                    font-size: 17px; 
+                    font-size: 18px; 
                     color: white;
                     pointer-events: none;
-                ">${data.iconType === 'room' ? '' : data.iconType}</i>
-                ${data.iconType === 'room' ? '<div style="position:absolute; top:14px; left:50%; transform:translate(-50%, -50%); width:8px; height:8px; background:rgba(0,0,0,0.2); border-radius:50%;"></div>' : ''}
+                ">${iconName}</i>
             `;
-            container.style.transform = 'translate(0, -100%)';
         }
 
         return container;
@@ -737,11 +738,14 @@ class LocationManager {
         let bodyContent = '';
         if (isEditable) {
             // زر الأيقونة الحالي
-            const iconDisplay = item.iconType === 'circle_geo' ? 
-                `<i class="material-icons" style="color: ${item.color}; font-size: 24px;">radio_button_unchecked</i>` :
-                `<div style="width: 28px; height: 28px; background: ${item.color}; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 2px;">
-                    <i class="material-icons" style="color: white; font-size: 18px;">${item.iconType === 'room' ? '' : item.iconType}</i>
+            let iconDisplay;
+            if (item.iconType === 'circle_geo') {
+                iconDisplay = `<i class="material-icons" style="color: ${item.color}; font-size: 24px;">radio_button_unchecked</i>`;
+            } else {
+                iconDisplay = `<div style="width: 28px; height: 28px; background: ${item.color}; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 50%;">
+                    <i class="material-icons" style="color: white; font-size: 18px;">${item.iconType === 'room' ? 'place' : item.iconType}</i>
                  </div>`;
+            }
 
             bodyContent = `
                 <div style="margin-bottom: 10px; display: flex; align-items: flex-end; gap: 10px;">
@@ -818,8 +822,12 @@ class LocationManager {
                 this.openCard(item, false); 
                 
                 if (item.circle) item.circle.setOptions({ fillColor: newColor, strokeColor: newColor });
-                const svgPath = item.marker.content.querySelector('path');
-                if (svgPath) svgPath.setAttribute('fill', newColor);
+                
+                // تحديث الخلفية للزر الدائري
+                const customPin = item.marker.content;
+                if(customPin) {
+                     customPin.style.backgroundColor = newColor;
+                }
             }, { once: false });
 
             if (saveBtn) {
