@@ -529,7 +529,7 @@ class LocationManager {
             direction: rtl;
             width: 340px;
             max-width: 90vw;
-            max-height: 85vh; /* زيادة الارتفاع الأقصى */
+            max-height: 80vh; /* إضافة ارتفاع أقصى */
             overflow-y: auto; /* تفعيل التمرير العمودي */
             overflow-x: hidden; /* إخفاء التمرير الأفقي */
             position: relative;
@@ -542,6 +542,9 @@ class LocationManager {
             padding: 12px 16px; 
             background: rgba(255, 255, 255, 0.2); 
             border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            position: sticky; /* جعل الرأس ثابتًا عند التمرير */
+            top: 0;
+            z-index: 10;
         `;
 
         const bodyStyle = `padding: 16px;`;
@@ -550,7 +553,8 @@ class LocationManager {
             padding: 12px 16px; 
             background: rgba(255, 255, 255, 0.25); 
             border-top: 1px solid rgba(255, 255, 255, 0.3);
-            margin-top: auto; /* دفع الفوتر للأسفل */
+            position: sticky; /* جعل التذييل ثابتًا عند التمرير */
+            bottom: 0;
         `;
 
         const closeIconStyle = `
@@ -920,13 +924,13 @@ class RouteManager {
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         max-width: 90vw;
         width: 380px; /* توسيع العرض أكثر */
-        max-height: 85vh; /* زيادة الارتفاع الأقصى */
+        max-height: 80vh; /* إضافة ارتفاع أقصى */
         overflow-y: auto; /* تفعيل التمرير العمودي */
         overflow-x: hidden; /* إخفاء التمرير الأفقي */
     `;
-    const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);`;
+    const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08); position: sticky; top: 0; z-index: 10;`;
     const bodyStyle = `padding: 16px;`;
-    const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.08); margin-top: auto;`;
+    const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.08); position: sticky; bottom: 0;`;
 
     const html = `
     <div style="${cardStyle}">
@@ -1119,13 +1123,13 @@ class PolygonManager {
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
             max-width: 90vw; /* تغيير */
             width: 380px; /* تغيير */
-            max-height: 85vh; /* زيادة الارتفاع الأقصى */
+            max-height: 80vh; /* إضافة ارتفاع أقصى */
             overflow-y: auto; /* تفعيل التمرير العمودي */
             overflow-x: hidden; /* إخفاء التمرير الأفقي */
         `;
-        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2);`;
+        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2); position: sticky; top: 0; z-index: 10;`;
         const bodyStyle = `padding: 20px;`;
-        const footerStyle = `padding: 12px 20px; background: rgba(255, 255, 255, 0.6); border-top: 1px solid rgba(255, 255, 255, 0.2); margin-top: auto;`;
+        const footerStyle = `padding: 12px 20px; background: rgba(255, 255, 255, 0.6); border-top: 1px solid rgba(255, 255, 255, 0.2); position: sticky; bottom: 0;`;
 
         const html = `
         <div style="${cardStyle}">
@@ -1626,12 +1630,11 @@ class UIManager {
                 box-shadow: none !important;
                 padding: 0 !important;
                 border-radius: 0 !important;
-                max-height: none !important; /* إزالة قيد الارتفاع */
             }
             /* السماح للمحتوى بالظهور خارج الحدود إذا لزم الأمر */
             .gm-style-iw-d {
                 overflow: visible !important;
-                max-height: none !important; /* إزالة قيد الارتفاع */
+                max-height: none !important;
                 padding: 0 !important;
             }
             /* إخفاء السهم الصغير أسفل النافذة */
@@ -1899,3 +1902,63 @@ class UIManager {
                 <img src="${this.logo}" style="
                     width:22px;height:22px;border-radius:6px;opacity:0.9;">
                 <span>${message}</span>
+            </div>
+        `;
+        this.toastElement.classList.add("show");
+        clearTimeout(this.toastTimer);
+        this.toastTimer = setTimeout(() => {
+            this.toastElement.classList.remove("show");
+        }, 2600);
+    }
+}
+
+const UI = new UIManager();
+
+/* ============================================================
+   BootLoader — التشغيل النهائي
+============================================================ */
+class BootLoader {
+
+    constructor() {
+
+        this.booted = false;
+
+        this.tryBoot();
+        document.addEventListener("DOMContentLoaded", () => this.tryBoot());
+        window.addEventListener("load", () => this.tryBoot());
+    }
+
+    tryBoot() {
+
+        if (this.booted) return;
+
+        if (window.google && google.maps &&
+            document.readyState !== "loading") {
+
+            this.booted = true;
+            this.start();
+        }
+    }
+
+    start() {
+
+        console.log("Diriyah Security Map v22.0 — Ready");
+
+        bus.on("map:zoom", z => {
+            bus.emit("markers:scale", z);
+        });
+
+        bus.on("map:bounds", () => {
+            bus.emit("persist");
+        });
+
+        this.finish();
+    }
+
+    finish() {
+        console.log("System initialization completed.");
+        bus.emit("toast", "تم تحميل النظام بنجاح");
+    }
+}
+
+const BOOT = new BootLoader();
