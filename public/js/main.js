@@ -1,10 +1,10 @@
 'use strict';
 
 /* ============================================================
-   Diriyah Security Map – v25.0 (Google My Maps Replica)
-   • نافذة اختيار رموز (Icon Picker) مطابقة لـ Google My Maps
-   • شبكة ألوان (Color Grid) قياسية
-   • إصلاح جذري لوضع الدائرة (بدون ماركر فوقي)
+   Diriyah Security Map – v26.0 (Google My Maps Exact Replica)
+   • نافذة رموز (Icon Picker) مطابقة 100% للتصميم الأصلي
+   • مكتبة أيقونات شاملة (مئات الرموز)
+   • وضع "دائرة جغرافية" خاص بدون دبوس
    ============================================================ */
 
 
@@ -138,7 +138,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v25.0 - My Maps Replica");
+        console.log("Boot v26.0 - Exact My Maps Replica");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
@@ -236,7 +236,7 @@ class MapController {
 const MAP = new MapController();
 
 /* ============================================================
-   LocationManager — المواقع (نظام خرائطي الكامل)
+   LocationManager — المواقع (نظام خرائطي المتطابق)
 ============================================================ */
 class LocationManager {
 
@@ -246,50 +246,96 @@ class LocationManager {
         this.shareMode = false;
         this.editMode = true;
         
-        // ألوان خرائطي القياسية
+        // ألوان خرائطي القياسية (شبكة 8x4 تقريباً)
         this.colors = [
-            "#0288D1", "#E53935", "#F09300", "#109D59", 
-            "#7B1FA2", "#F06292", "#009688", "#546E7A", "#795548", "#000000"
+            "#B39DDB", "#9FA8DA", "#90CAF9", "#81D4FA", "#80CBC4", "#A5D6A7", "#E6EE9C", "#FFF59D", "#FFCC80", "#FFAB91",
+            "#BCAAA4", "#B0BEC5", "#7E57C2", "#5C6BC0", "#42A5F5", "#29B6F6", "#26A69A", "#66BB6A", "#D4E157", "#FFEE58",
+            "#FFA726", "#FF7043", "#8D6E63", "#78909C", "#673AB7", "#3F51B5", "#2196F3", "#039BE5", "#00897B", "#43A047",
+            "#C0CA33", "#FDD835", "#FB8C00", "#F4511E", "#6D4C41", "#546E7A", "#000000", "#FFFFFF"
         ];
 
-        // قاعدة بيانات الأيقونات (تصنيف + رموز)
+        // مكتبة أيقونات شاملة (Material Icons)
         this.iconLibrary = {
             "الأشكال": [
-                { id: "place", name: "دبوس" },
-                { id: "circle", name: "دائرة" },
-                { id: "square", name: "مربع" },
-                { id: "diamond", name: "معين" },
-                { id: "star", name: "نجمة" }
+                { id: "room", name: "علامة الموقع" },
+                { id: "circle_geo", name: "دائرة جغرافية" }, // الخاصية الخاصة
+                { id: "cancel", name: "إلغاء" },
+                { id: "check_circle", name: "تحقق" },
+                { id: "format_quote", name: "اقتباس" },
+                { id: "favorite", name: "قلب" },
+                { id: "star", name: "نجمة" },
+                { id: "stop", name: "مربع" },
+                { id: "change_history", name: "مثلث" },
+                { id: "fiber_manual_record", name: "نقطة" },
+                { id: "brightness_1", name: "دائرة" },
+                { id: "panorama_fish_eye", name: "حلقة" },
+                { id: "square", name: "مربع ممتلئ" },
+                { id: "arrow_upward", name: "سهم لأعلى" },
+                { id: "arrow_forward", name: "سهم لليمين" }
             ],
             "الرياضة والاستجمام": [
                 { id: "sports_soccer", name: "كرة قدم" }, { id: "sports_tennis", name: "تنس" },
-                { id: "sports_basketball", name: "سلة" }, { id: "pool", name: "مسبح" },
-                { id: "fitness_center", name: "نادي رياضي" }, { id: "pedal_bike", name: "دراجة" },
-                { id: "hiking", name: "تنزه" }, { id: "kitesurfing", name: "تزلج شراعي" }
+                { id: "sports_basketball", name: "كرة سلة" }, { id: "sports_volleyball", name: "كرة طائرة" },
+                { id: "sports_football", name: "كرة قدم أمريكية" }, { id: "sports_rugby", name: "روجبي" },
+                { id: "sports_golf", name: "جولف" }, { id: "sports_cricket", name: "كريكت" },
+                { id: "sports_baseball", name: "بيسبول" }, { id: "pool", name: "مسبح" },
+                { id: "fitness_center", name: "نادي رياضي" }, { id: "directions_run", name: "جري" },
+                { id: "directions_bike", name: "دراجة" }, { id: "hiking", name: "تنزه" },
+                { id: "kitesurfing", name: "تزلج شراعي" }, { id: "surfing", name: "ركوب الأمواج" },
+                { id: "rowing", name: "تجذيف" }, { id: "kayaking", name: "كاياك" },
+                { id: "fishing", name: "صيد" }, { id: "snowboarding", name: "تزلج جليدي" },
+                { id: "downhill_skiing", name: "تزلج" }, { id: "scuba_diving", name: "غوص" },
+                { id: "skateboarding", name: "تزلج لوحي" }, { id: "roller_skating", name: "تزلج بعجلات" },
+                { id: "sports_esports", name: "ألعاب فيديو" }, { id: "casino", name: "كازينو" },
+                { id: "stadium", name: "ملعب" }, { id: "flag", name: "علم" }
             ],
             "الأماكن": [
                 { id: "home", name: "منزل" }, { id: "work", name: "عمل" },
                 { id: "school", name: "مدرسة" }, { id: "restaurant", name: "مطعم" },
-                { id: "local_cafe", name: "مقهى" }, { id: "shopping_cart", name: "تسوق" },
-                { id: "local_hospital", name: "مستشفى" }, { id: "mosque", name: "مسجد" }
+                { id: "local_cafe", name: "مقهى" }, { id: "local_bar", name: "مشروبات" },
+                { id: "shopping_cart", name: "تسوق" }, { id: "store", name: "متجر" },
+                { id: "local_hospital", name: "مستشفى" }, { id: "local_pharmacy", name: "صيدلية" },
+                { id: "local_library", name: "مكتبة" }, { id: "local_post_office", name: "بريد" },
+                { id: "local_atm", name: "صراف" }, { id: "account_balance", name: "بنك" },
+                { id: "hotel", name: "فندق" }, { id: "museum", name: "متحف" },
+                { id: "theater_comedy", name: "مسرح" }, { id: "movie", name: "سينما" },
+                { id: "church", name: "كنيسة" }, { id: "mosque", name: "مسجد" },
+                { id: "synagogue", name: "معبد" }, { id: "temple_buddhist", name: "معبد بوذي" },
+                { id: "park", name: "حديقة" }, { id: "beach_access", name: "شاطئ" },
+                { id: "camping", name: "تخييم" }, { id: "apartment", name: "شقة" },
+                { id: "factory", name: "مصنع" }, { id: "warehouse", name: "مستودع" }
             ],
-            "النقل": [
+            "وسائل النقل": [
                 { id: "directions_car", name: "سيارة" }, { id: "directions_bus", name: "حافلة" },
-                { id: "local_parking", name: "مواقف" }, { id: "flight", name: "طيران" },
-                { id: "local_gas_station", name: "محطة وقود" }, { id: "train", name: "قطار" }
+                { id: "train", name: "قطار" }, { id: "tram", name: "ترام" },
+                { id: "subway", name: "مترو" }, { id: "flight", name: "طائرة" },
+                { id: "local_shipping", name: "شاحنة" }, { id: "two_wheeler", name: "دراجة نارية" },
+                { id: "directions_boat", name: "قارب" }, { id: "local_taxi", name: "تاكسي" },
+                { id: "ev_station", name: "شحن كهربائي" }, { id: "local_gas_station", name: "محطة وقود" },
+                { id: "local_parking", name: "مواقف" }, { id: "traffic", name: "إشارة مرور" },
+                { id: "map", name: "خريطة" }, { id: "navigation", name: "ملاحة" },
+                { id: "commute", name: "تنقل" }, { id: "agriculture", name: "جرار" }
             ],
             "الأزمات": [
-                { id: "report_problem", name: "تنبيه" }, { id: "local_police", name: "شرطة" },
-                { id: "local_fire_department", name: "اطفاء" }, { id: "security", name: "أمن" },
-                { id: "medical_services", name: "إسعاف" }, { id: "warning", name: "تحذير" }
+                { id: "report_problem", name: "تنبيه" }, { id: "warning", name: "تحذير" },
+                { id: "error", name: "خطأ" }, { id: "dangerous", name: "خطر" },
+                { id: "local_police", name: "شرطة" }, { id: "security", name: "أمن" },
+                { id: "shield", name: "حماية" }, { id: "gpp_good", name: "آمن" },
+                { id: "local_fire_department", name: "إطفاء" }, { id: "fire_extinguisher", name: "طفاية" },
+                { id: "medical_services", name: "خدمات طبية" }, { id: "emergency", name: "طوارئ" },
+                { id: "health_and_safety", name: "صحة وسلامة" }, { id: "masks", name: "أقنعة" }
             ],
             "الطقس": [
                 { id: "wb_sunny", name: "مشمس" }, { id: "cloud", name: "غائم" },
                 { id: "thunderstorm", name: "عاصفة" }, { id: "ac_unit", name: "ثلج" },
-                { id: "water_drop", name: "مطر" }
+                { id: "water_drop", name: "مطر" }, { id: "air", name: "هواء" },
+                { id: "thermostat", name: "حرارة" }, { id: "nights_stay", name: "ليل" },
+                { id: "wb_twilight", name: "غروب" }, { id: "flood", name: "فيضان" },
+                { id: "tsunami", name: "تسونامي" }, { id: "cyclone", name: "إعصار" }
             ],
              "الحيوانات": [
-                { id: "pets", name: "حيوانات" }, { id: "bug_report", name: "حشرات" }
+                { id: "pets", name: "حيوانات أليفة" }, { id: "bug_report", name: "حشرات" },
+                { id: "pest_control", name: "مكافحة" }, { id: "cruelty_free", name: "أرنب" }
             ]
         };
 
@@ -313,7 +359,7 @@ class LocationManager {
             
             for (const item of this.items) {
                 const distance = google.maps.geometry.spherical.computeDistanceBetween(e.latLng, item.marker.position);
-                const hitRadius = item.iconType === 'circle' ? (item.radius || 20) : 10; 
+                const hitRadius = item.iconType === 'circle_geo' ? (item.radius || 20) : 10; 
                 if (distance < hitRadius) { 
                     this.openCard(item, false);
                     return; 
@@ -325,12 +371,11 @@ class LocationManager {
                 lat: e.latLng.lat(), 
                 lng: e.latLng.lng(), 
                 radius: 20, 
-                color: "#0288D1", 
+                color: "#42A5F5", 
                 fillOpacity: 0.3, 
                 recipients: [], 
                 name: "نقطة جديدة",
-                iconType: "place", // الافتراضي
-                markerStyle: "pin" 
+                iconType: "room"
             });
 
             MAP.modeAdd = false; 
@@ -350,8 +395,8 @@ class LocationManager {
 
     loadDefaultLocations() { 
         const LOCS = [
-            { name: "مواقف نسما", lat: 24.738275, lng: 46.574004, iconType: 'local_parking', color: '#0288D1' },
-            { name: "نقطة أمنية", lat: 24.736501, lng: 46.576545, iconType: 'circle', color: '#E53935' }
+            { name: "مواقف نسما", lat: 24.738275, lng: 46.574004, iconType: 'local_parking', color: '#42A5F5' },
+            { name: "نقطة أمنية", lat: 24.736501, lng: 46.576545, iconType: 'circle_geo', color: '#E53935' }
         ]; 
         LOCS.forEach(loc => this.addItem({ 
             id: "d" + Date.now() + Math.random(), 
@@ -359,7 +404,7 @@ class LocationManager {
             lat: loc.lat, 
             lng: loc.lng, 
             radius: 22, 
-            color: loc.color || "#0288D1", 
+            color: loc.color || "#42A5F5", 
             fillOpacity: 0.3, 
             recipients: [],
             iconType: loc.iconType,
@@ -367,21 +412,20 @@ class LocationManager {
     }
     
     addItem(data) {
-        // تحديد نوع الشكل بناء على الأيقونة
-        const isCircleMode = data.iconType === 'circle';
+        const isGeoCircle = data.iconType === 'circle_geo';
 
         const marker = new google.maps.marker.AdvancedMarkerElement({
             position: { lat: data.lat, lng: data.lng },
             map: this.map,
             content: this.buildMarkerContent(data),
-            gmpDraggable: this.editMode && !this.shareMode && !isCircleMode, // الدائرة لا تسحب من المركز
+            gmpDraggable: this.editMode && !this.shareMode && !isGeoCircle, 
             title: data.name
         });
 
-        // الدائرة تُرسم دائماً ولكن تظهر فقط إذا كان الوضع دائرة أو نصف القطر > 0 ومطلوب
+        // الدائرة تظهر فقط إذا كانت أيقونة "دائرة جغرافية"
         const circle = new google.maps.Circle({
             center: { lat: data.lat, lng: data.lng },
-            map: isCircleMode ? this.map : null, // تظهر فقط في وضع الدائرة
+            map: isGeoCircle ? this.map : null,
             radius: data.radius || 20,
             strokeColor: data.color || "#0288D1",
             fillColor: data.color || "#0288D1",
@@ -397,7 +441,7 @@ class LocationManager {
             color: data.color,
             radius: data.radius,
             recipients: data.recipients,
-            iconType: data.iconType || 'place',
+            iconType: data.iconType || 'room',
             marker,
             circle,
             fillOpacity: data.fillOpacity || 0.3
@@ -411,41 +455,36 @@ class LocationManager {
     buildMarkerContent(data) {
         const container = document.createElement("div");
 
-        if (data.iconType === 'circle') {
-            // === وضع الدائرة: مخفي تماماً ولكن قابل للنقر ===
-            // الهدف: المستخدم طلب عدم وجود "دائرة فوق دائرة".
-            // نجعل الماركر شفافاً وصغيراً ليكون نقطة ارتكاز فقط
+        if (data.iconType === 'circle_geo') {
+            // === وضع الدائرة الجغرافية (بدون دبوس) ===
+            // نقطة ارتكاز شفافة للنقر فقط
             container.style.cssText = `
-                width: 20px;
-                height: 20px;
-                background: transparent;
-                cursor: pointer;
+                width: 20px; height: 20px; background: transparent; cursor: pointer;
             `;
-            // لا نضيف أي محتوى داخلي
         } else {
-            // === وضع الدبوس/الشكل ===
+            // === وضع الدبوس (Google Pin Style) ===
             container.className = 'custom-pin';
             container.style.position = 'relative';
             container.style.cursor = 'pointer';
             
-            const color = data.color || "#0288D1";
+            const color = data.color || "#42A5F5";
             
-            // رسم الدبوس (شكل الدمعة)
+            // تصميم الدبوس المطابق لجوجل
             container.innerHTML = `
                 <svg width="30" height="42" viewBox="0 0 30 42" style="filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); display: block;">
-                    <path fill="${color}" d="M15 0C6.7 0 0 6.7 0 15c0 10 15 27 15 27s15-17 15-27C30 6.7 23.3 0 15 0z" />
+                    <path fill="${color}" stroke="#000" stroke-width="0.1" d="M15 0C6.7 0 0 6.7 0 15c0 10 15 27 15 27s15-17 15-27C30 6.7 23.3 0 15 0z" />
                 </svg>
                 <i class="material-icons" style="
                     position: absolute; 
-                    top: 15px; 
+                    top: 14px; 
                     left: 50%; 
                     transform: translate(-50%, -50%); 
-                    font-size: 18px; 
+                    font-size: 17px; 
                     color: white;
                     pointer-events: none;
-                ">${data.iconType}</i>
+                ">${data.iconType === 'room' ? '' : data.iconType}</i>
+                ${data.iconType === 'room' ? '<div style="position:absolute; top:14px; left:50%; transform:translate(-50%, -50%); width:8px; height:8px; background:rgba(0,0,0,0.2); border-radius:50%;"></div>' : ''}
             `;
-            // نقطة الارتكاز في الأسفل
             container.style.transform = 'translate(0, -100%)';
         }
 
@@ -453,189 +492,195 @@ class LocationManager {
     }
 
     attachListeners(item) {
-        // تحديث الدائرة عند سحب الماركر (فقط للدبابيس)
         item.marker.addListener("drag", () => {
             if (item.circle) item.circle.setCenter(item.marker.position);
         });
         item.marker.addListener("dragend", () => bus.emit("persist"));
-        
-        // أحداث النقر
         item.marker.addListener("click", () => this.openCard(item, false));
-        
-        // أحداث الدائرة (لأن الماركر مخفي في وضع الدائرة)
         if (item.circle) {
             item.circle.addListener("click", () => this.openCard(item, false));
         }
     }
 
-    // --- نافذة اختيار الرموز (Modal) ---
+    // --- نافذة اختيار الرموز (طبق الأصل) ---
     openIconPicker(item) {
-        // إنشاء الخلفية (Overlay)
         const overlay = document.createElement('div');
         overlay.style.cssText = `
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.4); z-index: 2000;
+            background: rgba(0,0,0,0.4); z-index: 5000;
             display: flex; justify-content: center; align-items: center;
-            font-family: 'Roboto', 'Cairo', sans-serif;
+            font-family: Arial, sans-serif;
         `;
 
-        // إنشاء النافذة (Dialog)
         const dialog = document.createElement('div');
         dialog.style.cssText = `
-            background: white; width: 700px; max-width: 95vw; height: 500px; max-height: 90vh;
-            border-radius: 2px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);
-            display: flex; flex-direction: column; overflow: hidden;
-            direction: rtl;
+            background: white; width: 680px; max-width: 95vw; height: 550px; max-height: 90vh;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2); display: flex; flex-direction: column;
+            direction: rtl; position: relative; border-radius: 2px;
         `;
 
-        // الرأس
+        // 1. الرأس
         const header = document.createElement('div');
         header.style.cssText = `
-            padding: 16px 24px; border-bottom: 1px solid #eee;
-            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;
         `;
-        header.innerHTML = `<h2 style="margin:0; font-size: 16px; font-weight: 500;">اختيار رمز</h2>`;
+        header.innerHTML = `<h2 style="margin:0; font-size: 16px; font-weight: normal; color: #000;">اختيار رمز</h2>`;
         const closeIcon = document.createElement('span');
         closeIcon.innerHTML = '&times;';
-        closeIcon.style.cssText = 'font-size: 24px; cursor: pointer; color: #888;';
+        closeIcon.style.cssText = 'font-size: 24px; cursor: pointer; color: #888; opacity: 0.6; line-height: 1;';
+        closeIcon.onmouseover = () => closeIcon.style.opacity = '1';
+        closeIcon.onmouseout = () => closeIcon.style.opacity = '0.6';
         closeIcon.onclick = () => document.body.removeChild(overlay);
         header.appendChild(closeIcon);
 
-        // المحتوى (فلاتر + أيقونات)
-        const content = document.createElement('div');
-        content.style.cssText = `flex: 1; padding: 20px 24px; overflow-y: auto;`;
-
-        // شريط الفلتر والروابط
-        const filterBar = document.createElement('div');
-        filterBar.style.cssText = `display: flex; align-items: center; margin-bottom: 20px; gap: 15px; flex-wrap: wrap;`;
+        // 2. شريط الفلتر والتصنيفات
+        const filterContainer = document.createElement('div');
+        filterContainer.style.cssText = `padding: 0 24px 15px 24px; display: flex; align-items: flex-start; gap: 10px; font-size: 13px;`;
         
-        // مربع البحث
-        const searchInput = document.createElement('input');
-        searchInput.type = 'text';
-        searchInput.placeholder = 'الفلتر:';
-        searchInput.style.cssText = `border: 1px solid #ccc; padding: 4px 8px; width: 100px; font-size: 12px;`;
-        filterBar.appendChild(searchInput);
+        // الفلتر
+        const filterGroup = document.createElement('div');
+        filterGroup.style.cssText = `display: flex; gap: 5px; align-items: center; white-space: nowrap;`;
+        const filterLabel = document.createElement('label');
+        filterLabel.textContent = 'الفلتر:';
+        filterLabel.style.color = '#333';
+        const filterInput = document.createElement('input');
+        filterInput.type = 'text';
+        filterInput.style.cssText = `border: 1px solid #d9d9d9; padding: 3px; width: 100px;`;
+        filterGroup.appendChild(filterLabel);
+        filterGroup.appendChild(filterInput);
+        filterContainer.appendChild(filterGroup);
 
         // روابط التصنيفات
-        const catsContainer = document.createElement('div');
-        catsContainer.style.cssText = `display: flex; gap: 10px; font-size: 13px; color: #3367D6; cursor: pointer; user-select: none; flex-wrap: wrap;`;
+        const linksGroup = document.createElement('div');
+        linksGroup.style.cssText = `display: flex; flex-wrap: wrap; gap: 15px; margin-right: 15px;`;
         Object.keys(this.iconLibrary).forEach(cat => {
-            const span = document.createElement('span');
-            span.textContent = cat;
-            span.onclick = () => {
-                document.getElementById(`cat-${cat}`).scrollIntoView({behavior: 'smooth'});
+            const link = document.createElement('span');
+            link.textContent = cat;
+            link.style.cssText = `color: #1155CC; cursor: pointer; text-decoration: none;`;
+            link.onmouseover = () => link.style.textDecoration = 'underline';
+            link.onmouseout = () => link.style.textDecoration = 'none';
+            link.onclick = () => {
+                const el = document.getElementById(`cat-${cat.replace(/\s/g, '-')}`);
+                if (el) el.scrollIntoView({behavior: 'smooth'});
             };
-            catsContainer.appendChild(span);
+            linksGroup.appendChild(link);
         });
-        filterBar.appendChild(catsContainer);
-        content.appendChild(filterBar);
+        filterContainer.appendChild(linksGroup);
 
-        // منطقة الأيقونات
-        const iconsArea = document.createElement('div');
-        
-        // دالة لرسم التصنيفات
-        const renderIcons = (filterText = '') => {
-            iconsArea.innerHTML = '';
+        // 3. منطقة الأيقونات (Scrollable)
+        const content = document.createElement('div');
+        content.style.cssText = `
+            flex: 1; overflow-y: auto; border-top: 1px solid #ebebeb; border-bottom: 1px solid #ebebeb;
+            padding: 10px 24px;
+        `;
+
+        const renderIcons = (query = '') => {
+            content.innerHTML = '';
             for (const [catName, icons] of Object.entries(this.iconLibrary)) {
-                // تصفية
-                const filteredIcons = icons.filter(i => i.name.includes(filterText) || catName.includes(filterText));
-                if (filteredIcons.length === 0) continue;
+                // فلترة
+                const filtered = icons.filter(i => i.name.includes(query) || catName.includes(query));
+                if (filtered.length === 0) continue;
 
-                const catHeader = document.createElement('h3');
-                catHeader.id = `cat-${catName}`;
+                // عنوان التصنيف
+                const catHeader = document.createElement('div');
+                catHeader.id = `cat-${catName.replace(/\s/g, '-')}`;
                 catHeader.textContent = catName;
-                catHeader.style.cssText = `font-size: 14px; margin: 20px 0 10px 0; color: #000; font-weight: bold;`;
-                iconsArea.appendChild(catHeader);
+                catHeader.style.cssText = `font-weight: bold; font-size: 13px; margin: 15px 0 10px 0; color: #000;`;
+                content.appendChild(catHeader);
 
+                // شبكة الأيقونات
                 const grid = document.createElement('div');
-                grid.style.cssText = `display: flex; flex-wrap: wrap; gap: 8px;`;
+                grid.style.cssText = `display: flex; flex-wrap: wrap; gap: 6px;`;
 
-                filteredIcons.forEach(iconData => {
-                    const iconBtn = document.createElement('div');
-                    // تصميم زر الأيقونة الدائري كما في الصورة
-                    iconBtn.style.cssText = `
-                        width: 30px; height: 30px; border-radius: 50%;
-                        background: ${item.iconType === iconData.id ? '#ddd' : '#666'};
+                filtered.forEach(iconData => {
+                    const btn = document.createElement('div');
+                    // تصميم الزر الدائري كما في الصورة
+                    btn.style.cssText = `
+                        width: 28px; height: 28px; border-radius: 50%;
+                        background: ${item.iconType === iconData.id ? '#4d90fe' : '#888'}; /* المحدد أزرق، الباقي رمادي داكن */
                         display: flex; justify-content: center; align-items: center;
-                        cursor: pointer; transition: background 0.2s;
+                        cursor: pointer; transition: 0.1s; position: relative;
                     `;
-                    
-                    if (iconData.id === 'circle' || iconData.id === 'square' || iconData.id === 'diamond' || iconData.id === 'star' || iconData.id === 'place') {
-                        // للأشكال الخاصة (نستخدم Material Icons لبعضها أو نص)
-                        let iconSymbol = '';
-                        if (iconData.id === 'circle') iconSymbol = 'circle';
-                        else if (iconData.id === 'square') iconSymbol = 'square';
-                        else if (iconData.id === 'star') iconSymbol = 'star';
-                        else if (iconData.id === 'diamond') iconSymbol = 'diamond';
-                        else if (iconData.id === 'place') iconSymbol = 'place';
-                        
-                        iconBtn.innerHTML = `<i class="material-icons" style="font-size: 18px; color: white;">${iconSymbol}</i>`;
-                    } else {
-                        iconBtn.innerHTML = `<i class="material-icons" style="font-size: 18px; color: white;">${iconData.id}</i>`;
-                    }
 
-                    iconBtn.title = iconData.name;
-                    iconBtn.onmouseover = () => iconBtn.style.backgroundColor = '#333';
-                    iconBtn.onmouseout = () => iconBtn.style.backgroundColor = (item.iconType === iconData.id ? '#ddd' : '#666');
+                    // الأيقونة الداخلية
+                    let inner = `<i class="material-icons" style="font-size: 18px; color: white;">${iconData.id === 'circle_geo' ? 'radio_button_unchecked' : iconData.id}</i>`;
                     
-                    iconBtn.onclick = () => {
-                        // تحديث الموقع وإغلاق النافذة
+                    // حالات خاصة لبعض الرموز في الأشكال
+                    if(iconData.id === 'square') inner = `<div style="width:14px; height:14px; background:white;"></div>`;
+                    if(iconData.id === 'stop') inner = `<div style="width:14px; height:14px; border: 2px solid white;"></div>`;
+                    if(iconData.id === 'fiber_manual_record') inner = `<div style="width:8px; height:8px; background:white; border-radius:50%;"></div>`;
+
+                    btn.innerHTML = inner;
+                    btn.title = iconData.name;
+
+                    btn.onmouseover = () => { if (item.iconType !== iconData.id) btn.style.backgroundColor = '#555'; };
+                    btn.onmouseout = () => { if (item.iconType !== iconData.id) btn.style.backgroundColor = '#888'; };
+                    
+                    btn.onclick = () => {
                         this.updateIcon(item, iconData.id);
                         document.body.removeChild(overlay);
                     };
 
-                    grid.appendChild(iconBtn);
+                    grid.appendChild(btn);
                 });
-                iconsArea.appendChild(grid);
+                content.appendChild(grid);
             }
         };
-
         renderIcons();
-        content.appendChild(iconsArea);
 
-        // البحث
-        searchInput.addEventListener('input', (e) => {
-            renderIcons(e.target.value);
-        });
+        // تفعيل البحث
+        filterInput.addEventListener('input', (e) => renderIcons(e.target.value));
 
-        // الفوتر
+        // 4. الفوتر
         const footer = document.createElement('div');
-        footer.style.cssText = `padding: 12px 24px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;`;
-        footer.innerHTML = `
-            <button style="background: white; border: 1px solid #ddd; padding: 6px 12px; border-radius: 2px; cursor: pointer;">رمز مخصص</button>
-            <button id="modal-ok" style="background: #4d90fe; color: white; border: 1px solid #3079ed; padding: 6px 18px; border-radius: 2px; font-weight: bold; cursor: pointer;">حسنًا</button>
+        footer.style.cssText = `padding: 16px 24px; display: flex; justify-content: space-between; align-items: center;`;
+        
+        // زر رمز مخصص (يسار في RTL)
+        const customBtn = document.createElement('button');
+        customBtn.textContent = 'رمز مخصص';
+        customBtn.style.cssText = `
+            background: #f5f5f5; border: 1px solid #dcdcdc; border-radius: 2px;
+            padding: 6px 12px; font-weight: bold; font-size: 11px; cursor: default; color: #333;
         `;
         
+        // زر حسناً (يمين)
+        const okBtn = document.createElement('button');
+        okBtn.textContent = 'حسنًا';
+        okBtn.style.cssText = `
+            background: #4d90fe; border: 1px solid #3079ed; border-radius: 2px;
+            padding: 6px 24px; font-weight: bold; font-size: 11px; cursor: pointer; color: white;
+        `;
+        okBtn.onclick = () => document.body.removeChild(overlay);
+
+        footer.appendChild(okBtn);
+        footer.appendChild(customBtn);
+
         dialog.appendChild(header);
+        dialog.appendChild(filterContainer);
         dialog.appendChild(content);
         dialog.appendChild(footer);
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
-
-        document.getElementById('modal-ok').onclick = () => document.body.removeChild(overlay);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+        
+        // إغلاق عند النقر خارج النافذة
+        overlay.addEventListener('click', (e) => { if(e.target === overlay) document.body.removeChild(overlay); });
     }
 
-    // دالة مساعدة لتحديث الأيقونة والماركر
-    updateIcon(item, newIconType) {
-        item.iconType = newIconType;
-        
-        // التحقق مما إذا كان دائرة
-        const isCircle = (newIconType === 'circle');
+    updateIcon(item, iconId) {
+        item.iconType = iconId;
+        const isGeoCircle = (iconId === 'circle_geo');
 
-        if (isCircle) {
-            item.marker.gmpDraggable = false; // لا يمكن سحب الدائرة من المركز
-            item.circle.setMap(this.map); // إظهار الدائرة
+        // تحديث حالة السحب والدائرة
+        if (isGeoCircle) {
+            item.marker.gmpDraggable = false;
+            item.circle.setMap(this.map);
         } else {
             item.marker.gmpDraggable = this.editMode && !this.shareMode;
-            item.circle.setMap(null); // إخفاء الدائرة (لأننا في وضع دبوس)
+            item.circle.setMap(null);
         }
 
-        // تحديث المحتوى
         item.marker.content = this.buildMarkerContent(item);
-        
-        // تحديث البطاقة المفتوحة إذا وجدت
-        this.openCard(item, false); // إعادة فتح البطاقة لتحديث شكل الأيقونة فيها
+        this.openCard(item, false); // تحديث نافذة التعديل
         bus.emit("persist");
     }
 
@@ -648,9 +693,9 @@ class LocationManager {
         const cardStyle = `
             font-family: 'Roboto', 'Cairo', sans-serif;
             background: #ffffff;
-            border-radius: 2px; /* زوايا حادة قليلاً مثل جوجل */
+            border-radius: 2px;
             box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-            width: 360px;
+            width: 380px;
             max-width: 90vw;
             display: flex; flex-direction: column;
             overflow: hidden;
@@ -658,13 +703,9 @@ class LocationManager {
         `;
 
         const headerStyle = `
-            padding: 15px; 
-            background: #fff; 
-            display: flex; justify-content: space-between; align-items: flex-start;
+            padding: 15px; background: #fff; display: flex; justify-content: space-between; align-items: flex-start;
         `;
-
         const bodyStyle = `padding: 0 15px 15px 15px; flex: 1; overflow-y: auto; max-height: 60vh;`;
-        
         const footerStyle = `
             padding: 10px 15px; background: #f5f5f5; border-top: 1px solid #ebebeb;
             display: flex; justify-content: flex-end; gap: 8px;
@@ -675,70 +716,66 @@ class LocationManager {
             padding: 5px 0; outline: none; font-family: 'Cairo', sans-serif; font-size: 14px;
             margin-bottom: 15px; transition: 0.2s;
         `;
-        const inputFocus = `onfocus="this.style.borderBottom='2px solid #4d90fe'" onblur="this.style.borderBottom='1px solid #ddd'"`;
 
-        // إنشاء محتوى شبكة الألوان (Color Grid)
+        // شبكة الألوان (38 لون تقريباً)
         let colorGridHtml = '';
         if (isEditable) {
-            colorGridHtml = `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 15px;">`;
+            colorGridHtml = `<div style="display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 15px; width: 100%;">`;
             this.colors.forEach(clr => {
                 const isSelected = (item.color.toLowerCase() === clr.toLowerCase());
                 colorGridHtml += `
-                    <div class="color-swatch" data-color="${clr}" style="
-                        width: 18px; height: 18px; background: ${clr}; cursor: pointer;
-                        border: 2px solid ${isSelected ? '#000' : 'transparent'};
-                        border-radius: 2px;
-                    " onclick="document.dispatchEvent(new CustomEvent('color-pick', {detail: '${clr}'}))"></div>
+                    <div class="color-swatch" style="
+                        width: 16px; height: 16px; background: ${clr}; cursor: pointer;
+                        border: 1px solid ${isSelected ? '#000' : 'rgba(0,0,0,0.1)'};
+                        border-radius: 1px;
+                    " onclick="document.dispatchEvent(new CustomEvent('color-pick', {detail: '${clr}'}))" title="${clr}"></div>
                 `;
             });
             colorGridHtml += `</div>`;
         }
 
-        // الجسم
         let bodyContent = '';
         if (isEditable) {
+            // زر الأيقونة الحالي
+            const iconDisplay = item.iconType === 'circle_geo' ? 
+                `<i class="material-icons" style="color: ${item.color}; font-size: 24px;">radio_button_unchecked</i>` :
+                `<div style="width: 28px; height: 28px; background: ${item.color}; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 2px;">
+                    <i class="material-icons" style="color: white; font-size: 18px;">${item.iconType === 'room' ? '' : item.iconType}</i>
+                 </div>`;
+
             bodyContent = `
                 <div style="margin-bottom: 10px; display: flex; align-items: flex-end; gap: 10px;">
-                    <!-- زر الأيقونة الحالي -->
-                    <div id="btn-icon-picker" style="
-                        width: 32px; height: 32px; background: ${item.color}; 
-                        display: flex; justify-content: center; align-items: center; cursor: pointer;
-                        border-top-right-radius: 4px; border-top-left-radius: 4px; border-bottom-left-radius: 4px; /* شكل الدبوس تقريباً */
-                    ">
-                        <i class="material-icons" style="color: white; font-size: 18px;">${item.iconType === 'circle' ? 'circle' : item.iconType}</i>
+                    <div id="btn-icon-picker" style="cursor: pointer; padding-bottom: 5px;">
+                        ${iconDisplay}
                     </div>
                     <div style="flex: 1;">
-                        <input id="loc-name" type="text" value="${name}" style="${inputStyle} font-weight: bold; font-size: 16px;" ${inputFocus}>
+                        <input id="loc-name" type="text" value="${name}" style="${inputStyle} font-weight: bold; font-size: 16px;" placeholder="اسم الموقع">
                     </div>
                 </div>
 
-                <!-- شبكة الألوان -->
                 ${colorGridHtml}
 
-                <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">الوصف</label>
-                <textarea id="loc-rec" style="${inputStyle} min-height: 60px; resize: vertical; border: 1px solid #ddd; padding: 5px;">${item.recipients.join('\n')}</textarea>
+                <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">الوصف</label>
+                <textarea id="loc-rec" style="${inputStyle} min-height: 80px; resize: vertical; border: 1px solid #ddd; padding: 6px;">${item.recipients.join('\n')}</textarea>
                 
-                ${item.iconType === 'circle' ? `
-                    <div style="margin-top: 10px;">
-                         <label style="font-size: 12px; color: #666;">نصف القطر (متر)</label>
-                         <input id="loc-radius" type="number" value="${item.radius}" style="width: 80px; padding: 4px; border: 1px solid #ddd;">
+                ${item.iconType === 'circle_geo' ? `
+                    <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border: 1px solid #eee;">
+                         <label style="font-size: 12px; color: #333;">نصف قطر المنطقة (متر)</label>
+                         <input id="loc-radius" type="number" value="${item.radius}" style="width: 100%; padding: 4px; border: 1px solid #ddd; margin-top: 5px;">
                     </div>
                 ` : ''}
             `;
         } else {
             bodyContent = `
-                <div style="font-size: 14px; color: #333; line-height: 1.5;">
-                    ${recipientsHtml || 'لا يوجد وصف.'}
-                </div>
+                <div style="font-size: 14px; color: #333; line-height: 1.5; white-space: pre-wrap;">${recipientsHtml || 'لا يوجد وصف.'}</div>
             `;
         }
 
-        // الفوتر
         let footerContent = '';
         if (isEditable) {
             footerContent = `
                 <div style="${footerStyle}">
-                     <i id="loc-delete" class="material-icons" style="color: #666; cursor: pointer; margin-left: auto; font-size: 20px;">delete</i>
+                     <i id="loc-delete" class="material-icons" style="color: #666; cursor: pointer; margin-left: auto; font-size: 20px;" title="حذف">delete</i>
                      <button id="loc-save" style="background: #4d90fe; color: white; border: none; padding: 6px 16px; border-radius: 2px; font-weight: bold; cursor: pointer;">حفظ</button>
                 </div>
             `;
@@ -747,8 +784,8 @@ class LocationManager {
         const html = `
         <div style="${cardStyle}">
             <div style="${headerStyle}">
-                <h3 style="margin:0; font-size: 16px; font-weight: bold;">${isEditable ? 'تعديل' : name}</h3>
-                <i id="loc-close-x" class="material-icons" style="cursor: pointer; color: #888; font-size: 18px;">close</i>
+                <h3 style="margin:0; font-size: 16px; font-weight: bold; color: #222;">${isEditable ? 'تعديل التفاصيل' : name}</h3>
+                <i id="loc-close-x" class="material-icons" style="cursor: pointer; color: #888; font-size: 20px;">close</i>
             </div>
             <div style="${bodyStyle}">
                 ${bodyContent}
@@ -758,48 +795,42 @@ class LocationManager {
 
         UI.openSharedInfoCard(html, item.marker.position, !hoverOnly);
 
-        // ربط الأحداث
         google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => {
             const closeX = document.getElementById("loc-close-x");
             if (closeX) closeX.addEventListener("click", () => UI.forceCloseSharedInfoCard());
 
             if (!isEditable) return;
 
-            // زر فتح نافذة الرموز
             const pickerBtn = document.getElementById("btn-icon-picker");
             if (pickerBtn) pickerBtn.addEventListener("click", () => this.openIconPicker(item));
 
-            // أزرار الحفظ والحذف
             const saveBtn = document.getElementById("loc-save");
             const delBtn = document.getElementById("loc-delete");
             const nameEl = document.getElementById("loc-name");
             const recEl = document.getElementById("loc-rec");
             const radEl = document.getElementById("loc-radius");
 
-            // حدث اختيار اللون
+            // مستمع حدث الألوان
             document.addEventListener('color-pick', (e) => {
                 const newColor = e.detail;
                 item.color = newColor;
-                // تحديث المعاينة الفورية
-                pickerBtn.style.backgroundColor = newColor;
-                // تحديث العناصر على الخريطة فوراً
-                if (item.circle) {
-                    item.circle.setOptions({ fillColor: newColor, strokeColor: newColor });
-                }
+                // تحديث مباشر للبطاقة (المعاينة) والخريطة
+                this.openCard(item, false); 
+                
+                if (item.circle) item.circle.setOptions({ fillColor: newColor, strokeColor: newColor });
                 const svgPath = item.marker.content.querySelector('path');
                 if (svgPath) svgPath.setAttribute('fill', newColor);
-            }, { once: false }); // نسمح بتكرار الحدث
+            }, { once: false });
 
             if (saveBtn) {
                 saveBtn.addEventListener("click", () => {
                     item.name = nameEl.value.trim();
                     item.recipients = recEl.value.split("\n").map(s => s.trim()).filter(Boolean);
-                    if (radEl) item.radius = Utils.clamp(+radEl.value, 5, 5000);
-
-                    // تحديث نهائي
-                    if (item.iconType === 'circle') {
-                        item.circle.setRadius(item.radius);
+                    if (radEl) {
+                        item.radius = Utils.clamp(+radEl.value, 5, 50000);
+                        if (item.circle) item.circle.setRadius(item.radius);
                     }
+                    
                     item.marker.content = this.buildMarkerContent(item);
                     item.marker.title = item.name;
 
@@ -850,7 +881,7 @@ class LocationManager {
 const LOCATIONS = new LocationManager();
 
 /* ============================================================
-   RouteManager — إدارة المسارات (تصميم Material)
+   RouteManager — إدارة المسارات
    ============================================================ */
 class RouteManager {
 
@@ -1081,7 +1112,7 @@ class RouteManager {
 const ROUTES = new RouteManager();
 
 /* ============================================================
-   PolygonManager — إدارة المضلعات (تصميم Material)
+   PolygonManager — إدارة المضلعات
    ============================================================ */
 class PolygonManager {
     constructor() {
