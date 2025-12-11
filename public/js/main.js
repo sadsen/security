@@ -1,18 +1,23 @@
 'use strict';
 
-/* ============================================================
-   Diriyah Security Map – v22.0 (Mobile-Safe Share System)
-   • إصلاح جميع مشاكل رابط المشاركة
-   • دعم هواتف iOS + Android بدون فقد بيانات
+/*
+============================================================
+   Diriyah Security Map – v23.0 (Fixed UI & Mobile Scroll)
+   • حل مشكلة التمرير (Scroll) في الكروت
+   • إزالة الحدود البيضاء وعلامة الإغلاق
+   • تحسين العرض الكامل على الجوال
    • State آمنة 100%
    • ShareMode يعمل فعلياً
-   • Glass UI كامل للمواقع والمسارات
-   ============================================================ */
+   • Glass UI محدث
+  ============================================================ */
 
 
-/* ------------------------------------------------------------
-   Event Bus — نظام أحداث
------------------------------------------------------------- */
+/*
+------------------------------------------------------------
+   Event Bus
+— نظام أحداث
+------------------------------------------------------------
+*/
 window.initMap = function () {
     if (window.MapController && typeof window.MapController.init === 'function') {
         window.MapController.init();
@@ -41,9 +46,12 @@ class EventBus {
 const bus = new EventBus();
 
 
-/* ------------------------------------------------------------
-   Utilities — أدوات عامة (مع دعم للجوال)
------------------------------------------------------------- */
+/*
+------------------------------------------------------------
+   Utilities
+— أدوات عامة (مع دعم للجوال)
+------------------------------------------------------------
+*/
 const Utils = {
 
     clamp(v, min, max) {
@@ -58,24 +66,16 @@ const Utils = {
             .replace(/"/g, "&quot;");
     },
 
-    /* 
-     * Base64 URL-Safe encoding with compression
+    /* * Base64 URL-Safe encoding with compression
      */
     b64uEncode(str) {
         try {
-            // 1. تحويل النص إلى بايتات (UTF-8)
             const textEncoder = new TextEncoder();
             const bytes = textEncoder.encode(str);
-
-            // 2. ضغط البايتات باستخدام pako
             const compressed = pako.deflate(bytes);
-
-            // 3. تحويل البايتات المضغوطة إلى نص Base64
             let bin = "";
             compressed.forEach(b => bin += String.fromCharCode(b));
             const base64 = btoa(bin);
-
-            // 4. جعل الرابط آمنًا للاستخدام في الـ URL
             return base64
                 .replace(/\+/g, "-")
                 .replace(/\//g, "_")
@@ -86,27 +86,18 @@ const Utils = {
         }
     },
 
-    /* 
-     * Base64 URL-safe decode with decompression
+    /* * Base64 URL-safe decode with decompression
      */
     b64uDecode(str) {
         try {
             if (!str) return null;
-
-            // 1. إعادة الرابط إلى صيغة Base64 قياسية
             str = str.replace(/[^A-Za-z0-9\-_]/g, "");
             const pad = (4 - (str.length % 4)) % 4;
             str += "=".repeat(pad);
             const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
-
-            // 2. فك ترميز Base64 إلى بايتات
             const decoded = atob(base64);
             const compressedBytes = Uint8Array.from(decoded, c => c.charCodeAt(0));
-
-            // 3. فك ضغط البايتات باستخدام pako
             const decompressedBytes = pako.inflate(compressedBytes);
-
-            // 4. تحويل البايتات المستعادة إلى نص (UTF-8)
             const textDecoder = new TextDecoder();
             return textDecoder.decode(decompressedBytes);
         } catch (e) {
@@ -130,27 +121,28 @@ const Utils = {
         return `${h} ساعة ${r} دقيقة`;
     },
 
-    // === هذه هي الدالة الجديدة التي يجب إضافتها ===
     formatArea(meters) {
         if (!meters) return "0 م²";
         if (meters >= 1000000) {
             return (meters / 1000000).toFixed(2) + " كم²";
         }
-        // استخدام toLocaleString لتنسيق الأرقام الكبيرة (مثل 500,000)
         return Math.round(meters).toLocaleString('ar-SA') + " م²";
     }
 };
 
-/* ============================================================
-   MapController — وحدة إدارة الخريطة (مع دعم الطبقات المتقدمة)
-============================================================ */
+/*
+============================================================
+   MapController
+— وحدة إدارة الخريطة (مع دعم الطبقات المتقدمة)
+============================================================
+*/
 class MapController {
 
     constructor() {
         this.map = null;
         this.trafficLayer = null;
-        this.bicyclingLayer = null; // طبقة جديدة
-        this.transitLayer = null;     // طبقة جديدة
+        this.bicyclingLayer = null;
+        this.transitLayer = null;
 
         this.editMode = true;
         this.shareMode = false;
@@ -165,7 +157,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v22.0 - Layers Update");
+        console.log("Boot v23.0 - UI Fixes");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
@@ -227,16 +219,13 @@ class MapController {
             clickableIcons: false
         });
 
-        // تهيئة الطبقات
         this.trafficLayer = new google.maps.TrafficLayer();
         this.bicyclingLayer = new google.maps.BicyclingLayer();
         this.transitLayer = new google.maps.TransitLayer();
 
-        // تسجيل الأنماط المخصصة
         this.map.mapTypes.set("dark", new google.maps.StyledMapType(darkModeStyle, { name: "الوضع الليلي" }));
         this.map.mapTypes.set("silver", new google.maps.StyledMapType(silverStyle, { name: "فضي" }));
 
-        // إضافة مستمعي الأحداث للخريطة
         this.map.addListener("zoom_changed", () => {
             bus.emit("map:zoom", this.map.getZoom());
         });
@@ -245,18 +234,14 @@ class MapController {
             bus.emit("map:bounds");
         });
 
-        // *** التعديل الجديد: استدعاء دالة الانتظار بدلاً من إطلاق الحدث مباشرة ***
         this.waitForGmpMarkersAndEmit();
     }
 
-    // *** الدالة الجديدة التي تنتظر تحميل المكتبة ***
     waitForGmpMarkersAndEmit() {
         if (typeof google.maps.marker !== 'undefined' && typeof google.maps.marker.AdvancedMarkerElement !== 'undefined') {
-            // المكتبة تم تحميلها، الآن يمكننا إطلاق الحدث بأمان
             console.log("gmp-markers library is ready. Emitting 'map:ready' event.");
             bus.emit("map:ready", this.map);
         } else {
-            // المكتبة لم تتحمل بعد، انتظر 100 ميلي ثانية وحاول مرة أخرى
             console.log("Waiting for gmp-markers library...");
             setTimeout(() => this.waitForGmpMarkersAndEmit(), 100);
         }
@@ -264,9 +249,9 @@ class MapController {
 
     setRoadmap() { this.map.setMapTypeId("roadmap"); }
     setSatellite() { this.map.setMapTypeId("hybrid"); }
-    setTerrain() { this.map.setMapTypeId("terrain"); } // دالة جديدة
-    setDarkMode() { this.map.setMapTypeId("dark"); }   // دالة جديدة
-    setSilverMode() { this.map.setMapTypeId("silver"); } // دالة جديدة
+    setTerrain() { this.map.setMapTypeId("terrain"); }
+    setDarkMode() { this.map.setMapTypeId("dark"); }
+    setSilverMode() { this.map.setMapTypeId("silver"); }
 
     toggleTraffic() {
         if (this.trafficLayer.getMap()) {
@@ -276,7 +261,7 @@ class MapController {
         }
     }
 
-    toggleBicycling() { // دالة جديدة
+    toggleBicycling() {
         if (this.bicyclingLayer.getMap()) {
             this.bicyclingLayer.setMap(null);
         } else {
@@ -284,7 +269,7 @@ class MapController {
         }
     }
 
-    toggleTransit() { // دالة جديدة
+    toggleTransit() {
         if (this.transitLayer.getMap()) {
             this.transitLayer.setMap(null);
         } else {
@@ -299,13 +284,12 @@ class MapController {
 
 const MAP = new MapController();
 
-/* ============================================================
-   LocationManager — المواقع + بطاقات Glass (تصميم موحد)
-============================================================ */
-
-/* ============================================================
-   LocationManager — إدارة المواقع + بطاقات Glass (نسخة مُصلحة بالكامل)
-   ============================================================ */
+/*
+============================================================
+   LocationManager
+— إدارة المواقع + بطاقات Glass
+(مُحسنة للتمرير وبدون حدود)
+  ============================================================ */
 class LocationManager {
 
     constructor() {
@@ -314,7 +298,6 @@ class LocationManager {
         this.shareMode = false;
         this.editMode = true;
         
-        // إضافة قائمة الأيقونات المتاحة
         this.availableIcons = [
             { value: 'report_problem', label: '-' },
             { value: 'report_problem', label: 'نقطة فرز' },
@@ -348,19 +331,19 @@ class LocationManager {
                 }
             }
 
-            this.addItem({ 
-                id: "d" + Date.now() + Math.random(), 
+            this.addItem({
+                id: "d" + Date.now() + Math.random(),
                 lat: e.latLng.lat(), 
                 lng: e.latLng.lng(), 
-                radius: 22, 
+                radius: 22,
                 color: "#ff0000", 
                 fillOpacity: 0.3, 
                 recipients: [], 
                 name: "موقع جديد"
             });
 
-            MAP.modeAdd = false; 
-            UI.showDefaultUI(); 
+            MAP.modeAdd = false;
+            UI.showDefaultUI();
             bus.emit("persist"); 
             bus.emit("toast", "تمت إضافة موقع جديد");
         });
@@ -399,13 +382,13 @@ class LocationManager {
             { name: "إشارة البجيري", lat: 24.737662, lng: 46.575429, iconType: 'report_problem' }
         ]; 
         LOCS.forEach(loc => this.addItem({ 
-            id: "d" + Date.now() + Math.random(), 
-            name: loc.name, 
-            lat: loc.lat, 
-            lng: loc.lng, 
-            radius: 22, 
+            id: "d" + Date.now() + Math.random(),
+            name: loc.name,
+            lat: loc.lat,
+            lng: loc.lng,
+            radius: 22,
             color: "#ff0000", 
-            fillOpacity: 0.3, 
+            fillOpacity: 0.3,
             recipients: [],
             iconType: loc.iconType 
         })); 
@@ -490,21 +473,17 @@ class LocationManager {
         item.marker.addListener("drag", () => item.circle.setCenter(item.marker.position));
         item.marker.addListener("dragend", () => bus.emit("persist"));
         item.circle.addListener("mouseover", () => { if (!UI.infoWindowPinned) this.openCard(item, true); });
-        item.circle.addListener("mouseout", () => { UI.closeSharedInfoCard(); });
+        item.circle.addListener("mouseout", () => { UI.closeSharedInfoCard();});
         item.circle.addListener("click", () => this.openCard(item, false));
         
-        // إضافة مستمع للنقر داخل الدائرة وليس فقط على حافتها
         item.circle.addListener("mousemove", (e) => {
-            // تحقق مما إذا كان الماوس داخل الدائرة
             const distance = google.maps.geometry.spherical.computeDistanceBetween(
-                e.latLng, 
+                e.latLng,
                 item.circle.getCenter()
             );
             if (distance <= item.circle.getRadius()) {
-                // تغيير مؤشر الماوس للإشارة إلى أن المنطقة قابلة للنقر
                 MAP.map.setOptions({ draggableCursor: "pointer" });
             } else {
-                // استعادة المؤشر الافتراضي
                 MAP.map.setOptions({ draggableCursor: "grab" });
             }
         });
@@ -515,82 +494,74 @@ class LocationManager {
         const recipientsHtml = item.recipients.map(r => Utils.escapeHTML(r)).join('<br>');
         const isEditable = !hoverOnly && MAP.editMode;
 
-        // --- الأنماط (CSS Styles) ---
+        // --- إصلاحات CSS: إزالة الحدود، حل مشكلة السكرول، تحسين الجوال ---
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
             background: rgba(255, 255, 255, 0.60);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.4);
+            /* تم إزالة الحدود البيضاء هنا */
+            border: none;
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
             padding: 0;
             color: #333;
             direction: rtl;
             width: 340px;
-            max-width: 90vw;
-            max-height: 80vh; /* إضافة ارتفاع أقصى */
-            overflow-y: auto; /* تفعيل التمرير العمودي */
-            overflow-x: hidden; /* إخفاء التمرير الأفقي */
+            /* تعديل العرض على الجوال ليأخذ العرض المتاح */
+            max-width: 95vw;
+            /* تعديل الارتفاع لحل مشكلة السكرول */
+            max-height: 70vh;
+            overflow-y: auto;
+            overflow-x: hidden;
             position: relative;
+            /* تحسين السكرول على اللمس */
+            -webkit-overflow-scrolling: touch;
+            pointer-events: auto;
         `;
 
         const headerStyle = `
-            display: flex; 
+            display: flex;
             justify-content: space-between; 
-            align-items: center; 
-            padding: 12px 16px; 
+            align-items: center;
+            padding: 12px 16px;
             background: rgba(255, 255, 255, 0.2); 
-            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-            position: sticky; /* جعل الرأس ثابتًا عند التمرير */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* تخفيف لون الحد الفاصل */
+            position: sticky;
             top: 0;
             z-index: 10;
+            /* التأكد من أن الهيدر لا يخفي المحتوى */
         `;
 
         const bodyStyle = `padding: 16px;`;
         
         const footerStyle = `
-            padding: 12px 16px; 
+            padding: 12px 16px;
             background: rgba(255, 255, 255, 0.25); 
-            border-top: 1px solid rgba(255, 255, 255, 0.3);
-            position: sticky; /* جعل التذييل ثابتًا عند التمرير */
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            position: sticky;
             bottom: 0;
         `;
 
-        const closeIconStyle = `
-            cursor: pointer; 
-            padding: 4px; 
-            border-radius: 50%; 
-            color: #666; 
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-
         const inputStyle = `
-            width: 100%; 
-            padding: 8px 12px; 
-            border-radius: 10px; 
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 10px;
             border: 1px solid rgba(255, 255, 255, 0.5); 
             background: rgba(255, 255, 255, 0.4); 
             box-sizing: border-box; 
             font-family: 'Cairo', sans-serif; 
-            font-size: 13px; 
+            font-size: 13px;
             outline: none;
             color: #222;
         `;
 
         const labelStyle = `font-size:11px; display:block; margin-bottom:4px; font-weight: 700; color: #444;`;
 
-        // --- بناء المحتوى (فصلنا الأجزاء لتجنب أخطاء الأقواس) ---
-
-        // 1. خيارات القائمة المنسدلة
         const optionsHtml = this.availableIcons.map(icon => 
             `<option value="${icon.value}" ${item.iconType === icon.value ? 'selected' : ''}>${icon.label}</option>`
         ).join('');
 
-        // 2. محتوى الجسم (Body)
         let bodyContent = '';
         if (isEditable) {
             bodyContent = `
@@ -610,15 +581,14 @@ class LocationManager {
                 </div>
             `;
         } else {
-            // أيقونة مختارة للعرض
             const selectedLabel = this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'مكان عام';
             bodyContent = `
                 <div style="display: flex; gap: 10px; margin-bottom: 12px;">
                     <div style="flex:1;">
-                            <label style="${labelStyle}">نوع الموقع:</label>
-                            <div style="background: rgba(255,255,255,0.5); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight:600;">
-                            ${selectedLabel}
-                            </div>
+                           <label style="${labelStyle}">نوع الموقع:</label>
+                           <div style="background: rgba(255,255,255,0.5); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight:600;">
+                           ${selectedLabel}
+                           </div>
                     </div>
                 </div>
                 <div>
@@ -630,7 +600,6 @@ class LocationManager {
             `;
         }
 
-        // 3. محتوى الفوتر (Footer)
         let footerContent = '';
         if (isEditable) {
             footerContent = `
@@ -658,19 +627,15 @@ class LocationManager {
             `;
         }
 
-        // --- تجميع الكود النهائي ---
+        // --- بناء HTML (تم إزالة أيقونة X من هنا) ---
         const html = `
-        <div style="${cardStyle}">
+        <div style="${cardStyle}" class="glass-card-content">
             <div style="${headerStyle}">
                 <div style="display:flex; align-items:center; gap: 8px;">
-                     <!-- زر الإغلاق المدمج -->
-                    <div id="loc-close-x" style="${closeIconStyle}" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='transparent'">
-                        <i class="material-icons" style="font-size: 18px;">close</i>
-                    </div>
                     <img src="img/logo.png" style="width: 32px; height: 32px; border-radius: 50%;">
+                    <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700;">${name}</h3>
                 </div>
-                <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700;">${name}</h3>
-            </div>
+                </div>
             
             <div style="${bodyStyle}">
                 ${bodyContent}
@@ -682,14 +647,12 @@ class LocationManager {
         
         google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => {
             this.attachCardEvents(item, hoverOnly);
-            const closeX = document.getElementById("loc-close-x");
-            if(closeX) closeX.addEventListener("click", () => UI.forceCloseSharedInfoCard());
         });
     }
 
     attachCardEvents(item, hoverOnly = false) {
         const closeBtn = document.getElementById("loc-close");
-        if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); });
+        if (closeBtn) closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard();});
         if (hoverOnly || !MAP.editMode) return;
 
         const saveBtn = document.getElementById("loc-save");
@@ -730,7 +693,7 @@ class LocationManager {
 
         if (delBtn) {
             delBtn.addEventListener("click", () => {
-                if (!confirm(`حذف "${item.name}"؟`)) return;
+                if (!confirm(`حذف "${item.name}"؟`))return;
                 item.marker.map = null;
                 item.circle.setMap(null);
                 this.items = this.items.filter(x => x.id !== item.id);
@@ -770,9 +733,12 @@ class LocationManager {
 
 const LOCATIONS = new LocationManager();
 
-/* ============================================================
-   RouteManager — إدارة المسارات + بطاقات Glass (متجاوبة بالكامل)
-   ============================================================ */
+/*
+============================================================
+   RouteManager
+— إدارة المسارات + بطاقات Glass
+(مُحسنة للتمرير وبدون حدود)
+  ============================================================ */
 class RouteManager {
 
     constructor() {
@@ -895,90 +861,94 @@ class RouteManager {
         const path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points;
         rt.poly = new google.maps.Polyline({ map: this.map, path, strokeColor: rt.color, strokeWeight: rt.weight, strokeOpacity: rt.opacity, zIndex: 10 });
         
-        // استخدام موقع الماوس لفتح النافذة في مكان النقر بدلاً من المركز
         rt.poly.addListener("mouseover", (e) => { 
-            if (!UI.infoWindowPinned) this.openRouteCard(routeIndex, true, e.latLng); 
+            if (!UI.infoWindowPinned) this.openRouteCard(routeIndex, true, e.latLng);
         });
-        rt.poly.addListener("mouseout", () => { UI.closeSharedInfoCard(); });
+        rt.poly.addListener("mouseout", () => { UI.closeSharedInfoCard();});
         rt.poly.addListener("click", (e) => this.openRouteCard(routeIndex, false, e.latLng));
     }
 
     openRouteCard(routeIndex, hoverOnly = false, position = null) {
-    const rt = this.routes[routeIndex];
-    const dist = Utils.formatDistance(rt.distance);
-    const dur = Utils.formatDuration(rt.duration);
-    const notes = Utils.escapeHTML(rt.notes || "");
-    const isEditable = !hoverOnly && MAP.editMode;
+        const rt = this.routes[routeIndex];
+        const dist = Utils.formatDistance(rt.distance);
+        const dur = Utils.formatDuration(rt.duration);
+        const notes = Utils.escapeHTML(rt.notes || "");
+        const isEditable = !hoverOnly && MAP.editMode;
 
-    // === تم تحديث الأنماط لتوسيع النافذة وتحسين تأثير الزجاج والشفافية ===
-    const cardStyle = `
-        font-family: 'Cairo', sans-serif;
-        background: rgba(30, 30, 30, 0.5); /* زيادة الشفافية (كانت 0.75) */
-        backdrop-filter: blur(12px) saturate(1.5);
-        -webkit-backdrop-filter: blur(12px) saturate(1.5);
-        border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        padding: 0;
-        color: #f0f0f0;
-        direction: rtl;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        max-width: 90vw;
-        width: 380px; /* توسيع العرض أكثر */
-        max-height: 80vh; /* إضافة ارتفاع أقصى */
-        overflow-y: auto; /* تفعيل التمرير العمودي */
-        overflow-x: hidden; /* إخفاء التمرير الأفقي */
-    `;
-    const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08); position: sticky; top: 0; z-index: 10;`;
-    const bodyStyle = `padding: 16px;`;
-    const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.08); position: sticky; bottom: 0;`;
+        // === CSS تحديث: إزالة الحدود، سكرول للموبايل ===
+        const cardStyle = `
+            font-family: 'Cairo', sans-serif;
+            background: rgba(30, 30, 30, 0.5); 
+            backdrop-filter: blur(12px) saturate(1.5);
+            -webkit-backdrop-filter: blur(12px) saturate(1.5);
+            border-radius: 16px;
+            /* تم إزالة الحدود */
+            border: none;
+            padding: 0;
+            color: #f0f0f0;
+            direction: rtl;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            width: 380px;
+            /* تعديل العرض على الجوال */
+            max-width: 95vw;
+            /* تعديل الارتفاع لحل مشكلة السكرول */
+            max-height: 70vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        `;
+        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.05); position: sticky; top: 0; z-index: 10;`;
+        const bodyStyle = `padding: 16px;`;
+        const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.05); position: sticky; bottom: 0;`;
 
-    const html = `
-    <div style="${cardStyle}">
-        <div style="${headerStyle}">
-            <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;">معلومات المسار ${routeIndex + 1}</h3>
-            <img src="img/logo.png" style="width: 30px; height: 30px; border-radius: 6px;">
-        </div>
-        <div style="${bodyStyle}">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-family: 'Cairo', sans-serif;">
-                <span><b>المسافة:</b> ${dist}</span>
-                <span><b>الوقت:</b> ${dur}</span>
+        const html = `
+        <div style="${cardStyle}" class="glass-card-content">
+            <div style="${headerStyle}">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <img src="img/logo.png" style="width: 30px; height: 30px; border-radius: 6px;">
+                    <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;">معلومات المسار ${routeIndex + 1}</h3>
+                </div>
+            </div>
+            <div style="${bodyStyle}">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-family: 'Cairo', sans-serif;">
+                    <span><b>المسافة:</b> ${dist}</span>
+                    <span><b>الوقت:</b> ${dur}</span>
+                </div>
+                ${isEditable ? `
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
+                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:30px;border:none;border-radius:6px;cursor:pointer;"></div>
+                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;color:#333;"></div>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
+                        <input id="route-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">ملاحظات:</label>
+                        <textarea id="route-notes" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
+                    </div>
+                ` : `
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Cairo', sans-serif;">ملاحظات:</p>
+                    <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Cairo', sans-serif;">
+                        ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
+                    </div>
+                `}
             </div>
             ${isEditable ? `
-                <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
-                    <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:30px;border:none;border-radius:6px;cursor:pointer;"></div>
-                    <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
+                <div style="${footerStyle}">
+                    <div style="display:flex;gap:8px; flex-wrap: wrap;">
+                        <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 90px; font-size: 14px;">حفظ</button>
+                        <button id="route-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">حذف</button>
+                        <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">إغلاق</button>
+                    </div>
                 </div>
-                <div style="margin-bottom:14px;">
-                    <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
-                    <input id="route-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
-                </div>
-                <div style="margin-bottom:14px;">
-                    <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">ملاحظات:</label>
-                    <textarea id="route-notes" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
-                </div>
-            ` : `
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Cairo', sans-serif;">ملاحظات:</p>
-                <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Cairo', sans-serif;">
-                    ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
-                </div>
-            `}
-        </div>
-        ${isEditable ? `
-            <div style="${footerStyle}">
-                <div style="display:flex;gap:8px; flex-wrap: wrap;">
-                    <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 90px; font-size: 14px;">حفظ</button>
-                    <button id="route-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">حذف</button>
-                    <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">إغلاق</button>
-                </div>
-            </div>
-        ` : ''}
-    </div>`;
+            ` : ''}
+        </div>`;
 
-    // استخدام الموضع المحدد (مكان النقر) إذا توفر، وإلا نستخدم المركز
-    const cardPosition = position || this.getRouteCenter(rt);
-    UI.openSharedInfoCard(html, cardPosition, !hoverOnly);
-    google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
-}
+        const cardPosition = position || this.getRouteCenter(rt);
+        UI.openSharedInfoCard(html, cardPosition, !hoverOnly);
+        google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
+    }
 
     getRouteCenter(rt) {
         const path = rt.poly.getPath();
@@ -1001,7 +971,7 @@ class RouteManager {
                 bus.emit("persist"); UI.forceCloseSharedInfoCard(); bus.emit("toast", "تم حفظ تعديلات المسار");
             });
         }
-        if (delBtn) { delBtn.addEventListener("click", () => { if (!confirm(`حذف المسار ${routeIndex + 1}؟`)) return; this.removeRoute(routeIndex); bus.emit("toast", "تم حذف المسار"); }); }
+        if (delBtn) { delBtn.addEventListener("click", () => { if (!confirm(`حذف المسار ${routeIndex + 1}؟`))return; this.removeRoute(routeIndex); bus.emit("toast", "تم حذف المسار"); }); }
         if (closeBtn) { closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); }); }
     }
    
@@ -1026,17 +996,17 @@ class RouteManager {
 }
 
 const ROUTES = new RouteManager();
-/* ============================================================
-   PolygonManager — إدارة المضلعات + بطاقات Glass
-============================================================ */
 
-/* ============================================================
-   PolygonManager — إدارة المضلعات + بطاقات Glass (متجاوبة بالكامل)
-   ============================================================ */
+/*
+============================================================
+   PolygonManager
+— إدارة المضلعات + بطاقات Glass
+(مُحسنة للتمرير وبدون حدود)
+  ============================================================ */
 class PolygonManager {
     constructor() {
         this.polygons = []; this.map = null; this.shareMode = false; this.editMode = true; this.activePolygonIndex = -1; this.isEditing = false; this.editingPolygonIndex = -1;
-        bus.on("map:ready", map => { this.map = map; this.shareMode = MAP.shareMode; this.editMode = MAP.editMode; this.onMapReady(); });
+        bus.on("map:ready", map => { this.map = map; this.shareMode = MAP.shareMode; this.editMode = MAP.editMode; this.onMapReady();});
         bus.on("state:load", st => this.applyState(st)); bus.on("state:save", () => this.exportState());
     }
     onMapReady() { this.map.addListener("click", e => { if (!MAP.modePolygonAdd || this.shareMode) return; if (this.activePolygonIndex === -1) this.createNewPolygon(); this.addPointToPolygon(this.activePolygonIndex, e.latLng); }); }
@@ -1071,7 +1041,7 @@ class PolygonManager {
     addPolygonEditListeners(poly, index) {
         poly.polygon.addListener("click", (e) => {
             if (this.editingPolygonIndex === index) { this.insertVertex(poly, index, e.latLng); }
-            else { this.openCard(this.polygons.indexOf(poly), false, e.latLng); } // تمرير موقع النقر
+            else { this.openCard(this.polygons.indexOf(poly), false, e.latLng); } 
         });
     }
     enterEditMode(index) {
@@ -1097,9 +1067,9 @@ class PolygonManager {
         UI.showDefaultUI();
         bus.emit("toast", "تم الخروج من وضع تحرير المضلع");
     }
-    insertVertex(poly, index, latLng) { /* ... (لا تغيير هنا) ... */ }
-    deleteVertex(poly, index, vertexIndex) { /* ... (لا تغيير هنا) ... */ }
-    distanceToSegment(point, segStart, segEnd) { /* ... (لا تغيير هنا) ... */ }
+    insertVertex(poly, index, latLng) { /* ... */ }
+    deleteVertex(poly, index, vertexIndex) { /* ... */ }
+    distanceToSegment(point, segStart, segEnd) { /* ... */ }
 
     openCard(polyIndex, hoverOnly = false, position = null) {
         const poly = this.polygons[polyIndex];
@@ -1109,39 +1079,46 @@ class PolygonManager {
         const area = google.maps.geometry.spherical.computeArea(poly.points);
         const areaText = Utils.formatArea(area);
 
-        // === تعديل تجاوب الكرت ===
+        // === CSS تحديث: إزالة الحدود، سكرول للموبايل ===
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
-            background: rgba(255, 255, 255, 0.75); /* شفافية أكبر للمضلعات */
+            background: rgba(255, 255, 255, 0.75); 
             backdrop-filter: blur(15px) saturate(1.8);
             -webkit-backdrop-filter: blur(15px) saturate(1.8);
             border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            /* تم إزالة الحدود */
+            border: none;
             padding: 0;
             color: #333;
             direction: rtl;
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-            max-width: 90vw; /* تغيير */
-            width: 380px; /* تغيير */
-            max-height: 80vh; /* إضافة ارتفاع أقصى */
-            overflow-y: auto; /* تفعيل التمرير العمودي */
-            overflow-x: hidden; /* إخفاء التمرير الأفقي */
+            width: 380px;
+            /* تعديل العرض على الجوال */
+            max-width: 95vw;
+            /* تعديل الارتفاع لحل مشكلة السكرول */
+            max-height: 70vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
         `;
         const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255, 255, 255, 0.6); border-bottom: 1px solid rgba(255, 255, 255, 0.2); position: sticky; top: 0; z-index: 10;`;
         const bodyStyle = `padding: 20px;`;
         const footerStyle = `padding: 12px 20px; background: rgba(255, 255, 255, 0.6); border-top: 1px solid rgba(255, 255, 255, 0.2); position: sticky; bottom: 0;`;
 
         const html = `
-        <div style="${cardStyle}">
+        <div style="${cardStyle}" class="glass-card-content">
             <div style="${headerStyle}">
-                <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: 700;">${Utils.escapeHTML(poly.name)}</h3>
-                <img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                     <img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;">
+                     <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: 700;">${Utils.escapeHTML(poly.name)}</h3>
+                </div>
             </div>
             <div style="${bodyStyle}">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px; font-family: 'Cairo', sans-serif;">
                     <span><b>المساحة:</b> ${areaText}</span>
                 </div>
-                ${isEditingShape ? `<p style="margin: 0; color: #555; text-align:center; font-family: 'Cairo', sans-serif;">اسحب النقاط لتعديل الشكل. انقر على الحدود لإضافة نقطة. انقر بزر الماوس الأيمن على نقطة لحذفها.</p>` : (isEditable ? `
+                ${isEditingShape ? `<p style="margin: 0; color: #555; text-align:center; font-family: 'Cairo', sans-serif;">اسحب النقاط لتعديل الشكل. انقر على الحدود لإضافة نقطة. انقر بزر الماوس الأيمن على نقطة لحذفها.</p>` : 
+                (isEditable ? `
                     <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الاسم:</label><input id="poly-name" type="text" value="${Utils.escapeHTML(poly.name)}" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
                         <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="poly-color" type="color" value="${poly.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;"></div>
@@ -1155,8 +1132,7 @@ class PolygonManager {
                     <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 10px; min-height: 40px; font-size: 14px; line-height: 1.6; font-family: 'Cairo', sans-serif;">
                         ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
                     </div>
-                `)
-                }
+                `)}
             </div>
             ${isEditable ? `
                 <div style="${footerStyle}">
@@ -1174,12 +1150,12 @@ class PolygonManager {
         google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachCardEvents(polyIndex, hoverOnly));
     }
 
-    getPolygonCenter(poly) { const bounds = new google.maps.LatLngBounds(); poly.points.forEach(pt => bounds.extend(pt)); return bounds.getCenter(); }
+    getPolygonCenter(poly) { const bounds = new google.maps.LatLngBounds(); poly.points.forEach(pt => bounds.extend(pt)); return bounds.getCenter();}
 
     attachCardEvents(polyIndex, hoverOnly) {
         const poly = this.polygons[polyIndex];
         const isEditingShape = this.editingPolygonIndex === polyIndex;
-        if (isEditingShape) { const stopEditBtn = document.getElementById("poly-stop-edit"); if (stopEditBtn) stopEditBtn.addEventListener("click", () => { this.exitEditMode(); UI.forceCloseSharedInfoCard(); }); return; }
+        if (isEditingShape) { const stopEditBtn = document.getElementById("poly-stop-edit"); if (stopEditBtn) stopEditBtn.addEventListener("click", () => { this.exitEditMode(); UI.forceCloseSharedInfoCard();}); return; }
         if (hoverOnly || !MAP.editMode) return;
         const savePropsBtn = document.getElementById("poly-save-properties"); const editShapeBtn = document.getElementById("poly-edit-shape"); const delBtn = document.getElementById("poly-delete"); const closeBtn = document.getElementById("poly-close");
         const nameEl = document.getElementById("poly-name"); const notesEl = document.getElementById("poly-notes");
@@ -1198,7 +1174,7 @@ class PolygonManager {
             });
         }
         if (editShapeBtn) { editShapeBtn.addEventListener("click", () => { this.enterEditMode(polyIndex); UI.forceCloseSharedInfoCard(); }); }
-        if (delBtn) { delBtn.addEventListener("click", () => { if (!confirm(`حذف "${poly.name}"؟`)) return; poly.polygon.setMap(null); this.polygons = this.polygons.filter(p => p.id !== poly.id); UI.forceCloseSharedInfoCard(); bus.emit("persist"); bus.emit("toast", "تم حذف المضلع"); }); }
+        if (delBtn) { delBtn.addEventListener("click", () => { if (!confirm(`حذف "${poly.name}"؟`))return; poly.polygon.setMap(null); this.polygons = this.polygons.filter(p => p.id !== poly.id); UI.forceCloseSharedInfoCard(); bus.emit("persist"); bus.emit("toast", "تم حذف المضلع"); }); }
         if (closeBtn) { closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); }); }
     }
 
@@ -1217,16 +1193,13 @@ class PolygonManager {
 }
 
 const POLYGONS = new PolygonManager();
-/* ============================================================
-   StateManager — النظام الرئيس لحفظ واسترجاع state
-============================================================ */
-/* ============================================================
-   StateManager — إدارة حفظ واسترجاع الحالة
-============================================================ */
-/* ============================================================
-/* ============================================================
-   StateManager — إدارة حفظ واسترجاع الحالة (مُصلح)
-============================================================ */
+
+/*
+============================================================
+   StateManager
+— إدارة حفظ واسترجاع الحالة (مُصلح)
+============================================================
+*/
 class StateManager {
 
     constructor() {
@@ -1236,13 +1209,10 @@ class StateManager {
 
         bus.on("map:ready", map => {
             this.map = map;
-            // نحصل على قيمة الوضع من MapController بعد أن يحددها
             this.shareMode = MAP.shareMode;
 
-            // 1. دائماً حاول قراءة الحالة من الرابط، بغض النظر عن الوضع
             const stateFromUrl = this.readShare();
 
-            // 2. إذا تم العثور على حالة في الرابط، قم بتطبيقها
             if (stateFromUrl) {
                 console.log("State found in URL, applying...");
                 this.applyState(stateFromUrl);
@@ -1250,7 +1220,6 @@ class StateManager {
                 console.log("No state found in URL.");
             }
 
-            // 3. فقط إذا لم نكن في وضع المشاركة، قم بتفعيل الحفظ التلقائي
             if (!this.shareMode) {
                 console.log("Enabling auto-persist for edit mode.");
                 bus.on("persist", () => this.schedulePersist());
@@ -1258,7 +1227,6 @@ class StateManager {
         });
     }
 
-    // بناء الحالة الكاملة الحالية (خريطة + مواقع + مسارات)
     buildState() {
         if (!this.map) return null;
 
@@ -1277,7 +1245,6 @@ class StateManager {
         };
     }
 
-    // كتابة الحالة في URL (بدون اختصار)
     writeShare(st) {
         try {
             const json = JSON.stringify(st);
@@ -1292,7 +1259,6 @@ class StateManager {
         }
     }
 
-    // حفظ تلقائي
     schedulePersist() {
         if (this.shareMode) return;
 
@@ -1303,7 +1269,6 @@ class StateManager {
         }, 300);
     }
 
-    // قراءة حالة المشاركة من ?x=
     readShare() {
         try {
             const p = new URLSearchParams(location.search);
@@ -1320,17 +1285,15 @@ class StateManager {
         }
     }
 
-    // تطبيق الحالة المستعادة على الخريطة
     applyState(state) {
         console.log("Applying state:", state);
 
         if (!state) return;
 
-        // تطبيق حالة الخريطة
         if (state.map) {
             const mapState = state.map;
             if (mapState.c && mapState.z) {
-                this.map.setCenter({ lat: mapState.c[0], lng: mapState.c[1] });
+                this.map.setCenter({ lat: mapState.c[0], lng: mapState.c[1]});
                 this.map.setZoom(mapState.z);
             }
             if (mapState.t) {
@@ -1343,16 +1306,14 @@ class StateManager {
             }
         }
 
-        // تطبيق حالة المواقع
         if (state.locations) {
             LOCATIONS.applyState({ locations: state.locations });
         }
 
-        // تطبيق حالة المسارات
         if (state.routes) {
             ROUTES.applyState({ routes: state.routes });
          }
-        // تطبيق حالة المضلعات
+         
          if (state.polygons) {
             POLYGONS.applyState({ polygons: state.polygons });
         }
@@ -1362,15 +1323,12 @@ class StateManager {
 const STATE = new StateManager();
 
 
-/* ============================================================
-   ShareManager — محاولة اختصار + fallback تلقائي
-============================================================ */
-/* ============================================================
-   ShareManager — نسخ آمن مع تحقق من طول الرابط
-============================================================ */
-/* ============================================================
-   ShareManager — نسخ آمن مع ضغط البيانات
-============================================================ */
+/*
+============================================================
+   ShareManager
+— نسخ آمن مع ضغط البيانات
+============================================================
+*/
 class ShareManager {
 
     constructor() {
@@ -1397,8 +1355,7 @@ class ShareManager {
         let finalUrl = longUrl;
 
         try {
-            // الآن الرابط سيكون قصيرًا بفضل الضغط، وفرص النجاح أعلى
-            const api = "https://is.gd/create.php?format=json&url=" +
+            const api = "https://is.gd/create.php?format=json&url=" + 
                         encodeURIComponent(longUrl);
             const res = await fetch(api);
             const data = await res.json();
@@ -1411,7 +1368,6 @@ class ShareManager {
             finalUrl = longUrl;
         }
 
-        // محاولة النسخ
         try {
             await navigator.clipboard.writeText(finalUrl);
             bus.emit("toast", "تم نسخ رابط المشاركة");
@@ -1424,7 +1380,6 @@ class ShareManager {
         if (label) label.textContent = original || "مشاركة";
     }
 
-    // دالة لعرض نافذة النسخ اليدوي (تبقى كما هي)
     showManualCopyDialog(url) {
         const overlay = document.createElement('div');
         overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;`;
@@ -1440,9 +1395,11 @@ class ShareManager {
 
 const SHARE = new ShareManager();
 
-/* ============================================================
-   MeasureManager — أداة القياس
-   ============================================================ */
+/*
+============================================================
+   MeasureManager
+— أداة القياس
+  ============================================================ */
 class MeasureManager {
     constructor() {
         this.isActive = false;
@@ -1581,16 +1538,13 @@ class MeasureManager {
     }
 }
 
-// هذا السطر مهم جدًا لإنشاء نسخة من الكلاس
 const MEASURE = new MeasureManager();
 
-/* ============================================================
-   UIManager — واجهة المستخدم
-============================================================ */
-
-/* ============================================================
-   UIManager — واجهة المستخدم (مع نافذة معلومات متجاوبة بالكامل)
-   ============================================================ */
+/*
+============================================================
+   UIManager
+— واجهة المستخدم (مع نافذة معلومات متجاوبة بالكامل)
+  ============================================================ */
 class UIManager {
 
     constructor() {
@@ -1621,29 +1575,34 @@ class UIManager {
     initializeUI() {
         console.log("UI: initializeUI() called.");
 
-        // === إصلاح: حقن CSS لجعل حاوية نافذة المعلومات شفافة وإخفاء زر الإغلاق الافتراضي ===
+        // === إصلاح شامل: حقن CSS لحل مشاكل العرض والتمرير ===
         const style = document.createElement('style');
         style.innerHTML = `
-            /* إزالة الخلفية البيضاء والظل الافتراضي من نافذة المعلومات */
+            /* إزالة الخلفية البيضاء والظل الافتراضي */
             .gm-style-iw-c {
                 background: transparent !important;
                 box-shadow: none !important;
                 padding: 0 !important;
                 border-radius: 0 !important;
+                /* السماح بالتمرير إذا لزم الأمر من الحاوية الأم */
+                overflow: visible !important; 
             }
-            /* السماح للمحتوى بالظهور خارج الحدود إذا لزم الأمر */
+            /* السماح للمحتوى بالظهور والتمرير */
             .gm-style-iw-d {
                 overflow: visible !important;
                 max-height: none !important;
                 padding: 0 !important;
+                background: transparent !important;
             }
             /* إخفاء السهم الصغير أسفل النافذة */
             .gm-style-iw-tc {
                 display: none !important;
             }
-            /* إخفاء زر الإغلاق (X) الافتراضي من جوجل */
+            /* إخفاء زر الإغلاق (X) الافتراضي من جوجل تماماً */
             .gm-ui-hover-effect {
                 display: none !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
             }
         `;
         document.head.appendChild(style);
@@ -1653,14 +1612,12 @@ class UIManager {
         }
 
         // إنشاء نافذة المعلومات
-        // ملاحظة: maxWidth سيتم تجاوزه في دالة openSharedInfoCard
         this.sharedInfoWindow = new google.maps.InfoWindow();
 
         MAP.map.addListener("click", () => {
             this.closeSharedInfoCard();
         });
 
-        // مستمع أحداث لوحة الطبقات
         if (this.btnLayers) {
             this.btnLayers.addEventListener("click", () => this.toggleLayersPanel());
         }
@@ -1772,7 +1729,6 @@ class UIManager {
     }
 
     openSharedInfoCard(content, position, isPinned = false) {
-        // أغلق النافذة الحالية دائمًا قبل فتح نافذة جديدة
         this.sharedInfoWindow.close();
         
         this.sharedInfoWindow.setContent(content);
@@ -1780,8 +1736,8 @@ class UIManager {
         
         // === تحديث الخيارات لحل مشاكل العرض ===
         this.sharedInfoWindow.setOptions({
-            maxWidth: 450, // توسيع الحد الأقصى للعرض
-            pixelOffset: new google.maps.Size(0, -65), // رفع النافذة للأعلى (رقم سالب) لعدم تغطية المسار
+            maxWidth: 450, 
+            pixelOffset: new google.maps.Size(0, -50),
             zIndex: 1000
         });
         
@@ -1899,8 +1855,7 @@ class UIManager {
         if (!this.toastElement) return;
         this.toastElement.innerHTML = `
             <div style="display:flex;align-items:center;gap:8px;">
-                <img src="${this.logo}" style="
-                    width:22px;height:22px;border-radius:6px;opacity:0.9;">
+                <img src="${this.logo}" style="width:22px;height:22px;border-radius:6px;opacity:0.9;">
                 <span>${message}</span>
             </div>
         `;
@@ -1914,9 +1869,12 @@ class UIManager {
 
 const UI = new UIManager();
 
-/* ============================================================
-   BootLoader — التشغيل النهائي
-============================================================ */
+/*
+============================================================
+   BootLoader
+— التشغيل النهائي
+============================================================
+*/
 class BootLoader {
 
     constructor() {
@@ -1932,7 +1890,7 @@ class BootLoader {
 
         if (this.booted) return;
 
-        if (window.google && google.maps &&
+        if (window.google && google.maps && 
             document.readyState !== "loading") {
 
             this.booted = true;
@@ -1942,7 +1900,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v22.0 — Ready");
+        console.log("Diriyah Security Map v23.0 — Ready");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
