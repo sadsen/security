@@ -2,14 +2,12 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v23.0 (Fixed UI & Mobile Scroll)
+   Diriyah Security Map – v24.0 (Polygon Edit Fixes)
+   • إضافة خيار حذف نقاط المضلع (Vertex) عبر النقر
+   • التأكد من عدم الرسم إلا عند تفعيل الأيقونة
    • حل مشكلة التمرير (Scroll) في الكروت
    • إزالة الحدود البيضاء وعلامة الإغلاق
-   • تحسين العرض الكامل على الجوال
-   • State آمنة 100%
-   • ShareMode يعمل فعلياً
-   • Glass UI محدث
-  ============================================================ */
+   ============================================================ */
 
 
 /*
@@ -152,12 +150,13 @@ class MapController {
 
         this.modeAdd = false;
         this.modeRouteAdd = false;
+        this.modePolygonAdd = false; // تأكدنا من وجود هذا المتغير
 
         window.MapController = this;
     }
 
     init() {
-        console.log("Boot v23.0 - UI Fixes");
+        console.log("Boot v24.0 - Polygon Updates");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
@@ -288,7 +287,6 @@ const MAP = new MapController();
 ============================================================
    LocationManager
 — إدارة المواقع + بطاقات Glass
-(مُحسنة للتمرير وبدون حدود)
   ============================================================ */
 class LocationManager {
 
@@ -494,28 +492,23 @@ class LocationManager {
         const recipientsHtml = item.recipients.map(r => Utils.escapeHTML(r)).join('<br>');
         const isEditable = !hoverOnly && MAP.editMode;
 
-        // --- إصلاحات CSS: إزالة الحدود، حل مشكلة السكرول، تحسين الجوال ---
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
             background: rgba(255, 255, 255, 0.60);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-radius: 20px;
-            /* تم إزالة الحدود البيضاء هنا */
             border: none;
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
             padding: 0;
             color: #333;
             direction: rtl;
             width: 340px;
-            /* تعديل العرض على الجوال ليأخذ العرض المتاح */
             max-width: 95vw;
-            /* تعديل الارتفاع لحل مشكلة السكرول */
             max-height: 70vh;
             overflow-y: auto;
             overflow-x: hidden;
             position: relative;
-            /* تحسين السكرول على اللمس */
             -webkit-overflow-scrolling: touch;
             pointer-events: auto;
         `;
@@ -526,11 +519,10 @@ class LocationManager {
             align-items: center;
             padding: 12px 16px;
             background: rgba(255, 255, 255, 0.2); 
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* تخفيف لون الحد الفاصل */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
             position: sticky;
             top: 0;
             z-index: 10;
-            /* التأكد من أن الهيدر لا يخفي المحتوى */
         `;
 
         const bodyStyle = `padding: 16px;`;
@@ -627,7 +619,6 @@ class LocationManager {
             `;
         }
 
-        // --- بناء HTML (تم إزالة أيقونة X من هنا) ---
         const html = `
         <div style="${cardStyle}" class="glass-card-content">
             <div style="${headerStyle}">
@@ -635,7 +626,7 @@ class LocationManager {
                     <img src="img/logo.png" style="width: 32px; height: 32px; border-radius: 50%;">
                     <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700;">${name}</h3>
                 </div>
-                </div>
+            </div>
             
             <div style="${bodyStyle}">
                 ${bodyContent}
@@ -737,7 +728,6 @@ const LOCATIONS = new LocationManager();
 ============================================================
    RouteManager
 — إدارة المسارات + بطاقات Glass
-(مُحسنة للتمرير وبدون حدود)
   ============================================================ */
 class RouteManager {
 
@@ -875,23 +865,19 @@ class RouteManager {
         const notes = Utils.escapeHTML(rt.notes || "");
         const isEditable = !hoverOnly && MAP.editMode;
 
-        // === CSS تحديث: إزالة الحدود، سكرول للموبايل ===
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
             background: rgba(30, 30, 30, 0.5); 
             backdrop-filter: blur(12px) saturate(1.5);
             -webkit-backdrop-filter: blur(12px) saturate(1.5);
             border-radius: 16px;
-            /* تم إزالة الحدود */
             border: none;
             padding: 0;
             color: #f0f0f0;
             direction: rtl;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             width: 380px;
-            /* تعديل العرض على الجوال */
             max-width: 95vw;
-            /* تعديل الارتفاع لحل مشكلة السكرول */
             max-height: 70vh;
             overflow-y: auto;
             overflow-x: hidden;
@@ -1001,7 +987,7 @@ const ROUTES = new RouteManager();
 ============================================================
    PolygonManager
 — إدارة المضلعات + بطاقات Glass
-(مُحسنة للتمرير وبدون حدود)
+(مُحسنة للتمرير وبدون حدود + حذف النقاط)
   ============================================================ */
 class PolygonManager {
     constructor() {
@@ -1009,7 +995,17 @@ class PolygonManager {
         bus.on("map:ready", map => { this.map = map; this.shareMode = MAP.shareMode; this.editMode = MAP.editMode; this.onMapReady();});
         bus.on("state:load", st => this.applyState(st)); bus.on("state:save", () => this.exportState());
     }
-    onMapReady() { this.map.addListener("click", e => { if (!MAP.modePolygonAdd || this.shareMode) return; if (this.activePolygonIndex === -1) this.createNewPolygon(); this.addPointToPolygon(this.activePolygonIndex, e.latLng); }); }
+    
+    onMapReady() { 
+        this.map.addListener("click", e => { 
+            // التحقق الصارم: لن يتم الرسم إلا إذا كانت أيقونة المضلع مفعلة (modePolygonAdd = true)
+            if (!MAP.modePolygonAdd || this.shareMode) return; 
+            
+            if (this.activePolygonIndex === -1) this.createNewPolygon(); 
+            this.addPointToPolygon(this.activePolygonIndex, e.latLng); 
+        }); 
+    }
+
     startPolygonSequence() { this.activePolygonIndex = -1; }
     finishCurrentPolygon() {
         if (this.activePolygonIndex === -1) return;
@@ -1048,27 +1044,82 @@ class PolygonManager {
         this.exitEditMode();
         const poly = this.polygons[index];
         this.isEditing = true; this.editingPolygonIndex = index;
+        
         poly.points.forEach((point, i) => {
-            const marker = new google.maps.marker.AdvancedMarkerElement({ position: point, map: this.map, gmpDraggable: true, content: this.buildVertexMarkerContent(poly.color), title: `Vertex ${i + 1}` });
+            const marker = new google.maps.marker.AdvancedMarkerElement({ 
+                position: point, 
+                map: this.map, 
+                gmpDraggable: true, 
+                content: this.buildVertexMarkerContent(poly.color), 
+                title: `نقطة ${i + 1}` 
+            });
             poly.vertexMarkers.push(marker);
+            
+            // السحب لتغيير الموقع
             marker.addListener("drag", (e) => { poly.points[i] = e.latLng; poly.polygon.setPaths(poly.points); });
             marker.addListener("dragend", () => { bus.emit("persist"); });
+            
+            // === الميزة الجديدة: النقر على النقطة لإظهار خيار الحذف (يعمل على الجوال) ===
+            marker.addListener("click", () => {
+                const info = new google.maps.InfoWindow({
+                    content: `<div style="font-family:'Cairo'; padding:5px; text-align:center;">
+                                <button id="btn-del-v-${i}" style="background:#e94235; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px;">حذف النقطة</button>
+                              </div>`
+                });
+                info.open(this.map, marker);
+                
+                google.maps.event.addListenerOnce(info, 'domready', () => {
+                    document.getElementById(`btn-del-v-${i}`).addEventListener('click', () => {
+                        this.deleteVertex(poly, index, i);
+                        info.close();
+                    });
+                });
+            });
+
+            // خيار الزر الأيمن (للكمبيوتر فقط)
             marker.addListener("contextmenu", () => { if (confirm(`حذف هذه النقطة؟`)) { this.deleteVertex(poly, index, i); } });
         });
+        
         UI.showPolygonEditingUI();
-        bus.emit("toast", "وضع التحرير مفعل. اسحب النقاط لتعديل الشكل.");
+        bus.emit("toast", "وضع التحرير مفعل. اضغط على نقطة لحذفها.");
     }
+    
     exitEditMode() {
         if (!this.isEditing) return;
         const poly = this.polygons[this.editingPolygonIndex];
-        poly.vertexMarkers.forEach(m => m.map = null);
-        poly.vertexMarkers = [];
+        if (poly && poly.vertexMarkers) {
+            poly.vertexMarkers.forEach(m => m.map = null);
+            poly.vertexMarkers = [];
+        }
         this.isEditing = false; this.editingPolygonIndex = -1;
         UI.showDefaultUI();
         bus.emit("toast", "تم الخروج من وضع تحرير المضلع");
     }
+
     insertVertex(poly, index, latLng) { /* ... */ }
-    deleteVertex(poly, index, vertexIndex) { /* ... */ }
+
+    // === دالة حذف النقطة الجديدة ===
+    deleteVertex(poly, index, vertexIndex) {
+        if (poly.points.length <= 3) {
+            bus.emit("toast", "لا يمكن حذف المزيد (الحد الأدنى 3 نقاط)");
+            return;
+        }
+        
+        // إزالة النقطة من المصفوفة
+        poly.points.splice(vertexIndex, 1);
+        
+        // تحديث رسم المضلع
+        poly.polygon.setPaths(poly.points);
+        
+        // حفظ التغييرات
+        bus.emit("persist");
+        bus.emit("toast", "تم حذف النقطة");
+
+        // إعادة تشغيل وضع التحرير لتحديث ترتيب النقاط ومواقعها
+        this.exitEditMode();
+        setTimeout(() => this.enterEditMode(index), 50);
+    }
+
     distanceToSegment(point, segStart, segEnd) { /* ... */ }
 
     openCard(polyIndex, hoverOnly = false, position = null) {
@@ -1079,23 +1130,19 @@ class PolygonManager {
         const area = google.maps.geometry.spherical.computeArea(poly.points);
         const areaText = Utils.formatArea(area);
 
-        // === CSS تحديث: إزالة الحدود، سكرول للموبايل ===
         const cardStyle = `
             font-family: 'Cairo', sans-serif;
             background: rgba(255, 255, 255, 0.75); 
             backdrop-filter: blur(15px) saturate(1.8);
             -webkit-backdrop-filter: blur(15px) saturate(1.8);
             border-radius: 20px;
-            /* تم إزالة الحدود */
             border: none;
             padding: 0;
             color: #333;
             direction: rtl;
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
             width: 380px;
-            /* تعديل العرض على الجوال */
             max-width: 95vw;
-            /* تعديل الارتفاع لحل مشكلة السكرول */
             max-height: 70vh;
             overflow-y: auto;
             overflow-x: hidden;
@@ -1117,7 +1164,7 @@ class PolygonManager {
                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px; font-family: 'Cairo', sans-serif;">
                     <span><b>المساحة:</b> ${areaText}</span>
                 </div>
-                ${isEditingShape ? `<p style="margin: 0; color: #555; text-align:center; font-family: 'Cairo', sans-serif;">اسحب النقاط لتعديل الشكل. انقر على الحدود لإضافة نقطة. انقر بزر الماوس الأيمن على نقطة لحذفها.</p>` : 
+                ${isEditingShape ? `<p style="margin: 0; color: #555; text-align:center; font-family: 'Cairo', sans-serif;">اسحب النقاط لتعديل الشكل. انقر على أي نقطة لحذفها.</p>` : 
                 (isEditable ? `
                     <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الاسم:</label><input id="poly-name" type="text" value="${Utils.escapeHTML(poly.name)}" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
@@ -1174,7 +1221,19 @@ class PolygonManager {
             });
         }
         if (editShapeBtn) { editShapeBtn.addEventListener("click", () => { this.enterEditMode(polyIndex); UI.forceCloseSharedInfoCard(); }); }
-        if (delBtn) { delBtn.addEventListener("click", () => { if (!confirm(`حذف "${poly.name}"؟`))return; poly.polygon.setMap(null); this.polygons = this.polygons.filter(p => p.id !== poly.id); UI.forceCloseSharedInfoCard(); bus.emit("persist"); bus.emit("toast", "تم حذف المضلع"); }); }
+        
+        // حذف المضلع كاملاً
+        if (delBtn) { 
+            delBtn.addEventListener("click", () => { 
+                if (!confirm(`حذف المضلع "${poly.name}" كاملاً؟`)) return; 
+                poly.polygon.setMap(null); 
+                this.polygons = this.polygons.filter(p => p.id !== poly.id); 
+                UI.forceCloseSharedInfoCard(); 
+                bus.emit("persist"); 
+                bus.emit("toast", "تم حذف المضلع"); 
+            }); 
+        }
+        
         if (closeBtn) { closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); }); }
     }
 
@@ -1795,6 +1854,7 @@ class UIManager {
             case 'polygon':
                 POLYGONS.startPolygonSequence();
                 MAP.modePolygonAdd = true;
+                if (this.btnPolygon) this.btnPolygon.setAttribute("aria-pressed", "true");
                 MAP.setCursor("crosshair");
                 this.showDrawFinishUI();
                 this.showToast("اضغط لإضافة رؤوس المضلع، ثم 'إنهاء الرسم'");
@@ -1900,7 +1960,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v23.0 — Ready");
+        console.log("Diriyah Security Map v24.0 — Ready");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
