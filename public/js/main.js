@@ -6,6 +6,7 @@
   • Architecture: EventBus + Manager Classes
   • Features: Locations, Routes, Polygons (Edit Mode), Free Draw (Text/Icons)
   • UI: Injected Glassmorphism & Custom Modals
+  • Fixes: UI Freezing, Input Responsiveness, Polygon Completion Logic
 ==============================================================================
 */
 
@@ -56,6 +57,7 @@ const Utils = {
     },
     b64uDecode(str) {
         try {
+            if (!str) return null;
             str = str.replace(/-/g, '+').replace(/_/g, '/');
             while (str.length % 4) str += '=';
             return JSON.parse(decodeURIComponent(escape(atob(str))));
@@ -73,7 +75,7 @@ class IconPickerModal {
             const modal = document.createElement('div');
             modal.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(5px);`;
             
-            let html = `<div class="glass-panel" style="background:white;width:90%;max-width:500px;border-radius:16px;padding:20px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+            let html = `<div class="glass-panel" style="background:white;width:90%;max-width:500px;border-radius:16px;padding:20px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.3);font-family:'Cairo';">
                 <h3 style="margin:0 0 15px 0;font-family:'Cairo';border-bottom:1px solid #eee;padding-bottom:10px;">Select Icon</h3>
                 <div style="flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill, minmax(60px, 1fr));gap:10px;padding:10px;">`;
             
@@ -85,7 +87,7 @@ class IconPickerModal {
                     </div>`;
                 });
             }
-            html += `</div><button id="close-icon-modal" style="margin-top:15px;padding:10px;background:#f5f5f5;border:none;border-radius:8px;cursor:pointer;">Cancel</button></div>`;
+            html += `</div><button id="close-icon-modal" style="margin-top:15px;padding:10px;background:#f5f5f5;border:none;border-radius:8px;cursor:pointer;font-family:'Cairo';">Cancel</button></div>`;
             modal.innerHTML = html;
             document.body.appendChild(modal);
 
@@ -167,7 +169,6 @@ class MapController {
         if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
             bus.emit('map:ready', this.map);
         } else {
-            // Import libraries if not loaded (Modern JS API)
             try {
                 await google.maps.importLibrary("marker");
                 await google.maps.importLibrary("geometry");
@@ -219,14 +220,15 @@ class LocationManager {
         // DOM Element for Icon
         const pinDiv = document.createElement('div');
         pinDiv.innerHTML = `<span class="material-icons" style="color:white;font-size:20px;">${info.icon}</span>`;
-        pinDiv.style.cssText = `background:${info.color};width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;justify-content:center;align-items:center;box-shadow:0 3px 6px rgba(0,0,0,0.3);border:2px solid white;`;
+        pinDiv.style.cssText = `background:${info.color};width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;justify-content:center;align-items:center;box-shadow:0 3px 6px rgba(0,0,0,0.3);border:2px solid white;cursor:pointer;`;
         pinDiv.firstElementChild.style.transform = 'rotate(45deg)';
 
         const marker = new google.maps.marker.AdvancedMarkerElement({
             map: this.map,
             position: info.pos,
             content: pinDiv,
-            gmpDraggable: true
+            gmpDraggable: true,
+            title: info.name
         });
 
         const circle = new google.maps.Circle({
@@ -236,20 +238,23 @@ class LocationManager {
             fillColor: info.color,
             fillOpacity: info.opacity,
             strokeColor: info.color,
-            strokeWeight: 1
+            strokeWeight: 1,
+            clickable: true
         });
 
         const item = { ...info, marker, circle };
         this.items.push(item);
 
         // Listeners
-        marker.addListener('click', () => this.showEditCard(item));
+        const openHandler = () => this.showEditCard(item);
+        marker.element.addEventListener('click', openHandler);
+        circle.addListener('click', openHandler);
+        
         marker.addListener('dragend', () => {
             item.pos = { lat: marker.position.lat, lng: marker.position.lng };
             circle.setCenter(item.pos);
             bus.emit('state:change');
         });
-        circle.addListener('click', () => this.showEditCard(item));
 
         if (!data) {
             bus.emit('state:change');
@@ -277,7 +282,11 @@ class LocationManager {
             </div>
         `;
         UI.showInfoWindow(this.map, item.marker, content, () => {
-            document.getElementById('loc-save').onclick = () => {
+            const saveBtn = document.getElementById('loc-save');
+            const delBtn = document.getElementById('loc-del');
+            const iconBtn = document.getElementById('loc-icon-btn');
+
+            if(saveBtn) saveBtn.onclick = () => {
                 item.name = document.getElementById('loc-name').value;
                 item.desc = document.getElementById('loc-desc').value;
                 item.color = document.getElementById('loc-color').value;
@@ -290,7 +299,7 @@ class LocationManager {
                 UI.closeInfoWindow();
                 bus.emit('state:change');
             };
-            document.getElementById('loc-del').onclick = () => {
+            if(delBtn) delBtn.onclick = () => {
                 if(confirm('Delete location?')) {
                     item.marker.map = null;
                     item.circle.setMap(null);
@@ -299,7 +308,7 @@ class LocationManager {
                     bus.emit('state:change');
                 }
             };
-            document.getElementById('loc-icon-btn').onclick = async () => {
+            if(iconBtn) iconBtn.onclick = async () => {
                 const newIcon = await IconPickerModal.selectIcon();
                 if (newIcon) {
                     item.icon = newIcon;
@@ -387,7 +396,6 @@ class RouteManager {
 
     createRouteObject(result, color, id=null) {
         const routeId = id || Utils.uuid();
-        const leg = result.routes[0].legs[0]; // Simplification for demo
         const distance = result.routes[0].legs.reduce((acc, l) => acc + l.distance.value, 0);
         const duration = result.routes[0].legs.reduce((acc, l) => acc + l.duration.value, 0);
 
@@ -396,7 +404,9 @@ class RouteManager {
             path: result.routes[0].overview_path,
             strokeColor: color,
             strokeWeight: 5,
-            strokeOpacity: 0.8
+            strokeOpacity: 0.8,
+            clickable: true,
+            zIndex: 5
         });
 
         const routeItem = { id: routeId, poly, data: result, color, dist: distance, dur: duration };
@@ -436,7 +446,6 @@ class RouteManager {
     exportState() {
         return this.routes.map(r => ({
             id: r.id, color: r.color,
-            // Storing just waypoints/origin/dest would be better, but storing encoded path is easier for recreation
             path: google.maps.geometry.encoding.encodePath(r.poly.getPath()),
             dist: r.dist, dur: r.dur
         }));
@@ -449,12 +458,25 @@ class RouteManager {
                 const poly = new google.maps.Polyline({
                     map: this.map, path: path, strokeColor: r.color, strokeWeight: 5, strokeOpacity: 0.8
                 });
-                // Manually reconstructing the minimal object for interaction
                 const routeItem = { id: r.id, poly, color: r.color, dist: r.dist, dur: r.dur };
                 this.routes.push(routeItem);
                 
-                // Re-attach listener (Duplicate logic, ideally refactored)
-                poly.addListener('click', (e) => { /* Same listener logic as above */ }); 
+                poly.addListener('click', (e) => { 
+                    /* Re-implement click logic similar to createRouteObject */ 
+                    const content = `
+                        <div class="glass-form">
+                            <div class="form-header"><span class="material-icons">timeline</span> Route Details</div>
+                            <div class="form-actions"><button id="rt-del-load" class="btn-danger">Delete</button></div>
+                        </div>`;
+                    UI.showInfoWindow(this.map, { position: e.latLng }, content, () => {
+                        document.getElementById('rt-del-load').onclick = () => {
+                            routeItem.poly.setMap(null);
+                            this.routes = this.routes.filter(x => x.id !== r.id);
+                            UI.closeInfoWindow();
+                            bus.emit('state:change');
+                        };
+                    });
+                }); 
             });
         }
     }
@@ -551,8 +573,6 @@ class PolygonManager {
 
             marker.addListener('drag', () => {
                 path.setAt(index, marker.position);
-                const area = google.maps.geometry.spherical.computeArea(path);
-                // Optional: Update area display in real-time
             });
 
             // Right click to delete vertex
@@ -570,9 +590,9 @@ class PolygonManager {
             this.editMarkers.push(marker);
         });
         
-        // Show "Finish Editing" button in UI
         UI.showToast("Edit Mode: Drag points. Right-click point to delete. Click 'Done' in toolbar.");
         MAP.currentMode = 'view'; // Prevent adding new polygons
+        UI.updateToolbar();
     }
 
     disableEditMode() {
@@ -660,6 +680,7 @@ class FreeLayerManager {
         
         const el = document.createElement('div');
         el.className = 'free-element';
+        el.style.cursor = 'pointer';
         
         // Render content
         this.renderElement(el, item);
@@ -672,7 +693,8 @@ class FreeLayerManager {
         this.items.push(item);
 
         // Events
-        marker.addListener('click', () => {
+        marker.element.addEventListener('click', (e) => {
+            e.stopPropagation(); // Stop map click
             if (item.type === 'text') this.editText(item);
             else this.editIcon(item);
         });
@@ -683,6 +705,8 @@ class FreeLayerManager {
 
         if (!data.id && item.type === 'text') this.editText(item); // Auto open edit for new text
         bus.emit('state:change');
+        MAP.currentMode = 'view';
+        UI.updateToolbar();
     }
 
     renderElement(el, item) {
@@ -696,38 +720,34 @@ class FreeLayerManager {
             el.style.whiteSpace = 'nowrap';
             el.style.transform = 'translate(-50%, -50%)'; // Center text
             
+            // Reset styles
+            el.style.background = 'transparent';
+            el.style.padding = '0';
+            el.style.border = 'none';
+            el.style.boxShadow = 'none';
+            el.style.textShadow = 'none';
+            
             // Apply Background Styles
-            if (item.style.bg === 'none') {
-                el.style.background = 'transparent';
-                el.style.color = item.style.color;
-                el.style.padding = '0';
-                el.style.border = 'none';
-                el.style.textShadow = 'none';
-                el.style.boxShadow = 'none';
-            } else if (item.style.bg === 'white') {
+            if (item.style.bg === 'white') {
                 el.style.background = 'rgba(255,255,255,0.9)';
                 el.style.color = item.style.color;
                 el.style.padding = '4px 8px';
                 el.style.borderRadius = '4px';
                 el.style.border = '1px solid #ddd';
                 el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                el.style.textShadow = 'none';
             } else if (item.style.bg === 'dark') {
                 el.style.background = 'rgba(0,0,0,0.85)';
-                el.style.color = '#fff'; // Force white text for contrast usually, or use item.style.color
+                el.style.color = '#fff';
                 el.style.padding = '4px 8px';
                 el.style.borderRadius = '4px';
                 el.style.border = '1px solid #444';
                 el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.4)';
-                el.style.textShadow = 'none';
             } else if (item.style.bg === 'outline') {
-                el.style.background = 'transparent';
                 el.style.color = item.style.color;
-                el.style.padding = '0';
-                el.style.border = 'none';
-                el.style.boxShadow = 'none';
-                // Strong white outline simulation
                 el.style.textShadow = '2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff';
+            } else {
+                // None
+                el.style.color = item.style.color;
             }
         }
     }
@@ -741,7 +761,7 @@ class FreeLayerManager {
                 <div class="form-row"><label>Color</label><input type="color" id="ft-color" value="${item.style.color}"></div>
                 <div class="form-row">
                     <label>Style</label>
-                    <select id="ft-bg">
+                    <select id="ft-bg" style="width:100%">
                         <option value="none" ${item.style.bg === 'none' ? 'selected' : ''}>None</option>
                         <option value="white" ${item.style.bg === 'white' ? 'selected' : ''}>White Box</option>
                         <option value="dark" ${item.style.bg === 'dark' ? 'selected' : ''}>Dark Box</option>
@@ -921,7 +941,7 @@ class UIManager {
                 background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(15px);
                 padding: 8px; border-radius: 16px; display: flex; gap: 8px;
                 box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.2);
-                z-index: 100;
+                z-index: 100; flex-wrap: wrap; justify-content: center;
             }
             .tb-btn {
                 width: 40px; height: 40px; border-radius: 12px; border: none;
@@ -934,8 +954,9 @@ class UIManager {
             
             /* Glass InfoWindow & Forms */
             .glass-form {
-                background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px);
+                background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
                 padding: 15px; border-radius: 12px; min-width: 250px; font-family: 'Cairo', sans-serif;
+                direction: ltr; /* Ensure inputs work correctly */
             }
             .form-header { font-weight: bold; margin-bottom: 10px; display:flex; align-items:center; gap:5px; border-bottom:1px solid #ddd; padding-bottom:5px; }
             .form-row { margin-bottom: 8px; }
@@ -943,18 +964,23 @@ class UIManager {
             .form-row label { display: block; font-size: 11px; color: #555; margin-bottom: 2px; }
             .form-row input, .form-row textarea, .form-row select { 
                 width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 6px; 
-                background: rgba(255,255,255,0.6); box-sizing: border-box; 
+                background: white; box-sizing: border-box; font-family: inherit;
             }
             .form-actions { display: flex; gap: 8px; margin-top: 10px; }
             .btn-primary { flex: 1; background: #3b82f6; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; }
             .btn-danger { flex: 1; background: #ef4444; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; }
             .btn-small { padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; background: white; cursor: pointer; }
 
-            /* Google Maps Overrides */
+            /* Google Maps Overrides to fix UI Freezing/Scrolling */
             .gm-style-iw { background: transparent !important; box-shadow: none !important; }
-            .gm-style-iw-d { overflow: visible !important; }
+            .gm-style-iw-d { overflow: visible !important; max-height: none !important; }
             .gm-style-iw-tc { display: none; }
             button.gm-ui-hover-effect { display: none !important; } /* Hide close button */
+            
+            /* Toast */
+            #toast-container { position: absolute; bottom: 20px; left: 20px; z-index: 1000; }
+            .toast { background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 8px; margin-top: 10px; animation: fadein 0.3s; }
+            @keyframes fadein { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         `;
         const style = document.createElement('style');
         style.innerHTML = css;
@@ -965,6 +991,19 @@ class UIManager {
         link.href = "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600&family=Material+Icons&display=swap";
         link.rel = "stylesheet";
         document.head.appendChild(link);
+
+        // Toast Container
+        const tc = document.createElement('div');
+        tc.id = 'toast-container';
+        document.body.appendChild(tc);
+    }
+
+    showToast(msg) {
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.innerText = msg;
+        document.getElementById('toast-container').appendChild(t);
+        setTimeout(() => t.remove(), 3000);
     }
 
     initToolbar() {
@@ -982,9 +1021,9 @@ class UIManager {
                 <button class="tb-btn" id="btn-share" title="Share"><span class="material-icons">share</span></button>
             </div>
             
-            <button id="btn-finish" style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);background:#10b981;color:white;border:none;padding:10px 20px;border-radius:20px;font-weight:bold;box-shadow:0 5px 15px rgba(0,0,0,0.3);cursor:pointer;display:none;z-index:100;">Finish Drawing</button>
+            <button id="btn-finish" style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);background:#10b981;color:white;border:none;padding:10px 20px;border-radius:20px;font-weight:bold;box-shadow:0 5px 15px rgba(0,0,0,0.3);cursor:pointer;display:none;z-index:100;font-family:'Cairo';">Finish Drawing</button>
             
-            <div id="panel-layers" style="position:absolute;top:80px;right:20px;background:white;padding:15px;border-radius:12px;display:none;box-shadow:0 5px 20px rgba(0,0,0,0.2);width:150px;z-index:100;">
+            <div id="panel-layers" style="position:absolute;top:80px;right:20px;background:white;padding:15px;border-radius:12px;display:none;box-shadow:0 5px 20px rgba(0,0,0,0.2);width:150px;z-index:100;font-family:'Cairo';">
                 <h4 style="margin:0 0 10px 0;">Layers</h4>
                 <div style="margin-bottom:5px;"><input type="checkbox" id="chk-traffic"> Traffic</div>
                 <div style="margin-bottom:5px;"><input type="checkbox" id="chk-transit"> Transit</div>
@@ -1013,10 +1052,12 @@ class UIManager {
             if (mode === 'route' || mode === 'polygon') finishBtn.style.display = 'block';
             else finishBtn.style.display = 'none';
 
-            // Reset Measure
+            // Reset Measure/Editing
             if (mode !== 'measure') MEASURE.reset();
-            // Reset Polygon Editing
             if (mode !== 'view') POLYGONS.disableEditMode();
+            
+            // Close any open info window
+            this.closeInfoWindow();
         };
 
         document.getElementById('btn-view').onclick = () => setMode('view', 'btn-view');
@@ -1045,17 +1086,35 @@ class UIManager {
         // Share
         document.getElementById('btn-share').onclick = () => {
             const url = window.location.href;
-            navigator.clipboard.writeText(url).then(() => alert('URL Copied to Clipboard!'));
+            navigator.clipboard.writeText(url).then(() => this.showToast('Link copied!'));
         };
+    }
+
+    updateToolbar() {
+        // Helper to reset to view mode visually
+        document.querySelectorAll('.tb-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn-view').classList.add('active');
+        document.getElementById('btn-finish').style.display = 'none';
     }
 
     showInfoWindow(map, marker, html, callback) {
         this.infoWindow.setContent(html);
-        if (marker.position) this.infoWindow.setPosition(marker.position); // For latLng objects
-        else this.infoWindow.open(map, marker); // For Marker objects
         
-        if(marker.position && !marker.map) this.infoWindow.open(map); // For clicked points
+        // Critical Fix: Force offset to prevent UI overlap
+        this.infoWindow.setOptions({
+            pixelOffset: new google.maps.Size(0, -35)
+        });
 
+        if (marker.position && !marker.map) { 
+            // It's a LatLng literal
+            this.infoWindow.setPosition(marker.position);
+            this.infoWindow.open(map);
+        } else {
+            // It's a Marker object
+            this.infoWindow.open(map, marker); 
+        }
+
+        // Use 'domready' to bind events safely
         google.maps.event.addListenerOnce(this.infoWindow, 'domready', () => {
             if (callback) callback();
         });
@@ -1069,12 +1128,19 @@ const UI = new UIManager();
 
 /* --- 13. BootLoader --- */
 document.addEventListener("DOMContentLoaded", () => {
-    // If Google Maps script is not loaded in HTML, we can't do much. 
-    // Assuming <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_KEY&callback=initMap&v=beta&libraries=marker,geometry,drawing"></script> exists.
+    // Check if Google Maps is loaded
     if (typeof google === 'object' && typeof google.maps === 'object') {
-        // Already loaded
         MAP.init();
     } else {
         console.log("Waiting for Google Maps API callback...");
+        // Fallback check
+        let checks = 0;
+        const interval = setInterval(() => {
+            if (typeof google === 'object' && typeof google.maps === 'object') {
+                clearInterval(interval);
+                MAP.init();
+            }
+            if (checks++ > 20) clearInterval(interval);
+        }, 500);
     }
 });
