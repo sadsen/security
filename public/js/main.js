@@ -1206,20 +1206,28 @@ class StateManager {
 const STATE = new StateManager();
 
 /* ==========================================================================
-   11. UI MANAGER (TOOLBAR & INTERACTIONS)
+   11. UI MANAGER (CORRECTED - LAZY LOADING)
    ========================================================================== */
 
 class UIManager {
     constructor() {
-        this.infoWindow = new google.maps.InfoWindow();
+        // تهيئة المتغيرات بقيم فارغة لتجنب الخطأ
+        this.sharedInfoWindow = null;
         this.pinned = false;
         this.toastEl = document.getElementById("toast");
         
-        bus.on("map:ready", () => this.initListeners());
+        // حقن الستايل مباشرة (لا يحتاج لانتظار جوجل)
+        this.injectStyles();
+
+        // الانتظار حتى تجهز الخريطة قبل تفعيل الأدوات
+        bus.on("map:ready", () => this.onMapReady());
         bus.on("toast", msg => this.showToast(msg));
-        
-        // Global style injection for InfoWindows
+    }
+
+    injectStyles() {
+        if(document.getElementById('ui-styles')) return;
         const style = document.createElement('style');
+        style.id = 'ui-styles';
         style.innerHTML = `
             .gm-style-iw-c { padding:0 !important; border-radius:12px !important; box-shadow:0 4px 15px rgba(0,0,0,0.3) !important; background:rgba(255,255,255,0.95) !important; backdrop-filter:blur(5px); }
             .gm-style-iw-d { overflow:hidden !important; padding:0 !important; }
@@ -1229,9 +1237,17 @@ class UIManager {
         document.head.appendChild(style);
     }
 
-    initListeners() {
-        console.log("UI Manager: Binding Events...");
+    onMapReady() {
+        console.log("UI Manager: Google Maps is ready. Initializing UI...");
         
+        // الآن يمكننا بأمان إنشاء نافذة المعلومات لأن جوجل تم تحميلها
+        this.sharedInfoWindow = new google.maps.InfoWindow();
+        
+        // تفعيل الأزرار
+        this.initListeners();
+    }
+
+    initListeners() {
         // 1. Free Draw Button
         const btnFree = document.getElementById('btn-free-draw');
         if (btnFree) btnFree.onclick = () => {
@@ -1256,7 +1272,6 @@ class UIManager {
 
         if (btnFinish) btnFinish.onclick = () => {
             if (MAP.modePolygonAdd) POLYGONS.finishCurrentPolygon();
-            // Handle Route finish if implemented
         };
 
         // 3. Add Location
@@ -1311,6 +1326,9 @@ class UIManager {
         // 8. Traffic Checkbox
         const chkTraffic = document.getElementById('layer-traffic');
         if (chkTraffic) chkTraffic.onchange = () => MAP.toggleTraffic();
+        
+        const chkTransit = document.getElementById('layer-transit');
+        if (chkTransit) chkTransit.onchange = () => MAP.toggleTransit();
     }
 
     resetModes() {
@@ -1330,16 +1348,19 @@ class UIManager {
     }
 
     openSharedInfoCard(content, position, pinned) {
-        this.infoWindow.close();
-        this.infoWindow.setContent(content);
-        this.infoWindow.setPosition(position);
-        this.infoWindow.setOptions({ pixelOffset: new google.maps.Size(0, -30) });
-        this.infoWindow.open(MAP.map);
+        if (!this.sharedInfoWindow) return;
+        this.sharedInfoWindow.close();
+        this.sharedInfoWindow.setContent(content);
+        this.sharedInfoWindow.setPosition(position);
+        this.sharedInfoWindow.setOptions({ pixelOffset: new google.maps.Size(0, -30) });
+        this.sharedInfoWindow.open(MAP.map);
         this.pinned = pinned;
     }
 
     forceCloseSharedInfoCard() {
-        this.infoWindow.close();
+        if (this.sharedInfoWindow) {
+            this.sharedInfoWindow.close();
+        }
         this.pinned = false;
     }
 
@@ -1354,45 +1375,33 @@ class UIManager {
 const UI = new UIManager();
 
 /* ==========================================================================
-   12. BOOTSTRAP
+   12. BOOTSTRAP (SAFE LAUNCH)
    ========================================================================== */
-console.log("System Loaded. Waiting for Maps API...");
 
 class BootLoader {
-
     constructor() {
         this.booted = false;
-
-        // المحاولة الفورية للتشغيل
-        this.tryBoot();
-
-        // المحاولة عند اكتمال تحميل عناصر الصفحة (DOM)
-        document.addEventListener("DOMContentLoaded", () => this.tryBoot());
         
-        // المحاولة عند اكتمال تحميل كل الموارد
-        window.addEventListener("load", () => this.tryBoot());
+        // التحقق عند تحميل الصفحة
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            this.tryBoot();
+        } else {
+            document.addEventListener("DOMContentLoaded", () => this.tryBoot());
+            window.addEventListener("load", () => this.tryBoot());
+        }
     }
 
     tryBoot() {
-        // إذا تم التشغيل مسبقاً، توقف
         if (this.booted) return;
-
-        // التأكد من أن الصفحة ليست في وضع التحميل
-        if (document.readyState !== "loading") {
-            this.booted = true;
-            this.start();
-        }
-    }
-
-    start() {
-        console.log("Diriyah Security Map v28.0 — Core Initialized Successfully.");
+        this.booted = true;
+        console.log("System Boot: Waiting for Map API...");
         
-        // التحقق النهائي من وجود الحاويات الأساسية
-        const mapDiv = document.getElementById("map");
-        if (!mapDiv) {
-            console.error("Critical Error: #map element not found in HTML.");
-            alert("خطأ: عنصر الخريطة غير موجود في الصفحة.");
-        }
+        // في حالة فشل callback جوجل، نحاول استدعاءه يدوياً
+        setTimeout(() => {
+            if (window.google && window.initMap) {
+                window.initMap();
+            }
+        }, 1000);
     }
 }
 
