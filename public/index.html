@@ -102,12 +102,76 @@
     .layer-group input {
         margin-left: 10px;
     }
+    
+    .btn i {
+        margin-left: 6px; 
+        font-size: 18px; 
+        vertical-align: middle; 
+    }
+    
+    /* ============================================================
+    تنسيق مفتاح التبديل (Switch) لشكل العلامة
+    ============================================================ */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 28px;
+      direction: ltr; 
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+    }
+
+    input:checked + .slider {
+      background-color: #4285f4; 
+    }
+
+    input:focus + .slider {
+      box-shadow: 0 0 1px #4285f4;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+
+    .slider.round {
+      border-radius: 28px;
+    }
+
+    .slider.round:before {
+      border-radius: 50%;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- لوحة الطبقات الجديدة -->
   <div id="layers-panel" class="layers-panel">
     <div class="panel-header">
       <h3>طبقات الخريطة</h3>
@@ -131,130 +195,55 @@
     </div>
   </div>
 
-    <div id="toolbar">
-    <!-- أضف هذه القاعدة إلى قسم <style> في أعلى الصفحة -->
-    <style>
-      .btn i {
-        margin-left: 6px; /* إضافة مسافة بين الأيقونة والنص */
-        font-size: 18px; /* حجم الأيقونة */
-        vertical-align: middle; /* محاذاة الأيقونة مع النص عموديًا */
-      }
-      /* ============================================================
-   تنسيق مفتاح التبديل (Switch) لشكل العلامة
-   ============================================================ */
-/* The switch - the box around the slider */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 28px;
-  direction: ltr; /* Important for RTL layout */
-}
-
-/* Hide default HTML checkbox */
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-/* The slider */
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 20px;
-  width: 20px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: .4s;
-}
-
-input:checked + .slider {
-  background-color: #4285f4; /* Google Blue */
-}
-
-input:focus + .slider {
-  box-shadow: 0 0 1px #4285f4;
-}
-
-input:checked + .slider:before {
-  transform: translateX(22px);
-}
-
-/* Rounded sliders */
-.slider.round {
-  border-radius: 28px;
-}
-
-.slider.round:before {
-  border-radius: 50%;
-}
-    </style>
-
-    <!-- زر الطبقات -->
+  <div id="toolbar">
     <button id="btn-layers" class="btn" aria-pressed="false" title="إظهار وإخفاء طبقات الخريطة">
       <i class="material-icons">layers</i>
       طبقات
     </button>
-    <!-- زر إضافة موقع -->
     <button id="btn-add" class="btn" aria-pressed="false" title="إضافة موقع جديد على الخريطة">
       <i class="material-icons">add_location</i>
       إضافة موقع
     </button>
-    <!-- زر المضلع -->
+    <button id="btn-free-draw" class="btn" aria-pressed="false" title="رسم حر (أيقونات ونصوص)">
+      <i class="material-icons">brush</i>
+      رسم حر
+    </button>
     <button id="btn-polygon" class="btn" aria-pressed="false" title="رسم مضلع على الخريطة">
       <i class="material-icons">polyline</i>
       مضلع
     </button>
-    <!-- زر المسار -->
     <button id="btn-route" class="btn" aria-pressed="false" title="رسم مسار على الخريطة">
       <i class="material-icons">route</i>
       مسار
     </button>
-    <!-- زر القياس -->
     <button id="btn-measure" class="btn" aria-pressed="false" title="قياس مسافة أو مساحة">
       <i class="material-icons">straighten</i>
       قياس
     </button>
-    <!-- زر إنهاء الرسم -->
     <button id="btn-draw-finish" class="btn" style="display: none;" title="إنهاء الرسم الحالي">
       <i class="material-icons">check</i>
       إنهاء الرسم
     </button>
-    <!-- زر مسح المسار -->
     <button id="btn-route-clear" class="btn" aria-pressed="false" title="مسح المسار النشط">
       <i class="material-icons">delete_sweep</i>
       مسح المسار
     </button>
-    <!-- زر التحرير -->
     <button id="btn-edit" class="btn" aria-pressed="true" title="تبديل وضع التحرير">
       <i class="material-icons">edit</i>
       تحرير
     </button>
-    <!-- زر المشاركة -->
     <button id="btn-share" class="btn" title="مشاركة رابط الخريطة الحالية">
       <i class="material-icons">share</i>
       <span class="label">مشاركة</span>
     </button>
   </div>
+  
   <div id="mode-badge"></div>
   <div id="toast"></div>
   
   <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
   <script src="/js/main.js"></script>
 
-  <!-- هذا السطر الوحيد اللي شغال 100% مع هذا المشروع في 2025 على Render -->
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAbyDb68H77pxFnzH0IW3O35_HxDcMQ3TQ&libraries=geometry,marker,places,drawing&callback=initMap"></script>
+</body>
 </html>
