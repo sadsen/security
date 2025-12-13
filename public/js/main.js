@@ -2,7 +2,7 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.0 (Polygon Logic Fix + Free Draw Mode)
+   Diriyah Security Map – v25.0 (Enhanced Free Draw Mode)
    • إصلاح خطأ استمرار الرسم بعد الضغط على "إنهاء الرسم"
    • إعادة المؤشر للوضع الطبيعي عند الانتهاء
    • منع إضافة نقاط جديدة بعد الحفظ
@@ -10,6 +10,7 @@
    • تحسين خيارات التحرير للنصوص والأيقونات
    • إصلاح مشاكل المشاركة وتقصير الروابط
    • إصلاح مشكلة النقر على العناصر الحرة للتعديل
+   • إضافة أيقونات إضافية للسلامة المرورية والأمن
    ============================================================ */
 
 
@@ -302,13 +303,16 @@ class IconPickerModal {
         this.categoryButtons = [];
         this.currentCategory = 'all';
         
-        // Icon categories with Material Icons
+        // Icon categories with Material Icons - Enhanced with more traffic and safety icons
         this.iconCategories = {
             shapes: ['circle', 'square', 'change_history', 'pentagon', 'hexagon', 'star', 'triangle', 'diamond'],
             places: ['home', 'apartment', 'business', 'store', 'restaurant', 'local_cafe', 'local_hotel', 'local_parking'],
-            transport: ['directions_car', 'directions_bus', 'directions_bike', 'local_shipping', 'local_taxi', 'flight', 'train', 'directions_boat'],
-            crisis: ['warning', 'report_problem', 'gpp_maybe', 'local_fire_department', 'local_hospital', 'health_and_safety', 'emergency', 'crisis_alert'],
-            signs: ['add_location', 'location_on', 'push_pin', 'flag', 'bookmark', 'label', 'tag', 'sell']
+            transport: ['directions_car', 'directions_bus', 'directions_bike', 'local_shipping', 'local_taxi', 'flight', 'train', 'directions_boat', 'electric_car', 'scooter', 'motorcycle'],
+            crisis: ['warning', 'report_problem', 'gpp_maybe', 'local_fire_department', 'local_hospital', 'health_and_safety', 'emergency', 'crisis_alert', 'siren', 'priority_high'],
+            signs: ['add_location', 'location_on', 'push_pin', 'flag', 'bookmark', 'label', 'tag', 'sell', 'traffic', 'detour', 'fence', 'do_not_enter', 'stop', 'yield', 'no_parking', 'handicap'],
+            security: ['security', 'local_police', 'gpp_good', 'gpp_bad', 'policy', 'verified_user', 'shield', 'lock', 'lock_open', 'vpn_key', 'privacy_tip'],
+            traffic: ['traffic', 'traffic_jam', 'add_road', 'add_road_sharp', 'do_not_step', 'crossing', 'traffic_light', 'roundabout', 'merge', 'lane_change', 'turn_left', 'turn_right', 'u_turn'],
+            roads: ['add_road', 'fork_right', 'fork_left', 't_junction', 'roundabout', 'straight', 'curved_road', 'intersection', 'highway', 'expressway']
         };
         
         this.initModal();
@@ -367,7 +371,10 @@ class IconPickerModal {
                 places: 'الأماكن',
                 transport: 'النقل',
                 crisis: 'الطوارئ',
-                signs: 'اللافتات'
+                signs: 'اللافتات',
+                security: 'الأمن',
+                traffic: 'المرور',
+                roads: 'الطرق'
             };
             
             button.textContent = categoryLabels[category];
@@ -436,7 +443,7 @@ class IconPickerModal {
                 background: white;
                 border-radius: 12px;
                 width: 90%;
-                max-width: 600px;
+                max-width: 700px;
                 max-height: 80vh;
                 overflow: hidden;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
@@ -475,18 +482,24 @@ class IconPickerModal {
                 padding: 10px 15px;
                 border-bottom: 1px solid #eee;
                 overflow-x: auto;
+                flex-wrap: wrap;
+                gap: 5px;
             }
             
             .icon-picker-category {
                 background: none;
                 border: none;
                 padding: 8px 15px;
-                margin-left: 5px;
                 border-radius: 20px;
                 cursor: pointer;
                 white-space: nowrap;
                 font-size: 14px;
                 font-family: 'Tajawal', sans-serif;
+                transition: background-color 0.2s;
+            }
+            
+            .icon-picker-category:hover {
+                background-color: #f0f0f0;
             }
             
             .icon-picker-category.active {
@@ -1386,7 +1399,7 @@ class LocationManager {
         } else {
             markerContent = document.createElement("div");
             markerContent.style.cssText = `
-                width: 16px;
+                width:16px;
                 height: 16px;
                 background-color: transparent; 
                 border: none;
@@ -1514,7 +1527,7 @@ class LocationManager {
                     </div>
                 </div>
                 <div>
-                    <label style="${labelStyle}">التفاصيل:</label>
+                    <label style="${labelStyle}">تفاصيل:</label>
                     <div style="background: rgba(255,255,255,0.3); padding: 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; min-height: 40px; border: 1px solid rgba(255,255,255,0.2);">
                         ${recipientsHtml || '<span style="color: #666; font-style: italic;">لا توجد تفاصيل إضافية</span>'}
                     </div>
@@ -2169,7 +2182,7 @@ class PolygonManager {
         if (closeBtn) { closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); }); }
     }
 
-    exportState() { return this.polygons.filter(p => p.polygon).map(poly => ({ id: poly.id, name: poly.name, notes: poly.notes, color: poly.color, strokeWeight: poly.strokeWeight, strokeOpacity: poly.strokeOpacity, fillOpacity: poly.fillOpacity, points: poly.points.map(p => ({ lat: typeof p.lat === 'function' ? p.lat() : p.lat, lng: typeof p.lng === 'function' ? p.lng() : p.lng })) })); }
+    exportState() { return this.polygons.filter(p => p.polygon).map(poly => ({ id: poly.id, name: poly.name, notes: poly.notes, color: poly.color, strokeWeight: poly.strokeWeight, strokeOpacity: poly.strokeOpacity, fillOpacity: poly.fillOpacity, points: poly.points.map(p => ({ lat: typeof p.lat === 'function' ? p.lat() : p.lat, lng: typeof p.lng === 'function' ? p.lng() : p.lng })) })); } }
     applyState(state) {
         if (!state || !state.polygons) return;
         this.polygons.forEach(p => { if (p.polygon) p.polygon.setMap(null); });
@@ -2322,13 +2335,16 @@ const STATE = new StateManager();
 /*
 ============================================================
    ShareManager
-— نسخ آمن مع ضغط البيانات (بدون خدمات خارجية)
+— نسخ آمن مع ضغط البيانات (مُحسّن)
 ============================================================
 */
 class ShareManager {
 
     constructor() {
         this.btn = document.getElementById("btn-share");
+        this.btnText = this.btn ? this.btn.textContent : 'مشاركة';
+        this.btnIcon = this.btn ? this.btn.querySelector(".material-icons") : null;
+        
         if (this.btn) {
             this.btn.addEventListener("click", () => this.generateShareLink());
         }
@@ -2343,12 +2359,12 @@ class ShareManager {
 
         // FIX: Use the long URL directly without external shortening services
         const longUrl = STATE.writeShare(st);
-        const label = this.btn.querySelector(".label");
-        const original = label ? label.textContent : null;
-
+        
+        const originalText = this.btnText;
+        
         this.btn.disabled = true;
-        if (label) label.textContent = "جاري النسخ...";
-
+        if (this.btnText) this.btn.textContent = "جاري النسخ...";
+        
         try {
             await navigator.clipboard.writeText(longUrl);
             bus.emit("toast", "تم نسخ رابط المشاركة");
@@ -2358,14 +2374,14 @@ class ShareManager {
         }
 
         this.btn.disabled = false;
-        if (label) label.textContent = original || "مشاركة";
+        if (this.btnText) this.btn.textContent = originalText;
     }
 
     showManualCopyDialog(url) {
         const overlay = document.createElement('div');
         overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;`;
         const dialog = document.createElement('div');
-        dialog.style.cssText = `background: white; border-radius: 12px; padding: 24px; max-width: 90%; width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); text-align: center; direction: rtl; font-family: 'Tajawal', sans-serif;`;
+        dialog.style.cssText = `background: white; border-radius: 12px; padding: 24px; max-width: 90%; width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0,0.3); text-align: center; direction: rtl; font-family: 'Tajawal', sans-serif;`;
         dialog.innerHTML = `<h3 style="margin-top: 0; margin-bottom: 16px; color: #333;">انسخ الرابط يدويًا</h3><p style="margin-bottom: 20px; color: #666; line-height: 1.5;">الرجاء الضغط مطولاً على الرابط واختيار "نسخ".</p><textarea readonly style="width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; text-align: center; resize: none; direction: ltr; box-sizing: border-box; font-family: 'Tajawal', sans-serif;">${url}</textarea><button id="manual-copy-close" style="margin-top: 20px; width: 100%; padding: 12px; background-color: #4285f4; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; font-family: 'Tajawal', sans-serif;">إغلاق</button>`;
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
@@ -2695,7 +2711,7 @@ class UIManager {
         if (this.layersPanel) {
             this.layersPanel.classList.toggle("show");
             const isPressed = this.layersPanel.classList.contains("show");
-            this.btnLayers.setAttribute("aria-pressed", isPressed ? "true" : "false");
+            this.btnLayers.setAttribute("aria-is-pressed", isPressed ? "true" : "false");
         }
     }
 
