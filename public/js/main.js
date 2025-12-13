@@ -2,15 +2,12 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.0 (Enhanced Free Draw Mode)
-   • إصلاح خطأ استمرار الرسم بعد الضغط على "إنهاء الرسم"
-   • إعادة المؤشر للوضع الطبيعي عند الانتهاء
-   • منع إضافة نقاط جديدة بعد الحفظ
-   • إضافة وضع الرسم الحر (Free Draw Mode)
-   • تحسين خيارات التحرير للنصوص والأيقونات
-   • إصلاح مشاكل المشاركة وتقصير الروابط
-   • إصلاح مشكلة النقر على العناصر الحرة للتعديل
-   • إضافة أيقونات إضافية للسلامة المرورية والأمن
+   Diriyah Security Map – v25.1 (Enhanced Share System)
+   • إصلاح مشكلة المشاركة والنسخ
+   • إضافة واجهة مستخدم محسّنة للمشاركة
+   • دعم خدمات تقصير الروابط المتعددة
+   • تحسين تجربة النسخ للمستخدم
+   • إضافة خيارات المشاركة الاجتماعية
    ============================================================ */
 
 /*
@@ -127,6 +124,42 @@ const Utils = {
             return (meters / 1000000).toFixed(2) + " كم²";
         }
         return Math.round(meters).toLocaleString('ar-SA') + " م²";
+    },
+
+    // دالة للتحقق مما إذا كان الرابط طويلاً جداً
+    isLongUrl(url) {
+        return url.length > 2000;
+    },
+
+    // دالة لإنشاء معرف فريد للرابط المختصر
+    generateShortId() {
+        return Math.random().toString(36).substring(2, 8) + Date.now().toString(36);
+    },
+
+    // دالة للتحقق من دعم المتصفح لواجهة النسخ الحديثة
+    supportsModernClipboard() {
+        return navigator.clipboard && navigator.clipboard.writeText;
+    },
+
+    // دالة للنسخ القديم (للمتصفحات القديمة)
+    fallbackCopyToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            return successful;
+        } catch (err) {
+            document.body.removeChild(textArea);
+            return false;
+        }
     }
 };
 
@@ -159,7 +192,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v25.0 - Final Polygon Fix + Free Draw Mode");
+        console.log("Boot v25.1 - Enhanced Share System");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
@@ -308,15 +341,9 @@ class IconPickerModal {
             transport: ['directions_car', 'directions_bus', 'directions_bike', 'local_shipping', 'local_taxi', 'flight', 'train', 'directions_boat', 'electric_car', 'scooter', 'motorcycle'],
             crisis: ['warning', 'report_problem', 'gpp_maybe', 'local_fire_department', 'local_hospital', 'health_and_safety', 'emergency', 'crisis_alert', 'siren', 'priority_high'],
             signs: ['add_location', 'location_on', 'push_pin', 'flag', 'bookmark', 'label', 'tag', 'sell', 'traffic', 'detour', 'fence', 'do_not_enter', 'stop', 'yield', 'no_parking', 'handicap'],
-            security: ['security', 'local_police', 'gpp_good', 'gpp_bad', 'policy', 'verified_user', 'shield', 'lock', 'lock_open', 'vpn_key', 'privacy_tip', 'military_tech', 'person_search', 'support_agent', 'admin_panel_settings', 'supervisor_account', 'security_update_good', 'security_update_warning', 'gpp_maybe', 'policy', 'badge', 'health_and_safety', 'personal_injury', 'coronavirus', 'sick', 'medical_services', 'local_hospital', 'emergency', 'crisis_alert', 'siren', 'priority_high', 'report_problem', 'warning'],
-            traffic: ['traffic', 'traffic_jam', 'add_road', 'add_road_sharp', 'do_not_step', 'crossing', 'traffic_light', 'roundabout', 'merge', 'lane_change', 'turn_left', 'turn_right', 'u_turn', 'traffic', 'traffic_jam', 'add_road', 'add_road_sharp', 'do_not_step', 'crossing', 'traffic_light', 'roundabout', 'merge', 'lane_change', 'turn_left', 'turn_right', 'u_turn', 'toll', 'not_listed_location', 'no_transfer', 'no_meeting_room', 'no_crash', 'no_cell', 'no_drinks', 'no_flash', 'no_food', 'no_luggage', 'no_meeting_room', 'no_photography', 'no_stroller', 'no_transfer'],
-            roads: ['add_road', 'fork_right', 'fork_left', 't_junction', 'roundabout', 'straight', 'curved_road', 'intersection', 'highway', 'expressway', 'add_road', 'fork_right', 'fork_left', 't_junction', 'roundabout', 'straight', 'curved_road', 'intersection', 'highway', 'expressway'],
-            // New categories for security and traffic
-            security_vehicles: ['local_shipping', 'airport_shuttle', 'directions_car', 'directions_bus', 'two_wheeler', 'electric_moped', 'electric_scooter', 'motorcycle', 'directions_car', 'directions_bus', 'local_shipping', 'local_taxi', 'airport_shuttle'],
-            security_personnel: ['person', 'person_4', 'groups', 'support_agent', 'admin_panel_settings', 'supervisor_account', 'badge', 'military_tech', 'person_search', 'security', 'local_police', 'health_and_safety', 'personal_injury', 'medical_services', 'emergency'],
-            traffic_barriers: ['block', 'fence', 'gate', 'door_front', 'door_sliding', 'door_back', 'garage', 'meeting_room', 'no_meeting_room', 'meeting_room', 'weekend', 'filter_center_focus', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage'],
-            traffic_signs: ['pan_tool', 'back_hand', 'do_not_touch', 'do_not_step', 'no_photography', 'no_stroller', 'no_transfer', 'no_crash', 'no_cell', 'no_drinks', 'no_flash', 'no_food', 'no_luggage', 'no_meeting_room', 'no_photography', 'no_stroller', 'no_transfer', 'not_listed_location', 'pan_tool', 'back_hand', 'do_not_touch', 'do_not_step', 'no_photography', 'no_stroller', 'no_transfer', 'no_crash', 'no_cell', 'no_drinks', 'no_flash', 'no_food', 'no_luggage', 'no_meeting_room', 'no_photography', 'no_stroller', 'no_transfer', 'not_listed_location'],
-            safety_equipment: ['health_and_safety', 'personal_injury', 'coronavirus', 'sick', 'medical_services', 'local_hospital', 'emergency', 'crisis_alert', 'siren', 'priority_high', 'report_problem', 'warning', 'gpp_maybe', 'gpp_good', 'gpp_bad', 'security', 'shield', 'lock', 'lock_open', 'vpn_key', 'privacy_tip', 'military_tech', 'person_search', 'support_agent', 'admin_panel_settings', 'supervisor_account', 'security_update_good', 'security_update_warning', 'badge', 'health_and_safety', 'personal_injury', 'coronavirus', 'sick', 'medical_services', 'local_hospital', 'emergency', 'crisis_alert', 'siren', 'priority_high', 'report_problem', 'warning']
+            security: ['security', 'local_police', 'gpp_good', 'gpp_bad', 'policy', 'verified_user', 'shield', 'lock', 'lock_open', 'vpn_key', 'privacy_tip'],
+            traffic: ['traffic', 'traffic_jam', 'add_road', 'add_road_sharp', 'do_not_step', 'crossing', 'traffic_light', 'roundabout', 'merge', 'lane_change', 'turn_left', 'turn_right', 'u_turn'],
+            roads: ['add_road', 'fork_right', 'fork_left', 't_junction', 'roundabout', 'straight', 'curved_road', 'intersection', 'highway', 'expressway']
         };
         
         this.initModal();
@@ -378,12 +405,7 @@ class IconPickerModal {
                 signs: 'اللافتات',
                 security: 'الأمن',
                 traffic: 'المرور',
-                roads: 'الطرق',
-                security_vehicles: 'مركبات أمنية',
-                security_personnel: 'العاملون في الأمن',
-                traffic_barriers: 'حواجز مرورية',
-                traffic_signs: 'لافتات مرورية',
-                safety_equipment: 'معدات السلامة'
+                roads: 'الطرق'
             };
             
             button.textContent = categoryLabels[category];
@@ -1252,169 +1274,7 @@ class LocationManager {
             { value: 'report_problem', label: '-' },
             { value: 'report_problem', label: 'نقطة فرز' },
             { value: 'report', label: 'تنظيم مروري' },
-            { value: 'gpp_good', label: 'نقطة ثابتة' },
-            { value: 'local_police', label: 'مركز شرطة' },
-            { value: 'security', label: 'نقطة أمنية' },
-            { value: 'local_shipping', label: 'مركبة أمنية' },
-            { value: 'person', label: 'رجل أمن' },
-            { value: 'groups', label: 'فريق أمني' },
-            { value: 'fence', label: 'حاجز' },
-            { value: 'block', label: 'إغلاق طريق' },
-            { value: 'do_not_step', label: 'ممنوع العبور' },
-            { value: 'no_parking', label: 'ممنوع الوقوف' },
-            { value: 'local_hospital', label: 'مستشفى' },
-            { value: 'local_fire_department', label: 'إطفاء' },
-            { value: 'emergency', label: 'طوارئ' },
-            { value: 'warning', label: 'تحذير' },
-            { value: 'priority_high', label: 'أولوية' },
-            { value: 'health_and_safety', label: 'سلامة' },
-            { value: 'shield', label: 'حماية' },
-            { value: 'verified_user', label: 'موظف معتمد' },
-            { value: 'support_agent', label: 'دعم فني' },
-            { value: 'admin_panel_settings', label: 'إدارة' },
-            { value: 'supervisor_account', label: 'مشرف' },
-            { value: 'badge', label: 'شارة' },
-            { value: 'military_tech', label: 'تقنية أمنية' },
-            { value: 'person_search', label: 'تفتيش' },
-            { value: 'policy', label: 'سياسة' },
-            { value: 'gpp_maybe', label: 'أمن محتمل' },
-            { value: 'gpp_bad', label: 'أمن ضعيف' },
-            { value: 'security_update_good', label: 'تحديث أمني جيد' },
-            { value: 'security_update_warning', label: 'تحذير أمني' },
-            { value: 'privacy_tip', label: 'نصيحة خصوصية' },
-            { value: 'lock', label: 'قفل' },
-            { value: 'lock_open', label: 'فتح' },
-            { value: 'vpn_key', label: 'مفتاح' },
-            { value: 'coronavirus', label: 'فيروس' },
-            { value: 'sick', label: 'مرض' },
-            { value: 'medical_services', label: 'خدمات طبية' },
-            { value: 'personal_injury', label: 'إصابة شخصية' },
-            { value: 'crisis_alert', label: 'إنذار أزمة' },
-            { value: 'siren', label: 'صفارة' },
-            { value: 'pan_tool', label: 'يد' },
-            { value: 'back_hand', label: 'يد خلفية' },
-            { value: 'do_not_touch', label: 'لا تلمس' },
-            { value: 'no_photography', label: 'ممنوع التصوير' },
-            { value: 'no_stroller', label: 'ممنوع عربات أطفال' },
-            { value: 'no_transfer', label: 'ممنوع التحويل' },
-            { value: 'no_crash', label: 'ممنوع التصادم' },
-            { value: 'no_cell', label: 'ممنوع الهواتف' },
-            { value: 'no_drinks', label: 'ممنوع المشروبات' },
-            { value: 'no_flash', label: 'ممنوع الفلاش' },
-            { value: 'no_food', label: 'ممنوع الطعام' },
-            { value: 'no_luggage', label: 'ممنوع الأمتعة' },
-            { value: 'no_meeting_room', label: 'ممنوع غرف الاجتماعات' },
-            { value: 'not_listed_location', label: 'موقع غير مدرج' },
-            { value: 'toll', label: 'رسوم' },
-            { value: 'traffic_light', label: 'إشارة مرور' },
-            { value: 'traffic', label: 'مرور' },
-            { value: 'traffic_jam', label: 'ازدحام مروري' },
-            { value: 'add_road', label: 'إضافة طريق' },
-            { value: 'add_road_sharp', label: 'إضافة طريق حاد' },
-            { value: 'crossing', label: 'معبر مشاة' },
-            { value: 'roundabout', label: 'دوار' },
-            { value: 'merge', label: 'دمج' },
-            { value: 'lane_change', label: 'تغيير مسار' },
-            { value: 'turn_left', label: 'انعطاف يسار' },
-            { value: 'turn_right', label: 'انعطاف يمين' },
-            { value: 'u_turn', label: 'دوران' },
-            { value: 'fork_right', label: 'تقسيم طريق يمين' },
-            { value: 'fork_left', label: 'تقسيم طريق يسار' },
-            { value: 't_junction', label: 'تقاطع على شكل T' },
-            { value: 'straight', label: 'طريق مستقيم' },
-            { value: 'curved_road', label: 'طريق منحني' },
-            { value: 'intersection', label: 'تقاطع' },
-            { value: 'highway', label: 'طريق سريع' },
-            { value: 'expressway', label: 'طريق سريع محدود' },
-            { value: 'gate', label: 'بوابة' },
-            { value: 'door_front', label: 'باب أمامي' },
-            { value: 'door_sliding', label: 'باب انزلاقي' },
-            { value: 'door_back', label: 'باب خلفي' },
-            { value: 'garage', label: 'مرآب' },
-            { value: 'meeting_room', label: 'غرفة اجتماعات' },
-            { value: 'weekend', label: 'عطلة نهاية الأسبوع' },
-            { value: 'filter_center_focus', label: 'تركيز المرشح' },
-            { value: 'filter_frames', label: 'إطارات المرشح' },
-            { value: 'filter_hdr', label: 'مرشح HDR' },
-            { value: 'filter_none', label: 'بدون مرشح' },
-            { value: 'filter_tilt_shift', label: 'مرشح إمالة' },
-            { value: 'filter_vintage', label: 'مرشح عتيق' },
-            { value: 'directions_car', label: 'سيارة' },
-            { value: 'directions_bus', label: 'حافلة' },
-            { value: 'local_shipping', label: 'شحن محلي' },
-            { value: 'local_taxi', label: 'سيارة أجرة' },
-            { value: 'airport_shuttle', label: 'حافلة مطار' },
-            { value: 'two_wheeler', label: 'مركبة عجلتين' },
-            { value: 'electric_moped', label: 'دراجة كهربائية' },
-            { value: 'electric_scooter', label: 'سكوتر كهربائي' },
-            { value: 'motorcycle', label: 'دراجة نارية' },
-            { value: 'directions_bike', label: 'دراجة هوائية' },
-            { value: 'electric_car', label: 'سيارة كهربائية' },
-            { value: 'scooter', label: 'سكوتر' },
-            { value: 'flight', label: 'رحلة جوية' },
-            { value: 'train', label: 'قطار' },
-            { value: 'directions_boat', label: 'قارب' },
-            { value: 'directions_walk', label: 'مشاة' },
-            { value: 'directions_run', label: 'عدّاء' },
-            { value: 'hiking', label: 'مشية طويلة' },
-            { value: 'directions_transit', label: 'نقل عام' },
-            { value: 'directions_subway', label: 'مترو أنفاق' },
-            { value: 'tram', label: 'ترام' },
-            { value: 'railway_alert', label: 'إنذار سكة حديد' },
-            { value: 'no_meeting_room', label: 'ممنوع غرف الاجتماعات' },
-            { value: 'not_listed_location', label: 'موقع غير مدرج' },
-            { value: 'pan_tool', label: 'يد' },
-            { value: 'back_hand', label: 'يد خلفية' },
-            { value: 'do_not_touch', label: 'لا تلمس' },
-            { value: 'do_not_step', label: 'لا تخطو' },
-            { value: 'no_photography', label: 'ممنوع التصوير' },
-            { value: 'no_stroller', label: 'ممنوع عربات أطفال' },
-            { value: 'no_transfer', label: 'ممنوع التحويل' },
-            { value: 'no_crash', label: 'ممنوع التصادم' },
-            { value: 'no_cell', label: 'ممنوع الهواتف' },
-            { value: 'no_drinks', label: 'ممنوع المشروبات' },
-            { value: 'no_flash', label: 'ممنوع الفلاش' },
-            { value: 'no_food', label: 'ممنوع الطعام' },
-            { value: 'no_luggage', label: 'ممنوع الأمتعة' },
-            { value: 'no_meeting_room', label: 'ممنوع غرف الاجتماعات' },
-            { value: 'no_photography', label: 'ممنوع التصوير' },
-            { value: 'no_stroller', label: 'ممنوع عربات أطفال' },
-            { value: 'no_transfer', label: 'ممنوع التحويل' },
-            { value: 'not_listed_location', label: 'موقع غير مدرج' },
-            { value: 'toll', label: 'رسوم' },
-            { value: 'traffic_light', label: 'إشارة مرور' },
-            { value: 'traffic', label: 'مرور' },
-            { value: 'traffic_jam', label: 'ازدحام مروري' },
-            { value: 'add_road', label: 'إضافة طريق' },
-            { value: 'add_road_sharp', label: 'إضافة طريق حاد' },
-            { value: 'crossing', label: 'معبر مشاة' },
-            { value: 'roundabout', label: 'دوار' },
-            { value: 'merge', label: 'دمج' },
-            { value: 'lane_change', label: 'تغيير مسار' },
-            { value: 'turn_left', label: 'انعطاف يسار' },
-            { value: 'turn_right', label: 'انعطاف يمين' },
-            { value: 'u_turn', label: 'دوران' },
-            { value: 'fork_right', label: 'تقسيم طريق يمين' },
-            { value: 'fork_left', label: 'تقسيم طريق يسار' },
-            { value: 't_junction', label: 'تقاطع على شكل T' },
-            { value: 'straight', label: 'طريق مستقيم' },
-            { value: 'curved_road', label: 'طريق منحني' },
-            { value: 'intersection', label: 'تقاطع' },
-            { value: 'highway', label: 'طريق سريع' },
-            { value: 'expressway', label: 'طريق سريع محدود' },
-            { value: 'gate', label: 'بوابة' },
-            { value: 'door_front', label: 'باب أمامي' },
-            { value: 'door_sliding', label: 'باب انزلاقي' },
-            { value: 'door_back', label: 'باب خلفي' },
-            { value: 'garage', label: 'مرآب' },
-            { value: 'meeting_room', label: 'غرفة اجتماعات' },
-            { value: 'weekend', label: 'عطلة نهاية الأسبوع' },
-            { value: 'filter_center_focus', label: 'تركيز المرشح' },
-            { value: 'filter_frames', label: 'إطارات المرشح' },
-            { value: 'filter_hdr', label: 'مرشح HDR' },
-            { value: 'filter_none', label: 'بدون مرشح' },
-            { value: 'filter_tilt_shift', label: 'مرشح إمالة' },
-            { value: 'filter_vintage', label: 'مرشح عتيق' }
+            { value: 'gpp_good', label: 'نقطة ثابتة' }
         ];
 
         bus.on("map:ready", map => {
@@ -2621,36 +2481,538 @@ class ShareManager {
             return;
         }
 
-        // FIX: Use the long URL directly without external shortening services
-        const longUrl = STATE.writeShare(st);
-        
-        const originalText = this.btnText;
-        
-        this.btn.disabled = true;
-        if (this.btnText) this.btn.textContent = "جاري النسخ...";
-        
-        try {
-            await navigator.clipboard.writeText(longUrl);
-            bus.emit("toast", "تم نسخ رابط المشاركة");
-        } catch (err) {
-            console.error("Clipboard copy failed, showing manual dialog.", err);
-            this.showManualCopyDialog(longUrl);
-        }
-
-        this.btn.disabled = false;
-        if (this.btnText) this.btn.textContent = originalText;
+        // استخدام واجهة المشاركة المحسّنة
+        this.showShareDialog(st);
     }
 
-    showManualCopyDialog(url) {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;`;
+    showShareDialog(state) {
+        const longUrl = STATE.writeShare(state);
+        
+        // إنشاء واجهة المشاركة
         const dialog = document.createElement('div');
-        dialog.style.cssText = `background: white; border-radius: 12px; padding: 24px; max-width: 90%; width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0,0.3); text-align: center; direction: rtl; font-family: 'Tajawal', sans-serif;`;
-        dialog.innerHTML = `<h3 style="margin-top: 0; margin-bottom: 16px; color: #333;">انسخ الرابط يدويًا</h3><p style="margin-bottom: 20px; color: #666; line-height: 1.5;">الرجاء الضغط مطولاً على الرابط واختيار "نسخ".</p><textarea readonly style="width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; text-align: center; resize: none; direction: ltr; box-sizing: border-box; font-family: 'Tajawal', sans-serif;">${url}</textarea><button id="manual-copy-close" style="margin-top: 20px; width: 100%; padding: 12px; background-color: #4285f4; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; font-family: 'Tajawal', sans-serif;">إغلاق</button>`;
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-        document.getElementById('manual-copy-close').addEventListener('click', () => { document.body.removeChild(overlay); });
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) { document.body.removeChild(overlay); } });
+        dialog.className = 'share-dialog-overlay';
+        
+        const content = document.createElement('div');
+        content.className = 'share-dialog-content';
+        
+        const header = document.createElement('div');
+        header.className = 'share-dialog-header';
+        header.innerHTML = `
+            <h3>مشاركة الخريطة</h3>
+            <button class="share-close-btn"><i class="material-icons">close</i></button>
+        `;
+        
+        const body = document.createElement('div');
+        body.className = 'share-dialog-body';
+        
+        // قسم الرابط الطويل
+        const longUrlSection = document.createElement('div');
+        longUrlSection.className = 'share-section';
+        longUrlSection.innerHTML = `
+            <h4>الرابط الكامل:</h4>
+            <div class="url-container">
+                <input type="text" readonly value="${longUrl}" class="url-input" id="long-url">
+                <button class="copy-btn" data-target="long-url">
+                    <i class="material-icons">content_copy</i>
+                    <span>نسخ</span>
+                </button>
+            </div>
+        `;
+        
+        // قسم الروابط المختصرة
+        const shortUrlSection = document.createElement('div');
+        shortUrlSection.className = 'share-section';
+        shortUrlSection.innerHTML = `
+            <h4>تقصير الرابط:</h4>
+            <div class="shortener-options">
+                <button class="shortener-btn" data-service="tinyurl">
+                    <i class="material-icons">link</i>
+                    <span>TinyURL</span>
+                </button>
+                <button class="shortener-btn" data-service="bitly">
+                    <i class="material-icons">link</i>
+                    <span>Bitly</span>
+                </button>
+                <button class="shortener-btn" data-service="cuttly">
+                    <i class="material-icons">content_cut</i>
+                    <span>Cuttly</span>
+                </button>
+                <button class="shortener-btn" data-service="shortio">
+                    <i class="material-icons">link</i>
+                    <span>Short.io</span>
+                </button>
+            </div>
+            <div class="short-url-result" id="short-url-result" style="display: none;">
+                <input type="text" readonly class="url-input" id="short-url">
+                <button class="copy-btn" data-target="short-url">
+                    <i class="material-icons">content_copy</i>
+                    <span>نسخ</span>
+                </button>
+            </div>
+        `;
+        
+        // قسم المشاركة الاجتماعية
+        const socialSection = document.createElement('div');
+        socialSection.className = 'share-section';
+        socialSection.innerHTML = `
+            <h4>مشاركة على:</h4>
+            <div class="social-buttons">
+                <button class="social-btn" data-platform="whatsapp">
+                    <i class="material-icons">whatsapp</i>
+                    <span>WhatsApp</span>
+                </button>
+                <button class="social-btn" data-platform="twitter">
+                    <i class="material-icons">alternate_email</i>
+                    <span>Twitter</span>
+                </button>
+                <button class="social-btn" data-platform="facebook">
+                    <i class="material-icons">facebook</i>
+                    <span>Facebook</span>
+                </button>
+                <button class="social-btn" data-platform="telegram">
+                    <i class="material-icons">send</i>
+                    <span>Telegram</span>
+                </button>
+            </div>
+        `;
+        
+        body.appendChild(longUrlSection);
+        body.appendChild(shortUrlSection);
+        body.appendChild(socialSection);
+        
+        content.appendChild(header);
+        content.appendChild(body);
+        dialog.appendChild(content);
+        
+        // إضافة CSS
+        this.addShareStyles();
+        
+        document.body.appendChild(dialog);
+        
+        // إضافة الأحداث
+        this.attachShareEvents(dialog, longUrl);
+        
+        // إغلاق الحوار عند النقر خارج المحتوى
+        dialog.addEventListener('click', (e) => {
+            if (e.target === dialog) {
+                this.closeShareDialog();
+            }
+        });
+        
+        // منع الإغلاق عند النقر على الأزرار
+        const closeBtn = dialog.querySelector('.share-close-btn');
+        closeBtn.addEventListener('click', () => this.closeShareDialog());
+    }
+
+    addShareStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            .share-dialog-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.6);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-family: 'Tajawal', sans-serif;
+                direction: rtl;
+                animation: fadeIn 0.3s ease-out;
+            }
+            
+            .share-dialog-content {
+                background: white;
+                border-radius: 16px;
+                width: 90%;
+                max-width: 500px;
+                max-height: 80vh;
+                overflow: hidden;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+                animation: slideUp 0.3s ease-out;
+            }
+            
+            .share-dialog-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 20px;
+                border-bottom: 1px solid #eee;
+            }
+            
+            .share-dialog-header h3 {
+                margin: 0;
+                font-size: 20px;
+                color: #333;
+            }
+            
+            .share-close-btn {
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 8px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background-color 0.2s;
+            }
+            
+            .share-close-btn:hover {
+                background-color: #f0f0f0;
+            }
+            
+            .share-dialog-body {
+                padding: 20px;
+                max-height: 60vh;
+                overflow-y: auto;
+            }
+            
+            .share-section {
+                margin-bottom: 25px;
+            }
+            
+            .share-section h4 {
+                margin: 0 0 15px 0;
+                font-size: 16px;
+                color: #555;
+            }
+            
+            .url-container {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+            }
+            
+            .url-input {
+                flex: 1;
+                padding: 12px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                font-family: 'Tajawal', sans-serif;
+                font-size: 14px;
+                background: #f9f9f9;
+                color: #333;
+            }
+            
+            .copy-btn {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                padding: 10px 15px;
+                border: none;
+                border-radius: 8px;
+                background: #4285f4;
+                color: white;
+                cursor: pointer;
+                font-family: 'Tajawal', sans-serif;
+                font-size: 14px;
+                transition: background-color 0.2s;
+            }
+            
+            .copy-btn:hover {
+                background: #3367d6;
+            }
+            
+            .copy-btn i {
+                font-size: 18px;
+            }
+            
+            .shortener-options {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin-bottom: 15px;
+            }
+            
+            .shortener-btn {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 15px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                background: white;
+                cursor: pointer;
+                font-family: 'Tajawal', sans-serif;
+                font-size: 14px;
+                transition: all 0.2s;
+            }
+            
+            .shortener-btn:hover {
+                background-color: #f5f5f5;
+                transform: translateY(-2px);
+            }
+            
+            .shortener-btn i {
+                font-size: 20px;
+                color: #555;
+            }
+            
+            .short-url-result {
+                margin-top: 15px;
+                animation: fadeIn 0.3s ease-out;
+            }
+            
+            .social-buttons {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            
+            .social-btn {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 15px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-family: 'Tajawal', sans-serif;
+                font-size: 14px;
+                transition: all 0.2s;
+            }
+            
+            .social-btn:hover {
+                transform: translateY(-2px);
+            }
+            
+            .social-btn.whatsapp {
+                background-color: #25D366;
+                color: white;
+            }
+            
+            .social-btn.twitter {
+                background-color: #1DA1F2;
+                color: white;
+            }
+            
+            .social-btn.facebook {
+                background-color: #4267B2;
+                color: white;
+            }
+            
+            .social-btn.telegram {
+                background-color: #0088cc;
+                color: white;
+            }
+            
+            .social-btn i {
+                font-size: 20px;
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            @keyframes slideUp {
+                from { 
+                    transform: translateY(20px);
+                    opacity: 0;
+                }
+                to { 
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    attachShareEvents(dialog, longUrl) {
+        // نسخ الروابط
+        dialog.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const targetId = btn.dataset.target;
+                const input = document.getElementById(targetId);
+                const url = input.value;
+                
+                if (Utils.supportsModernClipboard()) {
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        this.showCopySuccess(btn);
+                    } catch (err) {
+                        this.fallbackCopyToClipboard(url, btn);
+                    }
+                } else {
+                    this.fallbackCopyToClipboard(url, btn);
+                }
+            });
+        });
+        
+        // خدمات تقصير الروابط
+        dialog.querySelectorAll('.shortener-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const service = btn.dataset.service;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="material-icons">hourglass_empty</i><span>جاري التقصير...</span>';
+                
+                try {
+                    let shortUrl = await this.shortenUrl(longUrl, service);
+                    if (shortUrl) {
+                        this.showShortUrl(shortUrl);
+                    }
+                } catch (error) {
+                    console.error('Error shortening URL:', error);
+                    bus.emit("toast", "فشل تقصير الرابط. الرجاء استخدام الرابط الكامل");
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="material-icons">${btn.querySelector('i').textContent}</i><span>${btn.querySelector('span').textContent}</span>`;
+                }
+            });
+        });
+        
+        // المشاركة الاجتماعية
+        dialog.querySelectorAll('.social-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const platform = btn.dataset.platform;
+                const url = longUrl;
+                const text = "شاهد خريطة الدرعية الأمنية";
+                
+                let shareUrl = '';
+                switch(platform) {
+                    case 'whatsapp':
+                        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
+                        break;
+                    case 'twitter':
+                        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+                        break;
+                    case 'facebook':
+                        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+                        break;
+                    case 'telegram':
+                        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+                        break;
+                }
+                
+                if (shareUrl) {
+                    window.open(shareUrl, '_blank', 'width=600,height=400');
+                }
+            });
+        });
+    }
+
+    async shortenUrl(longUrl, service) {
+        const services = {
+            tinyurl: {
+                url: 'https://tinyurl.com/api-create.php',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: longUrl })
+            },
+            bitly: {
+                url: 'https://api-ssl.bitly.com/v4/shorten',
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer YOUR_BITLY_TOKEN' // يتطلب مفتاح API من Bitly
+                },
+                body: JSON.stringify({ long_url: longUrl })
+            },
+            cuttly: {
+                url: 'https://cutt.ly/api/v2/auto',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: longUrl })
+            },
+            shortio: {
+                url: 'https://api.short.io/v1/links',
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer YOUR_SHORTIO_TOKEN' // يتطلب مفتاح API من Short.io
+                },
+                body: JSON.stringify({ 
+                    originalURL: longUrl,
+                    domain: 'cutt.ly'
+                })
+            }
+        };
+        
+        const serviceConfig = services[service];
+        if (!serviceConfig) return longUrl;
+        
+        try {
+            const response = await fetch(serviceConfig.url, {
+                method: serviceConfig.method || 'GET',
+                headers: serviceConfig.headers || {},
+                body: serviceConfig.body ? JSON.stringify(serviceConfig.body) : undefined
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.data?.url || data.link || data.shortenedUrl || longUrl;
+        } catch (error) {
+            console.error('Shortening error:', error);
+            throw error;
+        }
+    }
+
+    showShortUrl(shortUrl) {
+        const resultDiv = document.getElementById('short-url-result');
+        const shortUrlInput = document.getElementById('short-url');
+        
+        resultDiv.style.display = 'block';
+        shortUrlInput.value = shortUrl;
+        
+        // نسخ تلقائي الرابط المختصر
+        setTimeout(() => {
+            if (Utils.supportsModernClipboard()) {
+                navigator.clipboard.writeText(shortUrl);
+            } else {
+                this.fallbackCopyToClipboard(shortUrl);
+            }
+        }, 100);
+    }
+
+    showCopySuccess(btn) {
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<i class="material-icons">check</i><span>تم النسخ!</span>';
+        btn.style.backgroundColor = '#4CAF50';
+        
+        setTimeout(() => {
+            btn.innerHTML = originalContent;
+            btn.style.backgroundColor = '#4285f4';
+        }, 2000);
+    }
+
+    fallbackCopyToClipboard(text, buttonElement) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            if (successful) {
+                this.showCopySuccess(buttonElement);
+            }
+        } catch (err) {
+            document.body.removeChild(textArea);
+            console.error('Fallback copy failed:', err);
+        }
+    }
+
+    closeShareDialog() {
+        const dialog = document.querySelector('.share-dialog-overlay');
+        if (dialog) {
+            dialog.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => {
+                document.body.removeChild(dialog);
+            }, 300);
+        }
     }
 }
 
@@ -3183,7 +3545,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v25.0 — Ready");
+        console.log("Diriyah Security Map v25.1 — Enhanced Share System");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
