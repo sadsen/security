@@ -9,6 +9,7 @@
    • إضافة وضع الرسم الحر (Free Draw Mode)
    • تحسين خيارات التحرير للنصوص والأيقونات
    • إصلاح مشاكل المشاركة وتقصير الروابط
+   • إصلاح مشكلة النقر على العناصر الحرة للتعديل
    ============================================================ */
 
 
@@ -693,33 +694,9 @@ class FreeLayerManager {
     }
     
     onMapReady() {
+        // The main map click listener is now only for adding new items.
         this.map.addListener("click", e => {
             if (!MAP.modeFreeDraw || this.shareMode) return;
-            
-            // Check if clicking on existing item
-            for (const item of this.items) {
-                if (item.type === 'icon') {
-                    const distance = google.maps.geometry.spherical.computeDistanceBetween(
-                        e.latLng, 
-                        item.marker.position
-                    );
-                    if (distance < 10) {
-                        this.openEditCard(item);
-                        return;
-                    }
-                } else if (item.type === 'text') {
-                    const distance = google.maps.geometry.spherical.computeDistanceBetween(
-                        e.latLng, 
-                        item.marker.position
-                    );
-                    if (distance < 10) {
-                        this.openEditCard(item);
-                        return;
-                    }
-                }
-            }
-            
-            // Show options dialog
             this.showAddOptions(e.latLng);
         });
     }
@@ -861,6 +838,12 @@ class FreeLayerManager {
             gmpDraggable: this.editMode && !this.shareMode
         });
         
+        // FIX: Add a direct click listener to the marker content for reliable editing
+        iconElement.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent map click
+            this.openEditCard(item);
+        });
+        
         if (this.editMode && !this.shareMode) {
             item.marker.addListener("dragend", () => {
                 item.position = item.marker.position;
@@ -904,6 +887,12 @@ class FreeLayerManager {
             map: this.map,
             content: textElement,
             gmpDraggable: this.editMode && !this.shareMode
+        });
+
+        // FIX: Add a direct click listener to the marker content for reliable editing
+        textElement.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent map click
+            this.openEditCard(item);
         });
         
         if (this.editMode && !this.shareMode) {
@@ -2333,7 +2322,7 @@ const STATE = new StateManager();
 /*
 ============================================================
    ShareManager
-— نسخ آمن مع ضغط البيانات (مُحسّن)
+— نسخ آمن مع ضغط البيانات (بدون خدمات خارجية)
 ============================================================
 */
 class ShareManager {
@@ -2352,36 +2341,20 @@ class ShareManager {
             return;
         }
 
+        // FIX: Use the long URL directly without external shortening services
         const longUrl = STATE.writeShare(st);
         const label = this.btn.querySelector(".label");
         const original = label ? label.textContent : null;
 
         this.btn.disabled = true;
-        if (label) label.textContent = "جاري التقصير…";
-
-        let finalUrl = longUrl;
+        if (label) label.textContent = "جاري النسخ...";
 
         try {
-            // Use TinyURL API as a fallback for URL shortening
-            const api = "https://tinyurl.com/api-create.php?url=" + 
-                        encodeURIComponent(longUrl);
-            const response = await fetch(api);
-            const shortUrl = await response.text();
-            
-            if (shortUrl && shortUrl.startsWith("https://tinyurl.com/")) {
-                finalUrl = shortUrl;
-            }
-        } catch (err) {
-            console.error("URL shortening failed, using long URL.", err);
-            finalUrl = longUrl;
-        }
-
-        try {
-            await navigator.clipboard.writeText(finalUrl);
+            await navigator.clipboard.writeText(longUrl);
             bus.emit("toast", "تم نسخ رابط المشاركة");
         } catch (err) {
             console.error("Clipboard copy failed, showing manual dialog.", err);
-            this.showManualCopyDialog(finalUrl);
+            this.showManualCopyDialog(longUrl);
         }
 
         this.btn.disabled = false;
