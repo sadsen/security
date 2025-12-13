@@ -13,7 +13,6 @@
    • إضافة أيقونات إضافية للسلامة المرورية والأمن
    ============================================================ */
 
-
 /*
 ------------------------------------------------------------
    Event Bus
@@ -46,7 +45,6 @@ class EventBus {
 }
 
 const bus = new EventBus();
-
 
 /*
 ------------------------------------------------------------
@@ -2045,7 +2043,34 @@ class PolygonManager {
         bus.emit("toast", "تم الخروج من وضع تحرير المضلع");
     }
 
-    insertVertex(poly, index, latLng) { /* ... */ }
+    insertVertex(poly, index, latLng) {
+        // Find the closest segment to the clicked point
+        let minDistance = Infinity;
+        let insertIndex = -1;
+        
+        for (let i = 0; i < poly.points.length; i++) {
+            const segStart = poly.points[i];
+            const segEnd = poly.points[(i + 1) % poly.points.length];
+            const distance = this.distanceToSegment(latLng, segStart, segEnd);
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                insertIndex = i + 1;
+            }
+        }
+        
+        if (insertIndex !== -1) {
+            poly.points.splice(insertIndex, 0, latLng);
+            poly.polygon.setPaths(poly.points);
+            
+            // Update vertex markers
+            this.exitEditMode();
+            setTimeout(() => this.enterEditMode(index), 50);
+            
+            bus.emit("persist");
+            bus.emit("toast", "تمت إضافة نقطة جديدة");
+        }
+    }
 
     deleteVertex(poly, index, vertexIndex) {
         if (poly.points.length <= 3) {
@@ -2068,7 +2093,36 @@ class PolygonManager {
         setTimeout(() => this.enterEditMode(index), 50);
     }
 
-    distanceToSegment(point, segStart, segEnd) { /* ... */ }
+    distanceToSegment(point, segStart, segEnd) {
+        const A = point.lat() - segStart.lat();
+        const B = point.lng() - segStart.lng();
+        const C = segEnd.lat() - segStart.lat();
+        const D = segEnd.lng() - segStart.lng();
+
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+        
+        if (lenSq !== 0) param = dot / lenSq;
+
+        let xx, yy;
+
+        if (param < 0) {
+            xx = segStart.lat();
+            yy = segStart.lng();
+        } else if (param > 1) {
+            xx = segEnd.lat();
+            yy = segEnd.lng();
+        } else {
+            xx = segStart.lat() + param * C;
+            yy = segStart.lng() + param * D;
+        }
+
+        const dx = point.lat() - xx;
+        const dy = point.lng() - yy;
+        
+        return Math.sqrt(dx * dx + dy * dy);
+    }
 
     openCard(polyIndex, hoverOnly = false, position = null) {
         const poly = this.polygons[polyIndex];
@@ -2182,14 +2236,52 @@ class PolygonManager {
         if (closeBtn) { closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); }); }
     }
 
-    exportState() { return this.polygons.filter(p => p.polygon).map(poly => ({ id: poly.id, name: poly.name, notes: poly.notes, color: poly.color, strokeWeight: poly.strokeWeight, strokeOpacity: poly.strokeOpacity, fillOpacity: poly.fillOpacity, points: poly.points.map(p => ({ lat: typeof p.lat === 'function' ? p.lat() : p.lat, lng: typeof p.lng === 'function' ? p.lng() : p.lng })) })); } }
+    exportState() { 
+        return this.polygons.filter(p => p.polygon).map(poly => ({ 
+            id: poly.id, 
+            name: poly.name, 
+            notes: poly.notes, 
+            color: poly.color, 
+            strokeWeight: poly.strokeWeight, 
+            strokeOpacity: poly.strokeOpacity, 
+            fillOpacity: poly.fillOpacity, 
+            points: poly.points.map(p => ({ 
+                lat: typeof p.lat === 'function' ? p.lat() : p.lat, 
+                lng: typeof p.lng === 'function' ? p.lng() : p.lng 
+            })) 
+        })); 
+    }
+    
     applyState(state) {
         if (!state || !state.polygons) return;
         this.polygons.forEach(p => { if (p.polygon) p.polygon.setMap(null); });
         this.polygons = [];
         state.polygons.forEach(polyData => {
-            const newPoly = { id: polyData.id, name: polyData.name, notes: polyData.notes || "", color: polyData.color, strokeWeight: polyData.strokeWeight, strokeOpacity: polyData.strokeOpacity, fillOpacity: polyData.fillOpacity, points: polyData.points.map(p => new google.maps.LatLng(p.lat, p.lng)), polygon: null, markers: [], activePolyline: null, vertexMarkers: [] };
-            newPoly.polygon = new google.maps.Polygon({ paths: newPoly.points, map: this.map, strokeColor: newPoly.color, strokeOpacity: newPoly.strokeOpacity, strokeWeight: newPoly.strokeWeight, fillColor: newPoly.color, fillOpacity: newPoly.fillOpacity, zIndex: 5, clickable: true });
+            const newPoly = { 
+                id: polyData.id, 
+                name: polyData.name, 
+                notes: polyData.notes || "", 
+                color: polyData.color, 
+                strokeWeight: polyData.strokeWeight, 
+                strokeOpacity: polyData.strokeOpacity, 
+                fillOpacity: polyData.fillOpacity, 
+                points: polyData.points.map(p => new google.maps.LatLng(p.lat, p.lng)), 
+                polygon: null, 
+                markers: [], 
+                activePolyline: null, 
+                vertexMarkers: [] 
+            };
+            newPoly.polygon = new google.maps.Polygon({ 
+                paths: newPoly.points, 
+                map: this.map, 
+                strokeColor: newPoly.color, 
+                strokeOpacity: newPoly.strokeOpacity, 
+                strokeWeight: newPoly.strokeWeight, 
+                fillColor: newPoly.color, 
+                fillOpacity: newPoly.fillOpacity, 
+                zIndex: 5, 
+                clickable: true 
+            });
             this.addPolygonEditListeners(newPoly, this.polygons.length);
             this.polygons.push(newPoly);
         });
@@ -2330,7 +2422,6 @@ class StateManager {
 }
 
 const STATE = new StateManager();
-
 
 /*
 ============================================================
