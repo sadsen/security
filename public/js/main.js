@@ -8,6 +8,7 @@
    • منع إضافة نقاط جديدة بعد الحفظ
    • إضافة وضع الرسم الحر (Free Draw Mode)
    • تحسين خيارات التحرير للنصوص والأيقونات
+   • إصلاح مشاكل المشاركة وتقصير الروابط
    ============================================================ */
 
 
@@ -2332,7 +2333,7 @@ const STATE = new StateManager();
 /*
 ============================================================
    ShareManager
-— نسخ آمن مع ضغط البيانات
+— نسخ آمن مع ضغط البيانات (مُحسّن)
 ============================================================
 */
 class ShareManager {
@@ -2361,16 +2362,17 @@ class ShareManager {
         let finalUrl = longUrl;
 
         try {
-            const api = "https://is.gd/create.php?format=json&url=" + 
+            // Use TinyURL API as a fallback for URL shortening
+            const api = "https://tinyurl.com/api-create.php?url=" + 
                         encodeURIComponent(longUrl);
-            const res = await fetch(api);
-            const data = await res.json();
-
-            if (data && data.shorturl) {
-                finalUrl = data.shorturl;
+            const response = await fetch(api);
+            const shortUrl = await response.text();
+            
+            if (shortUrl && shortUrl.startsWith("https://tinyurl.com/")) {
+                finalUrl = shortUrl;
             }
         } catch (err) {
-            console.error("is.gd error, using long URL.", err);
+            console.error("URL shortening failed, using long URL.", err);
             finalUrl = longUrl;
         }
 
