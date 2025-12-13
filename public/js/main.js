@@ -2559,17 +2559,17 @@ class ShareManager {
                     <i class="material-icons">link</i>
                     <span>TinyURL</span>
                 </button>
-                <button class="shortener-btn" data-service="bitly">
+                <button class="shortener-btn" data-service="isgd">
                     <i class="material-icons">link</i>
-                    <span>Bitly</span>
+                    <span>is.gd</span>
+                </button>
+                <button class="shortener-btn" data-service="vgd">
+                    <i class="material-icons">link</i>
+                    <span>v.gd</span>
                 </button>
                 <button class="shortener-btn" data-service="cuttly">
                     <i class="material-icons">content_cut</i>
-                    <span>Cuttly</span>
-                </button>
-                <button class="shortener-btn" data-service="shortio">
-                    <i class="material-icons">link</i>
-                    <span>Short.io</span>
+                    <span>Shrtco.de</span>
                 </button>
             </div>
             <div class="short-url-result" id="short-url-result" style="display: none;">
@@ -2928,37 +2928,20 @@ class ShareManager {
     async shortenUrl(longUrl, service) {
         const services = {
             tinyurl: {
-                url: 'https://tinyurl.com/api-create.php',
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: longUrl })
+                url: `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`,
+                method: 'GET'
             },
-            bitly: {
-                url: 'https://api-ssl.bitly.com/v4/shorten',
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer YOUR_BITLY_TOKEN' // يتطلب مفتاح API من Bitly
-                },
-                body: JSON.stringify({ long_url: longUrl })
+            isgd: {
+                url: `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
+                method: 'GET'
+            },
+            vgd: {
+                url: `https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
+                method: 'GET'
             },
             cuttly: {
-                url: 'https://cutt.ly/api/v2/auto',
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: longUrl })
-            },
-            shortio: {
-                url: 'https://api.short.io/v1/links',
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer YOUR_SHORTIO_TOKEN' // يتطلب مفتاح API من Short.io
-                },
-                body: JSON.stringify({ 
-                    originalURL: longUrl,
-                    domain: 'cutt.ly'
-                })
+                url: `https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(longUrl)}`,
+                method: 'GET'
             }
         };
         
@@ -2967,19 +2950,34 @@ class ShareManager {
         
         try {
             const response = await fetch(serviceConfig.url, {
-                method: serviceConfig.method || 'GET',
-                headers: serviceConfig.headers || {},
-                body: serviceConfig.body ? JSON.stringify(serviceConfig.body) : undefined
+                method: serviceConfig.method,
+                headers: {
+                    'Accept': 'application/json, text/plain'
+                }
             });
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            const data = await response.json();
-            return data.data?.url || data.link || data.shortenedUrl || longUrl;
+            const data = await response.text();
+            
+            // معالجة الاستجابة حسب الخدمة
+            switch(service) {
+                case 'tinyurl':
+                    return data.trim(); // TinyURL يرجع الرابط المختصر كنص عادي
+                case 'isgd':
+                case 'vgd':
+                    const gdData = JSON.parse(data);
+                    return gdData.shorturl || data;
+                case 'cuttly':
+                    const jsonData = JSON.parse(data);
+                    return jsonData.result?.full_short_link || data;
+                default:
+                    return data;
+            }
         } catch (error) {
-            console.error('Shortening error:', error);
+            console.error(`Error shortening URL with ${service}:`, error);
             throw error;
         }
     }
@@ -3013,11 +3011,11 @@ class ShareManager {
     }
 
     fallbackCopyToClipboard(text, buttonElement) {
-        const textArea = document.createElement('textarea');
+        const textArea = document.createElement("textarea");
         textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
@@ -3026,7 +3024,7 @@ class ShareManager {
             const successful = document.execCommand('copy');
             document.body.removeChild(textArea);
             
-            if (successful) {
+            if (successful && buttonElement) {
                 this.showCopySuccess(buttonElement);
             }
         } catch (err) {
