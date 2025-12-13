@@ -890,7 +890,15 @@ class FreeLayerManager {
         
         if (this.editMode && !this.shareMode) {
             item.marker.addListener("dragend", () => {
-                item.position = item.marker.position;
+                const pos = item.marker.position;
+                // Ensure item.position is always a LatLng object
+                if (pos.lat && typeof pos.lat === 'function') {
+                    // It's already a LatLng object
+                    item.position = pos;
+                } else {
+                    // Convert to LatLng object
+                    item.position = new google.maps.LatLng(pos.lat, pos.lng);
+                }
                 bus.emit("persist");
             });
         }
@@ -941,7 +949,15 @@ class FreeLayerManager {
         
         if (this.editMode && !this.shareMode) {
             item.marker.addListener("dragend", () => {
-                item.position = item.marker.position;
+                const pos = item.marker.position;
+                // Ensure item.position is always a LatLng object
+                if (pos.lat && typeof pos.lat === 'function') {
+                    // It's already a LatLng object
+                    item.position = pos;
+                } else {
+                    // Convert to LatLng object
+                    item.position = new google.maps.LatLng(pos.lat, pos.lng);
+                }
                 bus.emit("persist");
             });
         }
@@ -1197,11 +1213,25 @@ class FreeLayerManager {
     exportState() {
         return {
             freeDraw: this.items.map(item => {
+                let lat, lng;
+                const pos = item.position;
+                
+                // Handle both LatLng objects and plain objects
+                if (pos.lat && typeof pos.lat === 'function') {
+                    // It's a LatLng object
+                    lat = pos.lat();
+                    lng = pos.lng();
+                } else {
+                    // It's a plain object with lat/lng properties
+                    lat = pos.lat;
+                    lng = pos.lng;
+                }
+                
                 const result = {
                     id: item.id,
                     type: item.type,
-                    lat: item.position.lat(),
-                    lng: item.position.lng()
+                    lat: lat,
+                    lng: lng
                 };
                 
                 if (item.type === 'icon') {
@@ -1674,7 +1704,7 @@ class LocationManager {
             id: it.id,
             name: it.name,
             lat: typeof it.marker.position.lat === 'function' ? it.marker.position.lat() : it.marker.position.lat,
-            lng: it.marker.position.lng,
+            lng: typeof it.marker.position.lng === 'function' ? it.marker.position.lng() : it.marker.position.lng,
             color: it.color,
             radius: it.radius,
             fillOpacity: it.fillOpacity,
