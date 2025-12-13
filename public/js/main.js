@@ -7,6 +7,7 @@
    • إعادة المؤشر للوضع الطبيعي عند الانتهاء
    • منع إضافة نقاط جديدة بعد الحفظ
    • إضافة وضع الرسم الحر (Free Draw Mode)
+   • تحسين خيارات التحرير للنصوص والأيقونات
    ============================================================ */
 
 
@@ -425,7 +426,7 @@ class IconPickerModal {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-family: 'Cairo', sans-serif;
+                font-family: 'Tajawal', sans-serif;
                 direction: rtl;
             }
             
@@ -454,6 +455,7 @@ class IconPickerModal {
                 border-radius: 4px;
                 font-size: 16px;
                 margin-left: 10px;
+                font-family: 'Tajawal', sans-serif;
             }
             
             .icon-picker-close {
@@ -482,6 +484,7 @@ class IconPickerModal {
                 cursor: pointer;
                 white-space: nowrap;
                 font-size: 14px;
+                font-family: 'Tajawal', sans-serif;
             }
             
             .icon-picker-category.active {
@@ -523,6 +526,7 @@ class IconPickerModal {
             .icon-picker-name {
                 font-size: 12px;
                 text-align: center;
+                font-family: 'Tajawal', sans-serif;
             }
             
             .icon-picker-footer {
@@ -539,6 +543,7 @@ class IconPickerModal {
                 cursor: pointer;
                 margin-right: 10px;
                 font-size: 14px;
+                font-family: 'Tajawal', sans-serif;
             }
             
             .icon-picker-cancel {
@@ -771,7 +776,7 @@ class FreeLayerManager {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-family: 'Cairo', sans-serif;
+                font-family: 'Tajawal', sans-serif;
                 direction: rtl;
             }
             
@@ -788,6 +793,7 @@ class FreeLayerManager {
                 margin-top: 0;
                 margin-bottom: 20px;
                 text-align: center;
+                font-family: 'Tajawal', sans-serif;
             }
             
             .free-draw-option-btn {
@@ -803,6 +809,7 @@ class FreeLayerManager {
                 cursor: pointer;
                 font-size: 16px;
                 transition: background-color 0.2s;
+                font-family: 'Tajawal', sans-serif;
             }
             
             .free-draw-option-btn:hover {
@@ -915,8 +922,9 @@ class FreeLayerManager {
         element.style.boxShadow = 'none';
         element.style.color = item.textColor;
         element.style.fontSize = `${item.fontSize}px`;
-        element.style.fontWeight = 'bold';
-        element.style.textShadow = '1px 1px 2px rgba(0,0,0,0.5)';
+        element.style.fontFamily = "'Tajawal', 'Cairo', sans-serif";
+        element.style.fontWeight = 'normal';
+        element.style.textShadow = 'none';
         
         // Apply specific background style
         switch (item.backgroundStyle) {
@@ -947,7 +955,7 @@ class FreeLayerManager {
         this.activeItem = item;
         
         const cardStyle = `
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Tajawal', 'Cairo', sans-serif;
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
@@ -991,7 +999,7 @@ class FreeLayerManager {
                     <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">الأيقونة:</label>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <i class="material-icons" style="font-size: 24px; color: ${item.color};">${item.iconName}</i>
-                        <button id="change-icon-btn" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer;">تغيير</button>
+                        <button id="change-icon-btn" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif;">تغيير</button>
                     </div>
                 </div>
                 <div style="margin-bottom: 12px;">
@@ -1007,11 +1015,11 @@ class FreeLayerManager {
             bodyContent = `
                 <div style="margin-bottom: 12px;">
                     <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">النص:</label>
-                    <textarea id="text-content" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px;">${item.text}</textarea>
+                    <textarea id="text-content" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px; font-family: 'Tajawal', sans-serif;">${item.text}</textarea>
                 </div>
                 <div style="margin-bottom: 12px;">
                     <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">نمط الخلفية:</label>
-                    <select id="text-background" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <select id="text-background" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Tajawal', sans-serif;">
                         <option value="none" ${item.backgroundStyle === 'none' ? 'selected' : ''}>بدون خلفية</option>
                         <option value="white" ${item.backgroundStyle === 'white' ? 'selected' : ''}>مربع أبيض</option>
                         <option value="dark" ${item.backgroundStyle === 'dark' ? 'selected' : ''}>مربع داكن</option>
@@ -1038,9 +1046,9 @@ class FreeLayerManager {
                     ${bodyContent}
                 </div>
                 <div style="${footerStyle}">
-                    <button id="delete-btn" style="padding: 8px 12px; border: none; border-radius: 4px; background-color: #ea4335; color: white; cursor: pointer;">حذف</button>
-                    <button id="cancel-btn" style="padding: 8px 12px; border: none; border-radius: 4px; background-color: #f5f5f5; color: #333; cursor: pointer;">إلغاء</button>
-                    <button id="save-btn" style="padding: 8px 12px; border: none; border-radius: 4px; background-color: #4285f4; color: white; cursor: pointer;">حفظ</button>
+                    <button id="delete-btn" style="padding: 8px 12px; border: none; border-radius: 4px; background-color: #ea4335; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif;">حذف</button>
+                    <button id="cancel-btn" style="padding: 8px 12px; border: none; border-radius: 4px; background-color: #f5f5f5; color: #333; cursor: pointer; font-family: 'Tajawal', sans-serif;">إلغاء</button>
+                    <button id="save-btn" style="padding: 8px 12px; border: none; border-radius: 4px; background-color: #4285f4; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif;">حفظ</button>
                 </div>
             </div>
         `;
@@ -1425,7 +1433,7 @@ class LocationManager {
         const isEditable = !hoverOnly && MAP.editMode;
 
         const cardStyle = `
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Tajawal', 'Cairo', sans-serif;
             background: rgba(255, 255, 255, 0.60);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
@@ -1474,7 +1482,7 @@ class LocationManager {
             border: 1px solid rgba(255, 255, 255, 0.5); 
             background: rgba(255, 255, 255, 0.4); 
             box-sizing: border-box; 
-            font-family: 'Cairo', sans-serif; 
+            font-family: 'Tajawal', 'Cairo', sans-serif; 
             font-size: 13px;
             outline: none;
             color: #222;
@@ -1798,7 +1806,7 @@ class RouteManager {
         const isEditable = !hoverOnly && MAP.editMode;
 
         const cardStyle = `
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Tajawal', 'Cairo', sans-serif;
             background: rgba(30, 30, 30, 0.5); 
             backdrop-filter: blur(12px) saturate(1.5);
             -webkit-backdrop-filter: blur(12px) saturate(1.5);
@@ -1828,26 +1836,26 @@ class RouteManager {
                 </div>
             </div>
             <div style="${bodyStyle}">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-family: 'Cairo', sans-serif;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-family: 'Tajawal', sans-serif;">
                     <span><b>المسافة:</b> ${dist}</span>
                     <span><b>الوقت:</b> ${dur}</span>
                 </div>
                 ${isEditable ? `
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:30px;border:none;border-radius:6px;cursor:pointer;"></div>
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;color:#333;"></div>
+                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:30px;border:none;border-radius:6px;cursor:pointer;"></div>
+                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;color:#333;"></div>
                     </div>
                     <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
                         <input id="route-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
                     </div>
                     <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">ملاحظات:</label>
-                        <textarea id="route-notes" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
+                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">ملاحظات:</label>
+                        <textarea id="route-notes" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
                     </div>
                 ` : `
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Cairo', sans-serif;">ملاحظات:</p>
-                    <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Cairo', sans-serif;">
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Tajawal', sans-serif;">ملاحظات:</p>
+                    <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Tajawal', sans-serif;">
                         ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
                     </div>
                 `}
@@ -2000,7 +2008,7 @@ class PolygonManager {
             // خيار النقر للحذف
             marker.addListener("click", () => {
                 const info = new google.maps.InfoWindow({
-                    content: `<div style="font-family:'Cairo'; padding:5px; text-align:center;">
+                    content: `<div style="font-family:'Tajawal'; padding:5px; text-align:center;">
                                 <button id="btn-del-v-${i}" style="background:#e94235; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px;">حذف النقطة</button>
                               </div>`
                 });
@@ -2068,7 +2076,7 @@ class PolygonManager {
         const areaText = Utils.formatArea(area);
 
         const cardStyle = `
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Tajawal', 'Cairo', sans-serif;
             background: rgba(255, 255, 255, 0.75); 
             backdrop-filter: blur(15px) saturate(1.8);
             -webkit-backdrop-filter: blur(15px) saturate(1.8);
@@ -2098,22 +2106,22 @@ class PolygonManager {
                 </div>
             </div>
             <div style="${bodyStyle}">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px; font-family: 'Cairo', sans-serif;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px; font-family: 'Tajawal', sans-serif;">
                     <span><b>المساحة:</b> ${areaText}</span>
                 </div>
-                ${isEditingShape ? `<p style="margin: 0; color: #555; text-align:center; font-family: 'Cairo', sans-serif;">اسحب النقاط لتعديل الشكل. انقر على الحدود لإضافة نقطة. انقر بزر الماوس الأيمن على نقطة لحذفها.</p>` : 
+                ${isEditingShape ? `<p style="margin: 0; color: #555; text-align:center; font-family: 'Tajawal', sans-serif;">اسحب النقاط لتعديل الشكل. انقر على الحدود لإضافة نقطة. انقر بزر الماوس الأيمن على نقطة لحذفها.</p>` : 
                 (isEditable ? `
-                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">الاسم:</label><input id="poly-name" type="text" value="${Utils.escapeHTML(poly.name)}" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
+                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">الاسم:</label><input id="poly-name" type="text" value="${Utils.escapeHTML(poly.name)}" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">اللون:</label><input id="poly-color" type="color" value="${poly.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;"></div>
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">سماكة الخط:</label><input id="poly-stroke" type="number" value="${poly.strokeWeight}" min="1" max="10" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
+                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">اللون:</label><input id="poly-color" type="color" value="${poly.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;"></div>
+                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">سماكة الخط:</label><input id="poly-stroke" type="number" value="${poly.strokeWeight}" min="1" max="10" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
                     </div>
-                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شفافية الحدود: <span id="poly-stroke-opacity-val">${Math.round(poly.strokeOpacity * 100)}%</span></label><input id="poly-stroke-opacity" type="range" min="0" max="100" value="${Math.round(poly.strokeOpacity * 100)}" style="width:100%;"></div>
-                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">شفافية التعبئة: <span id="poly-fill-opacity-val">${Math.round(poly.fillOpacity * 100)}%</span></label><input id="poly-fill-opacity" type="range" min="0" max="100" value="${Math.round(poly.fillOpacity * 100)}" style="width:100%;"></div>
-                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Cairo', sans-serif;">ملاحظات:</label><textarea id="poly-notes" rows="3" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Cairo', sans-serif; font-size: 14px;">${notes}</textarea></div>
+                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية الحدود: <span id="poly-stroke-opacity-val">${Math.round(poly.strokeOpacity * 100)}%</span></label><input id="poly-stroke-opacity" type="range" min="0" max="100" value="${Math.round(poly.strokeOpacity * 100)}" style="width:100%;"></div>
+                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية التعبئة: <span id="poly-fill-opacity-val">${Math.round(poly.fillOpacity * 100)}%</span></label><input id="poly-fill-opacity" type="range" min="0" max="100" value="${Math.round(poly.fillOpacity * 100)}" style="width:100%;"></div>
+                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">ملاحظات:</label><textarea id="poly-notes" rows="3" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px;">${notes}</textarea></div>
                 ` : `
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #555; font-family: 'Cairo', sans-serif;">ملاحظات:</p>
-                    <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 10px; min-height: 40px; font-size: 14px; line-height: 1.6; font-family: 'Cairo', sans-serif;">
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #555; font-family: 'Tajawal', sans-serif;">ملاحظات:</p>
+                    <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 10px; min-height: 40px; font-size: 14px; line-height: 1.6; font-family: 'Tajawal', sans-serif;">
                         ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
                     </div>
                 `)}
@@ -2382,8 +2390,8 @@ class ShareManager {
         const overlay = document.createElement('div');
         overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;`;
         const dialog = document.createElement('div');
-        dialog.style.cssText = `background: white; border-radius: 12px; padding: 24px; max-width: 90%; width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); text-align: center; direction: rtl;`;
-        dialog.innerHTML = `<h3 style="margin-top: 0; margin-bottom: 16px; color: #333;">انسخ الرابط يدويًا</h3><p style="margin-bottom: 20px; color: #666; line-height: 1.5;">الرجاء الضغط مطولاً على الرابط واختيار "نسخ".</p><textarea readonly style="width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; text-align: center; resize: none; direction: ltr; box-sizing: border-box;">${url}</textarea><button id="manual-copy-close" style="margin-top: 20px; width: 100%; padding: 12px; background-color: #4285f4; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;">إغلاق</button>`;
+        dialog.style.cssText = `background: white; border-radius: 12px; padding: 24px; max-width: 90%; width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); text-align: center; direction: rtl; font-family: 'Tajawal', sans-serif;`;
+        dialog.innerHTML = `<h3 style="margin-top: 0; margin-bottom: 16px; color: #333;">انسخ الرابط يدويًا</h3><p style="margin-bottom: 20px; color: #666; line-height: 1.5;">الرجاء الضغط مطولاً على الرابط واختيار "نسخ".</p><textarea readonly style="width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; text-align: center; resize: none; direction: ltr; box-sizing: border-box; font-family: 'Tajawal', sans-serif;">${url}</textarea><button id="manual-copy-close" style="margin-top: 20px; width: 100%; padding: 12px; background-color: #4285f4; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; font-family: 'Tajawal', sans-serif;">إغلاق</button>`;
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
         document.getElementById('manual-copy-close').addEventListener('click', () => { document.body.removeChild(overlay); });
@@ -2500,7 +2508,7 @@ class MeasureManager {
 
         // عرض النتيجة في نافذة معلومات
         const lastPoint = this.points[this.points.length - 1];
-        let content = `<div style="direction: rtl; font-family: 'Cairo', sans-serif;">`;
+        let content = `<div style="direction: rtl; font-family: 'Tajawal', sans-serif;">`;
         content += `<b>المسافة الإجمالية:</b> ${Utils.formatDistance(distance)}<br>`;
         if (area > 0) {
             content += `<b>المساحة الإجمالية:</b> ${Utils.formatArea(area)}`;
@@ -2876,7 +2884,7 @@ class UIManager {
         this.toastElement.innerHTML = `
             <div style="display:flex;align-items:center;gap:8px;">
                 <img src="${this.logo}" style="width:22px;height:22px;border-radius:6px;opacity:0.9;">
-                <span>${message}</span>
+                <span style="font-family: 'Tajawal', sans-serif;">${message}</span>
             </div>
         `;
         this.toastElement.classList.add("show");
