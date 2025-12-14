@@ -2,12 +2,13 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.3 (Fixed Icons & Free Draw)
-   • إصلاح مشكلة عرض الأيقونات في القائمة
-   • إضافة ميزة تغيير موقع الأيقونة
-   • تقفل وضع الرسم الحر بعد إضافة أيقونة أو نص
-   • إمكانية إعادة تفعيل الرسم الحر بالضغط على الزر
-   • تحسين جودة عرض الأيقونات
+   Diriyah Security Map – v25.5 (Enhanced Routes & Text)
+   • إضافة ميزة حذف المسار بالرقم
+   • إخفاء أرقام المسارات عند المشاركة
+   • إبقاء الأرقام في وضع التحرير فقط
+   • إمكانية إضافة مسار فوق مسار
+   • تحسين النص في الرسم الحر مع دعم Enter
+   • عرض النص بترتيب منظم مع فواصل مناسبة
    ============================================================ */
 
 /*
@@ -210,7 +211,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v25.3 - Fixed Icons & Free Draw");
+        console.log("Boot v25.5 - Enhanced Routes & Text");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
@@ -1008,7 +1009,8 @@ class FreeLayerManager {
         // Apply background style
         this.applyTextBackgroundStyle(textElement, item);
         
-        textElement.innerHTML = item.text;
+        // تحسين عرض النص مع دعم الأسطر المتعددة
+        textElement.innerHTML = this.formatTextDisplay(item.text);
         
         item.marker = new google.maps.marker.AdvancedMarkerElement({
             position: item.position,
@@ -1039,6 +1041,14 @@ class FreeLayerManager {
         }
     }
     
+    // دالة جديدة لتنسيق عرض النص مع الأسطر
+    formatTextDisplay(text) {
+        if (!text) return '';
+        // تقسيم النص إلى أسطر وتنظيم العرض
+        const lines = text.split('\n');
+        return lines.map(line => Utils.escapeHTML(line)).join('<br>');
+    }
+    
     applyTextBackgroundStyle(element, item) {
         // Reset styles
         element.style.padding = '0';
@@ -1051,27 +1061,31 @@ class FreeLayerManager {
         element.style.fontFamily = "'Tajawal', 'Cairo', sans-serif";
         element.style.fontWeight = 'normal';
         element.style.textShadow = 'none';
+        element.style.lineHeight = '1.4'; // تحسين تباعد الأسطر
+        element.style.whiteSpace = 'pre-wrap'; // الحفاظة على المسافات والأسطر
+        element.style.wordBreak = 'break-word'; // كسر الكلمات الطويلة
+        element.style.maxWidth = '300px'; // تحديد أقصى عرض للنص
         
         // Apply specific background style
         switch (item.backgroundStyle) {
             case 'white':
-                element.style.padding = '5px 10px';
-                element.style.borderRadius = '4px';
-                element.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-                element.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+                element.style.padding = '8px 12px';
+                element.style.borderRadius = '8px';
+                element.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                element.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
                 break;
             case 'dark':
-                element.style.padding = '5px 10px';
-                element.style.borderRadius = '4px';
-                element.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                element.style.padding = '8px 12px';
+                element.style.borderRadius = '8px';
+                element.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
                 element.style.color = '#ffffff';
-                element.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
+                element.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
                 break;
             case 'outline':
-                element.style.padding = '3px 8px';
-                element.style.borderRadius = '4px';
+                element.style.padding = '6px 10px';
+                element.style.borderRadius = '6px';
                 element.style.border = `2px solid ${item.textColor}`;
-                element.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
+                element.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
                 break;
             // 'none' is already applied by default
         }
@@ -1082,7 +1096,7 @@ class FreeLayerManager {
         
         const cardStyle = `
             font-family: 'Tajawal', 'Cairo', sans-serif;
-            background: rgba(255, 255, 255, 0.85);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-radius: 16px;
@@ -1091,7 +1105,7 @@ class FreeLayerManager {
             padding: 0;
             color: #333;
             direction: rtl;
-            width: 320px;
+            width: 380px;
             max-width: 95vw;
             max-height: 70vh;
             overflow-y: auto;
@@ -1102,77 +1116,78 @@ class FreeLayerManager {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 16px;
+            padding: 16px 20px;
             background: rgba(255, 255, 255, 0.7);
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         `;
         
-        const bodyStyle = `padding: 16px;`;
+        const bodyStyle = `padding: 20px;`;
         const footerStyle = `
-            padding: 12px 16px;
+            padding: 16px 20px;
             background: rgba(255, 255, 255, 0.7);
             border-top: 1px solid rgba(255, 255, 255, 0.2);
             display: flex;
             justify-content: flex-end;
-            gap: 8px;
+            gap: 10px;
         `;
         
         let bodyContent = '';
         
         if (item.type === 'icon') {
             bodyContent = `
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">الأيقونة:</label>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="material-icons" style="font-size: 24px; color: ${item.color}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;">${item.iconName}</i>
-                        <button id="change-icon-btn" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif;">تغيير</button>
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">الأيقونة:</label>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <i class="material-icons" style="font-size: 28px; color: ${item.color}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;">${item.iconName}</i>
+                        <button id="change-icon-btn" style="padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px;">تغيير</button>
                     </div>
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">اللون:</label>
-                    <input id="icon-color" type="color" value="${item.color}" style="width: 100%; height: 36px; border: none; border-radius: 4px; cursor: pointer;">
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">اللون:</label>
+                    <input id="icon-color" type="color" value="${item.color}" style="width: 100%; height: 40px; border: none; border-radius: 6px; cursor: pointer;">
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">الحجم: <span id="icon-scale-value">${item.scale}x</span></label>
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">الحجم: <span id="icon-scale-value">${item.scale}x</span></label>
                     <input id="icon-scale" type="range" min="0.5" max="3" step="0.1" value="${item.scale}" style="width: 100%;">
                 </div>
                 <!-- إضافة خيار تغيير الموقع -->
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">تغيير الموقع:</label>
-                    <button id="move-icon-btn" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; width: 100%;">
-                        <i class="material-icons" style="vertical-align: middle; margin-left: 5px;">open_with</i>
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">تغيير الموقع:</label>
+                    <button id="move-icon-btn" style="padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; width: 100%;">
+                        <i class="material-icons" style="vertical-align: middle; margin-left: 8px;">open_with</i>
                         انقر هنا ثم انقر على الخريطة لتحديد الموقع الجديد
                     </button>
                 </div>
             `;
         } else if (item.type === 'text') {
             bodyContent = `
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">النص:</label>
-                    <textarea id="text-content" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px; font-family: 'Tajawal', sans-serif;">${item.text}</textarea>
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">النص:</label>
+                    <textarea id="text-content" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; min-height: 100px; font-family: 'Tajawal', sans-serif; font-size: 14px; line-height: 1.5;">${item.text}</textarea>
+                    <div style="font-size: 12px; color: #666; margin-top: 4px;">ملاحظة: اضغط Enter للانتقال لسطر جديد</div>
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">نمط الخلفية:</label>
-                    <select id="text-background" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Tajawal', sans-serif;">
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">نمط الخلفية:</label>
+                    <select id="text-background" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: 'Tajawal', sans-serif; font-size: 14px;">
                         <option value="none" ${item.backgroundStyle === 'none' ? 'selected' : ''}>بدون خلفية</option>
                         <option value="white" ${item.backgroundStyle === 'white' ? 'selected' : ''}>مربع أبيض</option>
                         <option value="dark" ${item.backgroundStyle === 'dark' ? 'selected' : ''}>مربع داكن</option>
                         <option value="outline" ${item.backgroundStyle === 'outline' ? 'selected' : ''}>إطار</option>
                     </select>
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">لون النص:</label>
-                    <input id="text-color" type="color" value="${item.textColor}" style="width: 100%; height: 36px; border: none; border-radius: 4px; cursor: pointer;">
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">لون النص:</label>
+                    <input id="text-color" type="color" value="${item.textColor}" style="width: 100%; height: 40px; border: none; border-radius: 6px; cursor: pointer;">
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">حجم الخط: <span id="text-size-value">${item.fontSize}px</span></label>
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">حجم الخط: <span id="text-size-value">${item.fontSize}px</span></label>
                     <input id="text-size" type="range" min="12" max="36" step="1" value="${item.fontSize}" style="width: 100%;">
                 </div>
                 <!-- إضافة خيار تغيير الموقع -->
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">تغيير الموقع:</label>
-                    <button id="move-text-btn" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; width: 100%;">
-                        <i class="material-icons" style="vertical-align: middle; margin-left: 5px;">open_with</i>
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">تغيير الموقع:</label>
+                    <button id="move-text-btn" style="padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; width: 100%;">
+                        <i class="material-icons" style="vertical-align: middle; margin-left: 8px;">open_with</i>
                         انقر هنا ثم انقر على الخريطة لتحديد الموقع الجديد
                     </button>
                 </div>
@@ -1182,15 +1197,15 @@ class FreeLayerManager {
         const html = `
             <div style="${cardStyle}" class="free-draw-edit-card">
                 <div style="${headerStyle}">
-                    <h3 style="margin: 0; font-size: 16px;">${item.type === 'icon' ? 'تعديل الأيقونة' : 'تعديل النص'}</h3>
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 700;">${item.type === 'icon' ? 'تعديل الأيقونة' : 'تعديل النص'}</h3>
                 </div>
                 <div style="${bodyStyle}">
                     ${bodyContent}
                 </div>
                 <div style="${footerStyle}">
-                    <button id="delete-btn" style="padding: 8px 12px; border: none; border-radius: 4px; background-color: #ea4335; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif;">حذف</button>
-                    <button id="cancel-btn" style="padding: 8px 12px; border: none; border-radius: 4px; background-color: #f5f5f5; color: #333; cursor: pointer; font-family: 'Tajawal', sans-serif;">إلغاء</button>
-                    <button id="save-btn" style="padding: 8px 12px; border: none; border-radius: 4px; background-color: #4285f4; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif;">حفظ</button>
+                    <button id="delete-btn" style="padding: 10px 20px; border: none; border-radius: 8px; background-color: #ea4335; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;">حذف</button>
+                    <button id="cancel-btn" style="padding: 10px 20px; border: none; border-radius: 8px; background-color: #f5f5f5; color: #333; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;">إلغاء</button>
+                    <button id="save-btn" style="padding: 10px 20px; border: none; border-radius: 8px; background-color: #4285f4; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;">حفظ</button>
                 </div>
             </div>
         `;
@@ -1243,12 +1258,12 @@ class FreeLayerManager {
                     UI.forceCloseSharedInfoCard();
                     MAP.setCursor("crosshair");
                     
-                    // Create a one-time click listener to update the position
+                    // Create a one-time click listener to update position
                     const moveListener = this.map.addListener("click", (e) => {
-                        // Remove the listener after first click
+                        // Remove listener after first click
                         google.maps.event.removeListener(moveListener);
                         
-                        // Update the item position
+                        // Update item position
                         item.position = e.latLng;
                         item.marker.position = e.latLng;
                         
@@ -1293,17 +1308,32 @@ class FreeLayerManager {
             const sizeValue = document.getElementById("text-size-value");
             const moveTextBtn = document.getElementById("move-text-btn");
             
+            // إضافة دعم Enter للنص
+            if (textInput) {
+                textInput.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                        // السماح بإنشاء سطر جديد عند الضغط على Enter
+                        e.preventDefault();
+                        const start = textInput.selectionStart;
+                        const end = textInput.selectionEnd;
+                        const value = textInput.value;
+                        textInput.value = value.substring(0, start) + "\n" + value.substring(end);
+                        textInput.selectionStart = textInput.selectionEnd = start + 1;
+                    }
+                });
+            }
+            
             if (moveTextBtn) {
                 moveTextBtn.addEventListener("click", () => {
                     UI.forceCloseSharedInfoCard();
                     MAP.setCursor("crosshair");
                     
-                    // Create a one-time click listener to update the position
+                    // Create a one-time click listener to update position
                     const moveListener = this.map.addListener("click", (e) => {
-                        // Remove the listener after first click
+                        // Remove listener after first click
                         google.maps.event.removeListener(moveListener);
                         
-                        // Update the item position
+                        // Update item position
                         item.position = e.latLng;
                         item.marker.position = e.latLng;
                         
@@ -1353,7 +1383,7 @@ class FreeLayerManager {
     updateTextMarker(item) {
         const textElement = item.marker.content;
         this.applyTextBackgroundStyle(textElement, item);
-        textElement.innerHTML = item.text;
+        textElement.innerHTML = this.formatTextDisplay(item.text);
     }
     
     deleteItem(item) {
@@ -1888,7 +1918,7 @@ const LOCATIONS = new LocationManager();
 /*
 ============================================================
    RouteManager
-— إدارة المسارات + بطاقات Glass
+— إدارة المسارات + بطاقات Glass (مع إدارة الأرقام)
   ============================================================ */
 class RouteManager {
 
@@ -1899,11 +1929,13 @@ class RouteManager {
         this.editMode = true;
         this.directionsService = null;
         this.activeRouteIndex = -1;
+        this.showNumbers = true; // التحكم في عرض أرقام المسارات
 
         bus.on("map:ready", map => {
             this.map = map;
             this.shareMode = MAP.shareMode;
             this.editMode = MAP.editMode;
+            this.showNumbers = !this.shareMode; // إخفاء الأرقام في وضع المشاركة
             this.onMapReady();
         });
 
@@ -1919,7 +1951,11 @@ class RouteManager {
         });
     }
 
-    startNewRouteSequence() { this.activeRouteIndex = -1; }
+    startNewRouteSequence() { 
+        this.activeRouteIndex = -1; 
+        MAP.modeRouteAdd = true;
+    }
+    
     finishCurrentRoute() {
         if (this.activeRouteIndex === -1) return;
         const rt = this.routes[this.activeRouteIndex];
@@ -1937,7 +1973,20 @@ class RouteManager {
     }
 
     createNewRoute() {
-        const route = { id: "rt" + Date.now(), points: [], color: "#3344ff", weight: 6, opacity: 0.95, distance: 0, duration: 0, overview: null, poly: null, stops: [], notes: "" };
+        const route = { 
+            id: "rt" + Date.now(), 
+            points: [], 
+            color: "#3344ff", 
+            weight: 6, 
+            opacity: 0.95, 
+            distance: 0, 
+            duration: 0, 
+            overview: null, 
+            poly: null, 
+            stops: [], 
+            notes: "",
+            routeNumber: this.routes.length + 1 // إضافة رقم المسار
+        };
         this.routes.push(route);
         this.activeRouteIndex = this.routes.length - 1;
         return route;
@@ -1955,22 +2004,73 @@ class RouteManager {
     createStopMarker(pos, routeIndex, idx) {
         const rt = this.routes[routeIndex];
         const el = document.createElement("div");
-        el.style.cssText = `width:22px; height:22px; background:white; border-radius:50%; border:2px solid ${rt.color}; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; z-index:101;`;
-        el.textContent = idx + 1;
-        const marker = new google.maps.marker.AdvancedMarkerElement({ position: pos, map: this.map, content: el, gmpDraggable: !this.shareMode });
-        marker.addListener("dragend", () => { rt.points[idx] = marker.position; this.requestRoute(routeIndex); bus.emit("persist"); });
-        marker.addListener("contextmenu", () => { if (this.shareMode) return; this.removePoint(routeIndex, idx); });
+        
+        // عرض رقم المسار فقط في وضع التحرير
+        const displayNumber = this.showNumbers ? `${rt.routeNumber}.${idx + 1}` : `${idx + 1}`;
+        
+        el.style.cssText = `
+            width:26px; 
+            height:26px; 
+            background:white; 
+            border-radius:50%; 
+            border:3px solid ${rt.color}; 
+            display:flex; 
+            align-items:center; 
+            justify-content:center; 
+            font-size:11px; 
+            font-weight:bold; 
+            z-index:101;
+            font-family: 'Tajawal', sans-serif;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        `;
+        el.textContent = displayNumber;
+        
+        const marker = new google.maps.marker.AdvancedMarkerElement({ 
+            position: pos, 
+            map: this.map, 
+            content: el, 
+            gmpDraggable: !this.shareMode 
+        });
+        marker.addListener("dragend", () => { 
+            rt.points[idx] = marker.position; 
+            this.requestRoute(routeIndex); 
+            bus.emit("persist"); 
+        });
+        marker.addListener("contextmenu", () => { 
+            if (this.shareMode) return; 
+            this.removePoint(routeIndex, idx); 
+        });
         return marker;
     }
 
     removePoint(routeIndex, idx) {
         const rt = this.routes[routeIndex];
         if (rt.stops[idx]) rt.stops[idx].map = null;
-        rt.points.splice(idx, 1); rt.stops.splice(idx, 1);
-        rt.stops.forEach((m, i) => { m.content.textContent = i + 1; });
+        rt.points.splice(idx, 1); 
+        rt.stops.splice(idx, 1);
+        rt.stops.forEach((m, i) => { 
+            const displayNumber = this.showNumbers ? `${rt.routeNumber}.${i + 1}` : `${i + 1}`;
+            m.content.textContent = displayNumber;
+        });
         if (rt.points.length >= 2) this.requestRoute(routeIndex);
         else this.clearRoute(routeIndex);
         bus.emit("persist");
+    }
+
+    // دالة جديدة لحذف مسار بالرقم
+    deleteRouteByNumber(routeNumber) {
+        const routeIndex = this.routes.findIndex(rt => rt.routeNumber === routeNumber);
+        if (routeIndex !== -1) {
+            this.removeRoute(routeIndex);
+            bus.emit("toast", `تم حذف المسار رقم ${routeNumber}`);
+            return true;
+        }
+        return false;
+    }
+
+    // الحصول على قائمة أرقام المسارات
+    getRouteNumbers() {
+        return this.routes.map(rt => rt.routeNumber);
     }
 
     removeRoute(routeIndex) {
@@ -1978,6 +2078,17 @@ class RouteManager {
         if (rt.poly) rt.poly.setMap(null);
         rt.stops.forEach(s => s.map = null);
         this.routes.splice(routeIndex, 1);
+        
+        // إعادة ترقيم المسارات المتبقية
+        this.routes.forEach((route, index) => {
+            route.routeNumber = index + 1;
+            // تحديث أرقام النقاط
+            route.stops.forEach((stop, stopIndex) => {
+                const displayNumber = this.showNumbers ? `${route.routeNumber}.${stopIndex + 1}` : `${stopIndex + 1}`;
+                stop.content.textContent = displayNumber;
+            });
+        });
+        
         this.activeRouteIndex = -1;
         UI.forceCloseSharedInfoCard();
         bus.emit("persist");
@@ -2010,7 +2121,14 @@ class RouteManager {
         const rt = this.routes[routeIndex];
         if (rt.poly) rt.poly.setMap(null);
         const path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points;
-        rt.poly = new google.maps.Polyline({ map: this.map, path, strokeColor: rt.color, strokeWeight: rt.weight, strokeOpacity: rt.opacity, zIndex: 10 });
+        rt.poly = new google.maps.Polyline({ 
+            map: this.map, 
+            path, 
+            strokeColor: rt.color, 
+            strokeWeight: rt.weight, 
+            strokeOpacity: rt.opacity, 
+            zIndex: 10 
+        });
         
         rt.poly.addListener("mouseover", (e) => { 
             if (!UI.infoWindowPinned) this.openRouteCard(routeIndex, true, e.latLng);
@@ -2037,7 +2155,7 @@ class RouteManager {
             color: #f0f0f0;
             direction: rtl;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            width: 380px;
+            width: 400px;
             max-width: 95vw;
             max-height: 70vh;
             overflow-y: auto;
@@ -2053,7 +2171,7 @@ class RouteManager {
             <div style="${headerStyle}">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <img src="img/logo.png" style="width: 30px; height: 30px; border-radius: 6px;">
-                    <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;">معلومات المسار ${routeIndex + 1}</h3>
+                    <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;">مسار رقم ${rt.routeNumber}</h3>
                 </div>
             </div>
             <div style="${bodyStyle}">
@@ -2074,6 +2192,15 @@ class RouteManager {
                         <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">ملاحظات:</label>
                         <textarea id="route-notes" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
                     </div>
+                    <div style="margin-bottom:14px; background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px;">
+                        <label style="font-size:12px; display:block; margin-bottom:8px; font-family: 'Tajawal', sans-serif; font-weight: bold;">إدارة المسارات:</label>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button id="delete-route-btn" style="padding: 6px 12px; border: none; border-radius: 6px; background: #e94235; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 13px;">
+                                <i class="material-icons" style="font-size: 16px; vertical-align: middle; margin-left: 4px;">delete</i>
+                                حذف هذا المسار
+                            </button>
+                        </div>
+                    </div>
                 ` : `
                     <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Tajawal', sans-serif;">ملاحظات:</p>
                     <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Tajawal', sans-serif;">
@@ -2085,7 +2212,6 @@ class RouteManager {
                 <div style="${footerStyle}">
                     <div style="display:flex;gap:8px; flex-wrap: wrap;">
                         <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 90px; font-size: 14px;">حفظ</button>
-                        <button id="route-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">حذف</button>
                         <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">إغلاق</button>
                     </div>
                 </div>
@@ -2107,37 +2233,106 @@ class RouteManager {
     attachRouteCardEvents(routeIndex, hoverOnly) {
         if (hoverOnly || !MAP.editMode) return;
         const rt = this.routes[routeIndex];
-        const saveBtn = document.getElementById("route-save"); const delBtn = document.getElementById("route-delete"); const closeBtn = document.getElementById("route-close");
-        const colEl = document.getElementById("route-color"); const weightEl = document.getElementById("route-weight");
-        const opEl = document.getElementById("route-opacity"); const opValEl = document.getElementById("route-opacity-val"); const notesEl = document.getElementById("route-notes");
+        const saveBtn = document.getElementById("route-save"); 
+        const closeBtn = document.getElementById("route-close");
+        const deleteBtn = document.getElementById("delete-route-btn");
+        const colEl = document.getElementById("route-color"); 
+        const weightEl = document.getElementById("route-weight");
+        const opEl = document.getElementById("route-opacity"); 
+        const opValEl = document.getElementById("route-opacity-val"); 
+        const notesEl = document.getElementById("route-notes");
+        
         if (opEl) { opEl.addEventListener("input", () => { if (opValEl) opValEl.textContent = opEl.value + "%"; }); }
-        if (saveBtn) {
-            saveBtn.addEventListener("click", () => {
-                rt.color = colEl.value; rt.weight = Utils.clamp(+weightEl.value, 1, 20); rt.opacity = Utils.clamp(+opEl.value, 0, 100) / 100; rt.notes = notesEl.value.trim();
-                rt.poly.setOptions({ strokeColor: rt.color, strokeWeight: rt.weight, strokeOpacity: rt.opacity });
-                bus.emit("persist"); UI.forceCloseSharedInfoCard(); bus.emit("toast", "تم حفظ تعديلات المسار");
+        
+        if (deleteBtn) {
+            deleteBtn.addEventListener("click", () => {
+                if (confirm(`هل أنت متأكد من حذف المسار رقم ${rt.routeNumber}؟`)) {
+                    this.removeRoute(routeIndex);
+                    bus.emit("toast", "تم حذف المسار");
+                }
             });
         }
-        if (delBtn) { delBtn.addEventListener("click", () => { if (!confirm(`حذف المسار ${routeIndex + 1}؟`))return; this.removeRoute(routeIndex); bus.emit("toast", "تم حذف المسار"); }); }
-        if (closeBtn) { closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); }); }
+        
+        if (saveBtn) {
+            saveBtn.addEventListener("click", () => {
+                rt.color = colEl.value; 
+                rt.weight = Utils.clamp(+weightEl.value, 1, 20); 
+                rt.opacity = Utils.clamp(+opEl.value, 0, 100) / 100; 
+                rt.notes = notesEl.value.trim();
+                rt.poly.setOptions({ 
+                    strokeColor: rt.color, 
+                    strokeWeight: rt.weight, 
+                    strokeOpacity: rt.opacity 
+                });
+                bus.emit("persist"); 
+                UI.forceCloseSharedInfoCard(); 
+                bus.emit("toast", "تم حفظ تعديلات المسار");
+            });
+        }
+        if (closeBtn) { 
+            closeBtn.addEventListener("click", () => { 
+                UI.forceCloseSharedInfoCard(); 
+            }); 
+        }
     }
    
     exportState() {
         return this.routes.map(rt => ({
-            id: rt.id, color: rt.color, weight: rt.weight, opacity: rt.opacity, distance: rt.distance, duration: rt.duration, overview: rt.overview, notes: rt.notes,
-            points: rt.points.map(p => ({ lat: typeof p.lat === 'function' ? p.lat() : p.lat, lng: typeof p.lng === 'function' ? p.lng() : p.lng }))
+            id: rt.id, 
+            routeNumber: rt.routeNumber,
+            color: rt.color, 
+            weight: rt.weight, 
+            opacity: rt.opacity, 
+            distance: rt.distance, 
+            duration: rt.duration, 
+            overview: rt.overview, 
+            notes: rt.notes,
+            points: rt.points.map(p => ({ 
+                lat: typeof p.lat === 'function' ? p.lat() : p.lat, 
+                lng: typeof p.lng === 'function' ? p.lng() : p.lng 
+            }))
         }));
     }
 
     applyState(state) {
         if (!state || !state.routes) return;
-        this.routes.forEach(rt => { if (rt.poly) rt.poly.setMap(null); rt.stops.forEach(s => s.map = null); });
+        this.routes.forEach(rt => { 
+            if (rt.poly) rt.poly.setMap(null); 
+            rt.stops.forEach(s => s.map = null); 
+        });
         this.routes = [];
         state.routes.forEach(rt => {
-            const newRoute = { id: rt.id, color: rt.color, weight: rt.weight, opacity: rt.opacity, distance: rt.distance, duration: rt.duration, overview: rt.overview, notes: rt.notes || "", points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)), poly: null, stops: [] };
+            const newRoute = { 
+                id: rt.id, 
+                routeNumber: rt.routeNumber || (this.routes.length + 1),
+                color: rt.color, 
+                weight: rt.weight, 
+                opacity: rt.opacity, 
+                distance: rt.distance, 
+                duration: rt.duration, 
+                overview: rt.overview, 
+                notes: rt.notes || "", 
+                points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)), 
+                poly: null, 
+                stops: [] 
+            };
             this.routes.push(newRoute);
-            newRoute.points.forEach((pt, i) => { const stop = this.createStopMarker(pt, this.routes.length - 1, i); newRoute.stops.push(stop); });
+            newRoute.points.forEach((pt, i) => { 
+                const stop = this.createStopMarker(pt, this.routes.length - 1, i); 
+                newRoute.stops.push(stop); 
+            });
             this.renderRoute(this.routes.length - 1);
+        });
+    }
+
+    // دالة لتحديث عرض الأرقام
+    updateNumbersVisibility() {
+        this.showNumbers = !this.shareMode;
+        this.routes.forEach(rt => {
+            rt.stops.forEach((stop, index) => {
+                const displayNumber = this.showNumbers ? `${rt.routeNumber}.${index + 1}` : `${index + 1}`;
+                stop.content.textContent = displayNumber;
+            });
         });
     }
 }
@@ -3730,7 +3925,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v25.3 - Fixed Icons & Free Draw");
+        console.log("Diriyah Security Map v25.5 - Enhanced Routes & Text");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
