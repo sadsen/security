@@ -2,7 +2,11 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.1 (Enhanced Share System)
+   Diriyah Security Map – v25.2 (Enhanced Icons System)
+   • إصلاح مشكلة عرض الأيقونات في وضع الرسم الحر
+   • تحسين جودة ودقة عرض الأيقونات
+   • زيادة عدد الأيقونات المتاحة (دورية أمنية، رجل أمن، قمع مروري)
+   • تحسين واجهة اختيار الأيقونات
    • إصلاح مشكلة المشاركة والنسخ
    • إضافة واجهة مستخدم محسّنة للمشاركة
    • دعم خدمات تقصير الروابط المتعددة
@@ -211,7 +215,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v25.1 - Enhanced Share System");
+        console.log("Boot v25.2 - Enhanced Icons System");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
@@ -383,9 +387,20 @@ class IconPickerModal {
             transport: ['directions_car', 'directions_bus', 'directions_bike', 'local_shipping', 'local_taxi', 'flight', 'train', 'directions_boat', 'electric_car', 'scooter', 'motorcycle'],
             crisis: ['warning', 'report_problem', 'gpp_maybe', 'local_fire_department', 'local_hospital', 'health_and_safety', 'emergency', 'crisis_alert', 'siren', 'priority_high'],
             signs: ['add_location', 'location_on', 'push_pin', 'flag', 'bookmark', 'label', 'tag', 'sell', 'traffic', 'detour', 'fence', 'do_not_enter', 'stop', 'yield', 'no_parking', 'handicap'],
-            security: ['security', 'local_police', 'gpp_good', 'gpp_bad', 'policy', 'verified_user', 'shield', 'lock', 'lock_open', 'vpn_key', 'privacy_tip'],
-            traffic: ['traffic', 'traffic_jam', 'add_road', 'add_road_sharp', 'do_not_step', 'crossing', 'traffic_light', 'roundabout', 'merge', 'lane_change', 'turn_left', 'turn_right', 'u_turn'],
-            roads: ['add_road', 'fork_right', 'fork_left', 't_junction', 'roundabout', 'straight', 'curved_road', 'intersection', 'highway', 'expressway']
+            security: ['security', 'local_police', 'gpp_good', 'gpp_bad', 'policy', 'verified_user', 'shield', 'lock', 'lock_open', 'vpn_key', 'privacy_tip', 'admin_panel_settings', 'military_tech', 'personal_injury', 'health_and_safety', 'coronavirus', 'local_police', 'local_fire_department', 'emergency'],
+            traffic: ['traffic', 'traffic_jam', 'add_road', 'add_road_sharp', 'do_not_step', 'crossing', 'traffic_light', 'roundabout', 'merge', 'lane_change', 'turn_left', 'turn_right', 'u_turn', 'directions', 'directions_car', 'directions_bike', 'directions_walk', 'signpost', 'toll', 'not_listed_location', 'no_photography', 'no_stroller', 'no_cell', 'pedal_bike'],
+            roads: ['add_road', 'fork_right', 'fork_left', 't_junction', 'roundabout', 'straight', 'curved_road', 'intersection', 'highway', 'expressway'],
+            police: ['local_police', 'military_tech', 'security', 'gpp_good', 'gpp_bad', 'admin_panel_settings', 'verified_user', 'policy', 'shield', 'lock', 'lock_open', 'vpn_key', 'privacy_tip', 'emergency', 'health_and_safety', 'crisis_alert', 'warning', 'report_problem'],
+            // فئة جديدة للدوريات الأمنية
+            patrol: ['directions_car', 'local_shipping', 'local_taxi', 'security', 'local_police', 'military_tech', 'emergency', 'directions', 'directions_run', 'motorcycle', 'scooter', 'electric_car'],
+            // فئة جديدة لإشارات المرور
+            traffic_signs: ['add_road', 'do_not_step', 'crossing', 'traffic_light', 'roundabout', 'merge', 'lane_change', 'turn_left', 'turn_right', 'u_turn', 'signpost', 'toll', 'not_listed_location', 'no_photography', 'no_stroller', 'no_cell', 'pedal_bike', 'no_parking', 'do_not_enter', 'stop', 'yield'],
+            // فئة جديدة لقمع المرور
+            traffic_control: ['gavel', 'block', 'not_interested', 'do_not_disturb', 'do_not_disturb_on', 'do_not_disturb_alt', 'do_not_disturb_off', 'pan_tool', 'pan_tool_alt', 'back_hand', 'front_hand', 'waving_hand', 'raised_hand', 'thumb_up', 'thumb_down', 'thumb_up_off_alt', 'thumb_down_off_alt'],
+            // فئة جديدة للمركبات الأمنية
+            security_vehicles: ['directions_car', 'local_shipping', 'local_taxi', 'airport_shuttle', 'rv_hookup', 'car_rental', 'two_wheeler', 'motorcycle', 'electric_car', 'electric_moped', 'electric_scooter'],
+            // فئة جديدة للمعدات الأمنية
+            security_equipment: ['videocam', 'photo_camera', 'camera', 'camera_alt', 'camera_enhance', 'camera_indoor', 'camera_outdoor', 'camera_rear', 'switch_video', 'videocam_off', 'photo_camera_back', 'photo_camera_front', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'add_photo_alternate', 'add_a_photo', 'image', 'image_search', 'image_not_supported', 'broken_image', 'filter', 'filter_b_and_w', 'filter_center_focus', 'filter_drama', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage', 'blur_circular', 'blur_linear', 'blur_on', 'blur_off', 'flare', 'flash_on', 'flash_off', 'flash_auto', 'highlight', 'gradient', 'tonality', 'texture', 'grain', 'vignette', 'center_focus_strong', 'center_focus_weak', 'center_focus', 'panorama', 'panorama_fish_eye', 'panorama_horizontal', 'panorama_vertical', 'panorama_wide_angle', 'photo', 'photo_library', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'slideshow', 'switch_camera', 'switch_video', 'timelapse', 'timer', 'timer_10', 'timer_3', 'timer_off', 'camera', 'camera_alt', 'camera_enhance', 'camera_front', 'camera_rear', 'camera_roll', 'camera_indoor', 'camera_outdoor', 'add_a_photo', 'add_photo_alternate', 'image', 'image_search', 'image_not_supported', 'broken_image', 'filter', 'filter_b_and_w', 'filter_center_focus', 'filter_drama', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage', 'blur_circular', 'blur_linear', 'blur_on', 'blur_off', 'flare', 'flash_on', 'flash_off', 'flash_auto', 'highlight', 'gradient', 'tonality', 'texture', 'grain', 'vignette', 'center_focus_strong', 'center_focus_weak', 'center_focus', 'panorama', 'panorama_fish_eye', 'panorama_horizontal', 'panorama_vertical', 'panorama_wide_angle', 'photo', 'photo_library', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'slideshow', 'switch_camera', 'switch_video', 'timelapse', 'timer', 'timer_10', 'timer_3', 'timer_off']
         };
         
         this.initModal();
@@ -447,7 +462,13 @@ class IconPickerModal {
                 signs: 'اللافتات',
                 security: 'الأمن',
                 traffic: 'المرور',
-                roads: 'الطرق'
+                roads: 'الطرق',
+                police: 'الشرطة',
+                patrol: 'الدوريات',
+                traffic_signs: 'إشارات المرور',
+                traffic_control: 'قمع المرور',
+                security_vehicles: 'المركبات الأمنية',
+                security_equipment: 'المعدات الأمنية'
             };
             
             button.textContent = categoryLabels[category];
@@ -609,6 +630,10 @@ class IconPickerModal {
             .icon-picker-icon {
                 font-size: 24px;
                 margin-bottom: 5px;
+                /* تحسين جودة عرض الأيقونات */
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+                text-rendering: optimizeLegibility;
             }
             
             .icon-picker-name {
@@ -915,7 +940,8 @@ class FreeLayerManager {
     createIconMarker(item) {
         const iconElement = document.createElement('div');
         iconElement.className = 'free-draw-icon';
-        iconElement.innerHTML = `<i class="material-icons" style="color: ${item.color}; font-size: ${24 * item.scale}px;">${item.iconName}</i>`;
+        // تحسين جودة عرض الأيقونة
+        iconElement.innerHTML = `<i class="material-icons" style="color: ${item.color}; font-size: ${24 * item.scale}px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;">${item.iconName}</i>`;
         
         item.marker = new google.maps.marker.AdvancedMarkerElement({
             position: item.position,
@@ -1090,7 +1116,7 @@ class FreeLayerManager {
                 <div style="margin-bottom: 12px;">
                     <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">الأيقونة:</label>
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="material-icons" style="font-size: 24px; color: ${item.color};">${item.iconName}</i>
+                        <i class="material-icons" style="font-size: 24px; color: ${item.color}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;">${item.iconName}</i>
                         <button id="change-icon-btn" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif;">تغيير</button>
                     </div>
                 </div>
@@ -1236,7 +1262,8 @@ class FreeLayerManager {
     
     updateIconMarker(item) {
         const iconElement = item.marker.content;
-        iconElement.innerHTML = `<i class="material-icons" style="color: ${item.color}; font-size: ${24 * item.scale}px;">${item.iconName}</i>`;
+        // تحسين جودة عرض الأيقونة عند التحديث
+        iconElement.innerHTML = `<i class="material-icons" style="color: ${item.color}; font-size: ${24 * item.scale}px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;">${item.iconName}</i>`;
     }
     
     updateTextMarker(item) {
@@ -1483,8 +1510,12 @@ class LocationManager {
             const iconEl = document.createElement("i");
             iconEl.className = 'material-icons';
             iconEl.textContent = this.availableIcons.find(icon => icon.value === data.iconType)?.label.split(' ')[0] || 'place';
+            // تحسين جودة عرض الأيقونة
             iconEl.style.color = 'white';
             iconEl.style.fontSize = '20px';
+            iconEl.style.webkitFontSmoothing = 'antialiased';
+            iconEl.style.mozOsxFontSmoothing = 'grayscale';
+            iconEl.style.textRendering = 'optimizeLegibility';
 
             markerContent = document.createElement("div");
             markerContent.style.cssText = `
@@ -2634,7 +2665,7 @@ class ShareManager {
                     <span>WhatsApp</span>
                 </button>
                 <button class="social-btn" data-platform="twitter">
-                    <i class="media-icons">alternate_email</i>
+                    <i class="material-icons">alternate_email</i>
                     <span>Twitter</span>
                 </button>
                 <button class="social-btn" data-platform="facebook">
@@ -3611,7 +3642,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v25.1 — Enhanced Share System");
+        console.log("Diriyah Security Map v25.2 — Enhanced Icons System");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
