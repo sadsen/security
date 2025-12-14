@@ -2,17 +2,12 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.2 (Enhanced Icons System)
-   • إصلاح مشكلة عرض الأيقونات في وضع الرسم الحر
-   • تحسين جودة ودقة عرض الأيقونات
-   • زيادة عدد الأيقونات المتاحة (دورية أمنية، رجل أمن، قمع مروري)
-   • تحسين واجهة اختيار الأيقونات
-   • إصلاح مشكلة المشاركة والنسخ
-   • إضافة واجهة مستخدم محسّنة للمشاركة
-   • دعم خدمات تقصير الروابط المتعددة
-   • تحسين تجربة النسخ للمستخدم
-   • إضافة خيارات المشاركة الاجتماعية
-   • إصلاح مشكلة استمرارية وضع التحرير
+   Diriyah Security Map – v25.3 (Fixed Icons & Free Draw)
+   • إصلاح مشكلة عرض الأيقونات في القائمة
+   • إضافة ميزة تغيير موقع الأيقونة
+   • تقفل وضع الرسم الحر بعد إضافة أيقونة أو نص
+   • إمكانية إعادة تفعيل الرسم الحر بالضغط على الزر
+   • تحسين جودة عرض الأيقونات
    ============================================================ */
 
 /*
@@ -215,7 +210,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v25.2 - Enhanced Icons System");
+        console.log("Boot v25.3 - Fixed Icons & Free Draw");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
@@ -634,6 +629,11 @@ class IconPickerModal {
                 -webkit-font-smoothing: antialiased;
                 -moz-osx-font-smoothing: grayscale;
                 text-rendering: optimizeLegibility;
+                /* إصلاح مشكلة عدم عرض بعض الأيقونات */
+                display: inline-block;
+                width: 24px;
+                height: 24px;
+                line-height: 1;
             }
             
             .icon-picker-name {
@@ -934,6 +934,10 @@ class FreeLayerManager {
             this.items.push(item);
             bus.emit("persist");
             bus.emit("toast", "تمت إضافة أيقونة");
+            
+            // إصلاح: تقفل وضع الرسم الحر بعد إضافة أيقونة
+            MAP.modeFreeDraw = false;
+            UI.setActiveMode('default');
         });
     }
     
@@ -991,6 +995,10 @@ class FreeLayerManager {
         
         bus.emit("persist");
         bus.emit("toast", "تمت إضافة نص");
+        
+        // إصلاح: تقفل وضع الرسم الحر بعد إضافة نص
+        MAP.modeFreeDraw = false;
+        UI.setActiveMode('default');
     }
     
     createTextMarker(item) {
@@ -1128,6 +1136,14 @@ class FreeLayerManager {
                     <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">الحجم: <span id="icon-scale-value">${item.scale}x</span></label>
                     <input id="icon-scale" type="range" min="0.5" max="3" step="0.1" value="${item.scale}" style="width: 100%;">
                 </div>
+                <!-- إضافة خيار تغيير الموقع -->
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">تغيير الموقع:</label>
+                    <button id="move-icon-btn" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; width: 100%;">
+                        <i class="material-icons" style="vertical-align: middle; margin-left: 5px;">open_with</i>
+                        انقر هنا ثم انقر على الخريطة لتحديد الموقع الجديد
+                    </button>
+                </div>
             `;
         } else if (item.type === 'text') {
             bodyContent = `
@@ -1151,6 +1167,14 @@ class FreeLayerManager {
                 <div style="margin-bottom: 12px;">
                     <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">حجم الخط: <span id="text-size-value">${item.fontSize}px</span></label>
                     <input id="text-size" type="range" min="12" max="36" step="1" value="${item.fontSize}" style="width: 100%;">
+                </div>
+                <!-- إضافة خيار تغيير الموقع -->
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px; font-weight: bold;">تغيير الموقع:</label>
+                    <button id="move-text-btn" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; width: 100%;">
+                        <i class="material-icons" style="vertical-align: middle; margin-left: 5px;">open_with</i>
+                        انقر هنا ثم انقر على الخريطة لتحديد الموقع الجديد
+                    </button>
                 </div>
             `;
         }
@@ -1203,12 +1227,42 @@ class FreeLayerManager {
             const colorInput = document.getElementById("icon-color");
             const scaleInput = document.getElementById("icon-scale");
             const scaleValue = document.getElementById("icon-scale-value");
+            const moveIconBtn = document.getElementById("move-icon-btn");
             
             if (changeIconBtn) {
                 changeIconBtn.addEventListener("click", () => {
                     this.iconPicker.show((iconName) => {
                         item.iconName = iconName;
                         this.updateIconMarker(item);
+                    });
+                });
+            }
+            
+            if (moveIconBtn) {
+                moveIconBtn.addEventListener("click", () => {
+                    UI.forceCloseSharedInfoCard();
+                    MAP.setCursor("crosshair");
+                    
+                    // Create a one-time click listener to update the position
+                    const moveListener = this.map.addListener("click", (e) => {
+                        // Remove the listener after first click
+                        google.maps.event.removeListener(moveListener);
+                        
+                        // Update the item position
+                        item.position = e.latLng;
+                        item.marker.position = e.latLng;
+                        
+                        // Reset cursor
+                        MAP.setCursor("grab");
+                        
+                        // Save changes
+                        bus.emit("persist");
+                        
+                        // Show toast
+                        bus.emit("toast", "تم تغيير موقع الأيقونة");
+                        
+                        // Reopen edit card
+                        this.openEditCard(item);
                     });
                 });
             }
@@ -1237,6 +1291,36 @@ class FreeLayerManager {
             const colorInput = document.getElementById("text-color");
             const sizeInput = document.getElementById("text-size");
             const sizeValue = document.getElementById("text-size-value");
+            const moveTextBtn = document.getElementById("move-text-btn");
+            
+            if (moveTextBtn) {
+                moveTextBtn.addEventListener("click", () => {
+                    UI.forceCloseSharedInfoCard();
+                    MAP.setCursor("crosshair");
+                    
+                    // Create a one-time click listener to update the position
+                    const moveListener = this.map.addListener("click", (e) => {
+                        // Remove the listener after first click
+                        google.maps.event.removeListener(moveListener);
+                        
+                        // Update the item position
+                        item.position = e.latLng;
+                        item.marker.position = e.latLng;
+                        
+                        // Reset cursor
+                        MAP.setCursor("grab");
+                        
+                        // Save changes
+                        bus.emit("persist");
+                        
+                        // Show toast
+                        bus.emit("toast", "تم تغيير موقع النص");
+                        
+                        // Reopen edit card
+                        this.openEditCard(item);
+                    });
+                });
+            }
             
             if (sizeInput) {
                 sizeInput.addEventListener("input", () => {
@@ -3542,6 +3626,10 @@ class UIManager {
                 this.showDefaultUI();
                 this.showToast("اضغط على الخريطة لإضافة أيقونة أو نص");
                 break;
+            case 'default':
+                // وضع افتراضي لإيقاف جميع الأوضاع
+                this.showDefaultUI();
+                break;
         }
     }
 
@@ -3642,7 +3730,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v25.2 — Enhanced Icons System");
+        console.log("Diriyah Security Map v25.3 - Fixed Icons & Free Draw");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
