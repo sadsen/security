@@ -8,6 +8,7 @@
    • دعم خدمات تقصير الروابط المتعددة
    • تحسين تجربة النسخ للمستخدم
    • إضافة خيارات المشاركة الاجتماعية
+   • إصلاح مشكلة استمرارية وضع التحرير
    ============================================================ */
 
 /*
@@ -160,6 +161,24 @@ const Utils = {
             document.body.removeChild(textArea);
             return false;
         }
+    },
+    
+    // حفظ واسترجاع حالة التحرير
+    saveEditMode(isEditMode) {
+        try {
+            localStorage.setItem('mapEditMode', isEditMode ? 'edit' : 'view');
+        } catch (e) {
+            console.error("Failed to save edit mode:", e);
+        }
+    },
+    
+    getEditMode() {
+        try {
+            return localStorage.getItem('mapEditMode') === 'edit';
+        } catch (e) {
+            console.error("Failed to get edit mode:", e);
+            return true; // الافتراضي هو وضع التحرير
+        }
     }
 };
 
@@ -196,7 +215,12 @@ class MapController {
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
-        this.editMode = !this.shareMode;
+        
+        // استرجاع حالة التحرير المحفوظة
+        this.editMode = this.shareMode ? false : Utils.getEditMode();
+        
+        // حفظ حالة التحرير عند التغيير
+        this.setupEditModePersistence();
 
         // تعريف الأنماط المخصصة للخريطة
         const darkModeStyle = [
@@ -271,6 +295,18 @@ class MapController {
 
         this.waitForGmpMarkersAndEmit();
     }
+    
+    setupEditModePersistence() {
+        // حفظ حالة التحرير عند التغيير
+        bus.on("editMode:change", (isEditMode) => {
+            Utils.saveEditMode(isEditMode);
+        });
+        
+        // استدعاء حدث تغيير وضع التحرير عند الحاجة
+        this.emitEditModeChange = (isEditMode) => {
+            bus.emit("editMode:change", isEditMode);
+        };
+    }
 
     waitForGmpMarkersAndEmit() {
         if (typeof google.maps.marker !== 'undefined' && typeof google.maps.marker.AdvancedMarkerElement !== 'undefined') {
@@ -314,6 +350,12 @@ class MapController {
 
     setCursor(c) {
         this.map.setOptions({ draggableCursor: c });
+    }
+    
+    // تعديل طريقة setEditMode لحفظ الحالة
+    setEditMode(isEditMode) {
+        this.editMode = isEditMode;
+        this.emitEditModeChange(isEditMode);
     }
 }
 
@@ -2426,7 +2468,7 @@ class StateManager {
         this.persistTimer = setTimeout(() => {
             const st = this.buildState();
             if (st) this.writeShare(st);
-        }, 300);
+        },300);
     }
 
     readShare() {
@@ -2592,7 +2634,7 @@ class ShareManager {
                     <span>WhatsApp</span>
                 </button>
                 <button class="social-btn" data-platform="twitter">
-                    <i class="material-icons">alternate_email</i>
+                    <i class="media-icons">alternate_email</i>
                     <span>Twitter</span>
                 </button>
                 <button class="social-btn" data-platform="facebook">
@@ -2609,10 +2651,6 @@ class ShareManager {
         body.appendChild(longUrlSection);
         body.appendChild(shortUrlSection);
         body.appendChild(socialSection);
-        
-        content.appendChild(header);
-        content.appendChild(body);
-        dialog.appendChild(content);
         
         // إضافة CSS
         this.addShareStyles();
@@ -3246,7 +3284,7 @@ class UIManager {
                 padding: 0 !important;
                 background: transparent !important;
             }
-            /* إخفاء السهم الصغير أسفل النافذة */
+            /* إخفاء السهم الصغير أسفل نافذة */
             .gm-style-iw-tc {
                 display: none !important;
             }
@@ -3293,7 +3331,7 @@ class UIManager {
 
         if (this.btnEdit && !MAP.shareMode) {
             this.btnEdit.addEventListener("click", () => {
-                MAP.editMode = !MAP.editMode;
+                MAP.setEditMode(!MAP.editMode);
                 this.btnEdit.setAttribute("aria-pressed", MAP.editMode ? "true" : "false");
                 this.updateModeBadge();
                 if (!MAP.editMode) {
