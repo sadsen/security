@@ -2836,9 +2836,10 @@ class StateManager {
 const STATE = new StateManager();
 
 /*
+/*
 ============================================================
    ShareManager
-— نسخ آمن مع ضغط البيانات (مُحسّن)
+— نسخ آمن مع ضغط البيانات (مُصحّح)
 ============================================================
 */
 class ShareManager {
@@ -2847,7 +2848,7 @@ class ShareManager {
         this.btn = document.getElementById("btn-share");
         this.btnText = this.btn ? this.btn.textContent : 'مشاركة';
         this.btnIcon = this.btn ? this.btn.querySelector(".material-icons") : null;
-        
+
         if (this.btn) {
             this.btn.addEventListener("click", () => this.generateShareLink());
         }
@@ -2859,32 +2860,33 @@ class ShareManager {
             bus.emit("toast", "تعذر إنشاء رابط المشاركة");
             return;
         }
-
-        // استخدام واجهة المشاركة المحسّنة
         this.showShareDialog(st);
     }
 
     showShareDialog(state) {
+        // منع التكرار
+        if (document.querySelector('.share-dialog-overlay')) return;
+
         const longUrl = STATE.writeShare(state);
-        
-        // إنشاء واجهة المشاركة
+
         const dialog = document.createElement('div');
         dialog.className = 'share-dialog-overlay';
-        
+
         const content = document.createElement('div');
         content.className = 'share-dialog-content';
-        
+
         const header = document.createElement('div');
         header.className = 'share-dialog-header';
         header.innerHTML = `
             <h3>مشاركة الخريطة</h3>
-            <button class="share-close-btn"><i class="material-icons">close</i></button>
+            <button class="share-close-btn">
+                <i class="material-icons">close</i>
+            </button>
         `;
-        
+
         const body = document.createElement('div');
         body.className = 'share-dialog-body';
-        
-        // قسم الرابط الطويل
+
         const longUrlSection = document.createElement('div');
         longUrlSection.className = 'share-section';
         longUrlSection.innerHTML = `
@@ -2892,500 +2894,190 @@ class ShareManager {
             <div class="url-container">
                 <input type="text" readonly value="${longUrl}" class="url-input" id="long-url">
                 <button class="copy-btn" data-target="long-url">
-                    <i class="material-icons">content_copy</i>
-                    <span>نسخ</span>
+                    <i class="material-icons">content_copy</i><span>نسخ</span>
                 </button>
             </div>
         `;
-        
-        // قسم الروابط المختصرة
+
         const shortUrlSection = document.createElement('div');
         shortUrlSection.className = 'share-section';
         shortUrlSection.innerHTML = `
             <h4>تقصير الرابط:</h4>
             <div class="shortener-options">
-                <button class="shortener-btn" data-service="tinyurl">
-                    <i class="material-icons">link</i>
-                    <span>TinyURL</span>
-                </button>
-                <button class="shortener-btn" data-service="isgd">
-                    <i class="material-icons">link</i>
-                    <span>is.gd</span>
-                </button>
-                <button class="shortener-btn" data-service="vgd">
-                    <i class="material-icons">link</i>
-                    <span>v.gd</span>
-                </button>
-                <button class="shortener-btn" data-service="cuttly">
-                    <i class="material-icons">content_cut</i>
-                    <span>Shrtco.de</span>
-                </button>
+                <button class="shortener-btn" data-service="tinyurl"><i class="material-icons">link</i><span>TinyURL</span></button>
+                <button class="shortener-btn" data-service="isgd"><i class="material-icons">link</i><span>is.gd</span></button>
+                <button class="shortener-btn" data-service="vgd"><i class="material-icons">link</i><span>v.gd</span></button>
+                <button class="shortener-btn" data-service="cuttly"><i class="material-icons">content_cut</i><span>Shrtco</span></button>
             </div>
-            <div class="short-url-result" id="short-url-result" style="display: none;">
+            <div class="short-url-result" id="short-url-result" style="display:none">
                 <input type="text" readonly class="url-input" id="short-url">
                 <button class="copy-btn" data-target="short-url">
-                    <i class="material-icons">content_copy</i>
-                    <span>نسخ</span>
+                    <i class="material-icons">content_copy</i><span>نسخ</span>
                 </button>
             </div>
         `;
-        
-        // قسم المشاركة الاجتماعية
+
         const socialSection = document.createElement('div');
         socialSection.className = 'share-section';
         socialSection.innerHTML = `
             <h4>مشاركة على:</h4>
             <div class="social-buttons">
-                <button class="social-btn" data-platform="whatsapp">
-                    <i class="material-icons">whatsapp</i>
-                    <span>WhatsApp</span>
-                </button>
-                <button class="social-btn" data-platform="twitter">
-                    <i class="material-icons">alternate_email</i>
-                    <span>Twitter</span>
-                </button>
-                <button class="social-btn" data-platform="facebook">
-                    <i class="material-icons">facebook</i>
-                    <span>Facebook</span>
-                </button>
-                <button class="social-btn" data-platform="telegram">
-                    <i class="material-icons">send</i>
-                    <span>Telegram</span>
-                </button>
+                <button class="social-btn whatsapp" data-platform="whatsapp"><span>WhatsApp</span></button>
+                <button class="social-btn twitter" data-platform="twitter"><span>Twitter</span></button>
+                <button class="social-btn facebook" data-platform="facebook"><span>Facebook</span></button>
+                <button class="social-btn telegram" data-platform="telegram"><span>Telegram</span></button>
             </div>
         `;
-        
+
         body.appendChild(longUrlSection);
         body.appendChild(shortUrlSection);
         body.appendChild(socialSection);
-        
-        // إضافة CSS
-        this.addShareStyles();
-        
+
+        // ⭐️ التجميع الصحيح (كان مفقوداً)
+        content.appendChild(header);
+        content.appendChild(body);
+        dialog.appendChild(content);
         document.body.appendChild(dialog);
-        
-        // إضافة الأحداث
+
+        this.addShareStyles();
         this.attachShareEvents(dialog, longUrl);
-        
-        // إغلاق الحوار عند النقر خارج المحتوى
-        dialog.addEventListener('click', (e) => {
-            if (e.target === dialog) {
-                this.closeShareDialog();
-            }
+
+        dialog.addEventListener('click', e => {
+            if (e.target === dialog) this.closeShareDialog();
         });
-        
-        // منع الإغلاق عند النقر على الأزرار
+
         const closeBtn = dialog.querySelector('.share-close-btn');
-        closeBtn.addEventListener('click', () => this.closeShareDialog());
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closeShareDialog());
+        }
     }
 
     addShareStyles() {
+        if (document.getElementById("share-style")) return;
+
         const style = document.createElement('style');
+        style.id = "share-style";
         style.textContent = `
             .share-dialog-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.6);
-                z-index: 10000;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-family: 'Tajawal', sans-serif;
-                direction: rtl;
-                animation: fadeIn 0.3s ease-out;
+                position: fixed; inset: 0;
+                background: rgba(0,0,0,.6);
+                display: flex; align-items: center; justify-content: center;
+                z-index: 10000; font-family: 'Tajawal', sans-serif; direction: rtl;
             }
-            
             .share-dialog-content {
-                background: white;
-                border-radius: 16px;
-                width: 90%;
-                max-width: 500px;
-                max-height: 80vh;
-                overflow: hidden;
-                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-                animation: slideUp 0.3s ease-out;
+                background: #fff; border-radius: 16px;
+                width: 90%; max-width: 500px; max-height: 80vh;
+                overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.3);
             }
-            
             .share-dialog-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 20px;
-                border-bottom: 1px solid #eee;
+                display: flex; justify-content: space-between;
+                padding: 20px; border-bottom: 1px solid #eee;
             }
-            
-            .share-dialog-header h3 {
-                margin: 0;
-                font-size: 20px;
-                color: #333;
-            }
-            
-            .share-close-btn {
-                background: none;
-                border: none;
-                cursor: pointer;
-                padding: 8px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: background-color 0.2s;
-            }
-            
-            .share-close-btn:hover {
-                background-color: #f0f0f0;
-            }
-            
-            .share-dialog-body {
-                padding: 20px;
-                max-height: 60vh;
-                overflow-y: auto;
-            }
-            
-            .share-section {
-                margin-bottom: 25px;
-            }
-            
-            .share-section h4 {
-                margin: 0 0 15px 0;
-                font-size: 16px;
-                color: #555;
-            }
-            
-            .url-container {
-                display: flex;
-                gap: 10px;
-                align-items: center;
-            }
-            
-            .url-input {
-                flex: 1;
-                padding: 12px;
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                font-family: 'Tajawal', sans-serif;
-                font-size: 14px;
-                background: #f9f9f9;
-                color: #333;
-            }
-            
+            .share-dialog-body { padding: 20px; overflow-y: auto; }
+            .share-section { margin-bottom: 24px; }
+            .url-container { display: flex; gap: 10px; }
+            .url-input { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; }
             .copy-btn {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                padding: 10px 15px;
-                border: none;
-                border-radius: 8px;
-                background: #4285f4;
-                color: white;
-                cursor: pointer;
-                font-family: 'Tajawal', sans-serif;
-                font-size: 14px;
-                transition: background-color 0.2s;
+                display: flex; gap: 5px; align-items: center;
+                background: #4285f4; color: #fff;
+                border: none; border-radius: 8px; padding: 8px 12px;
+                cursor: pointer; font-family: 'Tajawal', sans-serif;
             }
-            
-            .copy-btn:hover {
-                background: #3367d6;
-            }
-            
-            .copy-btn i {
-                font-size: 18px;
-            }
-            
-            .shortener-options {
-                display: flex;
-                gap: 10px;
-                flex-wrap: wrap;
-                margin-bottom: 15px;
-            }
-            
-            .shortener-btn {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 10px 15px;
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                background: white;
-                cursor: pointer;
-                font-family: 'Tajawal', sans-serif;
-                font-size: 14px;
-                transition: all 0.2s;
-            }
-            
-            .shortener-btn:hover {
-                background-color: #f5f5f5;
-                transform: translateY(-2px);
-            }
-            
-            .shortener-btn i {
-                font-size: 20px;
-                color: #555;
-            }
-            
-            .short-url-result {
-                margin-top: 15px;
-                animation: fadeIn 0.3s ease-out;
-            }
-            
-            .social-buttons {
-                display: flex;
-                gap: 10px;
-                flex-wrap: wrap;
-            }
-            
             .social-btn {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 10px 15px;
-                border: none;
-                border-radius: 8px;
-                cursor: pointer;
-                font-family: 'font-family: 'Tajawal', sans-serif;
-                font-size: 14px;
-                transition: all 0.2s;
+                padding: 10px 14px; border-radius: 8px; border: none;
+                cursor: pointer; font-family: 'Tajawal', sans-serif; color: #fff;
             }
-            
-            .social-btn:hover {
-                transform: translateY(-2px);
-            }
-            
-            .social-btn.whatsapp {
-                background-color: #25D366;
-                color: white;
-            }
-            
-            .social-btn.twitter {
-                background-color: #1DA1F2;
-                color: white;
-            }
-            
-            .social-btn.facebook {
-                background-color: #4267B2;
-                color: white;
-            }
-            
-            .social-btn.telegram {
-                background-color: #0088cc;
-                color: white;
-            }
-            
-            .social-btn i {
-                font-size: 20px;
-            }
-            
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            
-            @keyframes slideUp {
-                from { 
-                    transform: translateY(20px);
-                    opacity: 0;
-                }
-                to { 
-                    transform: translateY(0);
-                    opacity: 1;
-                }
-            }
+            .social-btn.whatsapp { background:#25D366 }
+            .social-btn.twitter { background:#1DA1F2 }
+            .social-btn.facebook { background:#4267B2 }
+            .social-btn.telegram { background:#0088cc }
         `;
         document.head.appendChild(style);
     }
 
     attachShareEvents(dialog, longUrl) {
-        // نسخ الروابط
         dialog.querySelectorAll('.copy-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const targetId = btn.dataset.target;
-                const input = document.getElementById(targetId);
+            btn.addEventListener('click', async () => {
+                const input = document.getElementById(btn.dataset.target);
+                if (!input) return;
                 const url = input.value;
-                
-                if (Utils.supportsModernClipboard()) {
-                    try {
-                        await navigator.clipboard.writeText(url);
-                        this.showCopySuccess(btn);
-                    } catch (err) {
-                        this.fallbackCopyToClipboard(url, btn);
-                    }
-                } else {
+
+                try {
+                    await navigator.clipboard.writeText(url);
+                    this.showCopySuccess(btn);
+                } catch {
                     this.fallbackCopyToClipboard(url, btn);
                 }
             });
         });
-        
-        // خدمات تقصير الروابط
+
         dialog.querySelectorAll('.shortener-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const service = btn.dataset.service;
-                btn.disabled = true;
-                btn.innerHTML = '<i class="material-icons">hourglass_empty</i><span>جاري التقصير...</span>';
-                
-                try {
-                    let shortUrl = await this.shortenUrl(longUrl, service);
-                    if (shortUrl) {
-                        this.showShortUrl(shortUrl);
-                    }
-                } catch (error) {
-                    console.error('Error shortening URL:', error);
-                    bus.emit("toast", "فشل تقصير الرابط. الرجاء استخدام الرابط الكامل");
-                } finally {
-                    btn.disabled = false;
-                    btn.innerHTML = `<i class="material-icons">${btn.querySelector('i').textContent}</i><span>${btn.querySelector('span').textContent}</span>`;
-                }
+                const short = await this.shortenUrl(longUrl, btn.dataset.service);
+                if (short) this.showShortUrl(short);
             });
         });
-        
-        // المشاركة الاجتماعية
+
         dialog.querySelectorAll('.social-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                const platform = btn.dataset.platform;
-                const url = longUrl;
                 const text = "شاهد خريطة الدرعية الأمنية";
-                
-                let shareUrl = '';
-                switch(platform) {
-                    case 'whatsapp':
-                        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
-                        break;
-                    case 'twitter':
-                        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-                        break;
-                    case 'facebook':
-                        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
-                        break;
-                    case 'telegram':
-                        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-                        break;
-                }
-                
-                if (shareUrl) {
-                    window.open(shareUrl, '_blank', 'width=600,height=400');
-                }
+                const url = encodeURIComponent(longUrl);
+                const map = {
+                    whatsapp: `https://wa.me/?text=${text} ${url}`,
+                    twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
+                    facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+                    telegram: `https://t.me/share/url?url=${url}&text=${text}`
+                };
+                window.open(map[btn.dataset.platform], '_blank');
             });
         });
     }
 
     async shortenUrl(longUrl, service) {
-        const services = {
-            tinyurl: {
-                url: `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            },
-            isgd: {
-                url: `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            },
-            vgd: {
-                url: `https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            },
-            cuttly: {
-                url: `https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            }
-        };
-        
-        const serviceConfig = services[service];
-        if (!serviceConfig) return longUrl;
-        
         try {
-            const response = await fetch(serviceConfig.url, {
-                method: serviceConfig.method,
-                headers: {
-                    'Accept': 'application/json, text/plain'
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.text();
-            
-            // معالجة الاستجابة حسب الخدمة
-            switch(service) {
-                case 'tinyurl':
-                    return data.trim(); // TinyURL يرجع الرابط المختصر كنص عادي
-                case 'isgd':
-                case 'vgd':
-                    const gdData = JSON.parse(data);
-                    return gdData.shorturl || data;
-                case 'cuttly':
-                    const jsonData = JSON.parse(data);
-                    return jsonData.result?.full_short_link || data;
-                default:
-                    return data;
-            }
-        } catch (error) {
-            console.error(`Error shortening URL with ${service}:`, error);
-            throw error;
+            const urls = {
+                tinyurl: `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`,
+                isgd: `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
+                vgd: `https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
+                cuttly: `https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(longUrl)}`
+            };
+            const res = await fetch(urls[service]);
+            const data = await res.text();
+            if (service === 'tinyurl') return data;
+            const json = JSON.parse(data);
+            return json.shorturl || json.result?.full_short_link || null;
+        } catch {
+            bus.emit("toast", "فشل تقصير الرابط");
+            return null;
         }
     }
 
     showShortUrl(shortUrl) {
-        const resultDiv = document.getElementById('short-url-result');
-        const shortUrlInput = document.getElementById('short-url');
-        
-        resultDiv.style.display = 'block';
-        shortUrlInput.value = shortUrl;
-        
-        // نسخ تلقائي الرابط المختصر
-        setTimeout(() => {
-            if (Utils.supportsModernClipboard()) {
-                navigator.clipboard.writeText(shortUrl);
-            } else {
-                this.fallbackCopyToClipboard(shortUrl);
-            }
-        }, 100);
+        const box = document.getElementById('short-url-result');
+        const input = document.getElementById('short-url');
+        if (!box || !input) return;
+        box.style.display = 'block';
+        input.value = shortUrl;
     }
 
     showCopySuccess(btn) {
-        const originalContent = btn.innerHTML;
-        btn.innerHTML = '<i class="material-icons">check</i><span>تم النسخ!</span>';
-        btn.style.backgroundColor = '#4CAF50';
-        
-        setTimeout(() => {
-            btn.innerHTML = originalContent;
-            btn.style.backgroundColor = '#4285f4';
-        }, 2000);
+        const html = btn.innerHTML;
+        btn.innerHTML = "✓ تم النسخ";
+        setTimeout(() => btn.innerHTML = html, 1500);
     }
 
-    fallbackCopyToClipboard(text, buttonElement) {
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-            const successful = document.execCommand('copy');
-            document.body.removeChild(textArea);
-            
-            if (successful && buttonElement) {
-                this.showCopySuccess(buttonElement);
-            }
-        } catch (err) {
-            document.body.removeChild(textArea);
-            console.error('Fallback copy failed:', err);
-        }
+    fallbackCopyToClipboard(text) {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
     }
 
     closeShareDialog() {
         const dialog = document.querySelector('.share-dialog-overlay');
-        if (dialog) {
-            dialog.style.animation = 'fadeOut 0.3s ease-out';
-            setTimeout(() => {
-                document.body.removeChild(dialog);
-            }, 300);
-        }
+        if (dialog) dialog.remove();
     }
 }
 
