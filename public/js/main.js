@@ -211,16 +211,32 @@ class MapController {
     init() {
         console.log("Boot v25.7 - Fixed Share Dialog & Share Mode");
 
+        /* --------------------------------------------------
+           1) تحديد وضع المشاركة مبكراً (قبل أي UI أو state)
+        -------------------------------------------------- */
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
-        
-        // استرجاع حالة التحرير المحفوظة
-        this.editMode = this.shareMode ? false : Utils.getEditMode();
-        
-        // حفظ حالة التحرير عند التغيير
-        this.setupEditModePersistence();
 
-        // تعريف الأنماط المخصصة للخريطة
+        /* --------------------------------------------------
+           2) ضبط editMode بشكل صارم
+        -------------------------------------------------- */
+        if (this.shareMode) {
+            this.editMode = false;
+            Utils.saveEditMode(false); // منع استرجاع editMode لاحقاً
+        } else {
+            this.editMode = Utils.getEditMode();
+        }
+
+        /* --------------------------------------------------
+           3) تفعيل حفظ حالة التحرير فقط خارج shareMode
+        -------------------------------------------------- */
+        if (!this.shareMode) {
+            this.setupEditModePersistence();
+        }
+
+        /* --------------------------------------------------
+           4) تهيئة الخريطة
+        -------------------------------------------------- */
         const darkModeStyle = [
             { elementType: "geometry", stylers: [{ color: "#212121" }] },
             { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
@@ -293,25 +309,22 @@ class MapController {
 
         this.waitForGmpMarkersAndEmit();
     }
-    
+
     setupEditModePersistence() {
-        // حفظ حالة التحرير عند التغيير
         bus.on("editMode:change", (isEditMode) => {
             Utils.saveEditMode(isEditMode);
         });
-        
-        // استدعاء حدث تغيير وضع التحرير عند الحاجة
+
         this.emitEditModeChange = (isEditMode) => {
             bus.emit("editMode:change", isEditMode);
         };
     }
 
     waitForGmpMarkersAndEmit() {
-        if (typeof google.maps.marker !== 'undefined' && typeof google.maps.marker.AdvancedMarkerElement !== 'undefined') {
+        if (google.maps.marker?.AdvancedMarkerElement) {
             console.log("gmp-markers library is ready. Emitting 'map:ready' event.");
             bus.emit("map:ready", this.map);
         } else {
-            console.log("Waiting for gmp-markers library...");
             setTimeout(() => this.waitForGmpMarkersAndEmit(), 100);
         }
     }
@@ -322,36 +335,16 @@ class MapController {
     setDarkMode() { this.map.setMapTypeId("dark"); }
     setSilverMode() { this.map.setMapTypeId("silver"); }
 
-    toggleTraffic() {
-        if (this.trafficLayer.getMap()) {
-            this.trafficLayer.setMap(null);
-        } else {
-            this.trafficLayer.setMap(this.map);
-        }
-    }
-
-    toggleBicycling() {
-        if (this.bicyclingLayer.getMap()) {
-            this.bicyclingLayer.setMap(null);
-        } else {
-            this.bicyclingLayer.setMap(this.map);
-        }
-    }
-
-    toggleTransit() {
-        if (this.transitLayer.getMap()) {
-            this.transitLayer.setMap(null);
-        } else {
-            this.transitLayer.setMap(this.map);
-        }
-    }
+    toggleTraffic() { this.trafficLayer.setMap(this.trafficLayer.getMap() ? null : this.map); }
+    toggleBicycling() { this.bicyclingLayer.setMap(this.bicyclingLayer.getMap() ? null : this.map); }
+    toggleTransit() { this.transitLayer.setMap(this.transitLayer.getMap() ? null : this.map); }
 
     setCursor(c) {
         this.map.setOptions({ draggableCursor: c });
     }
-    
-    // تعديل طريقة setEditMode لحفظ الحالة
+
     setEditMode(isEditMode) {
+        if (this.shareMode) return; // حماية إضافية
         this.editMode = isEditMode;
         this.emitEditModeChange(isEditMode);
     }
