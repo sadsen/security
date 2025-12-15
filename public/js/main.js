@@ -3225,13 +3225,15 @@ const MEASURE = new MeasureManager();
 ============================================================
    UIManager
 — واجهة المستخدم (مع نافذة معلومات متجاوبة بالكامل)
-  ============================================================ */
+============================================================
+*/
 class UIManager {
 
     constructor() {
         this.logo = "/img/logo.png";
         this.sharedInfoWindow = null;
         this.infoWindowPinned = false;
+        this._initialized = false;
 
         this.btnLayers = document.getElementById("btn-layers");
         this.btnAdd = document.getElementById("btn-add");
@@ -3255,185 +3257,191 @@ class UIManager {
     }
 
     initializeUI() {
+        if (this._initialized) return;
+        this._initialized = true;
+
         console.log("UI: initializeUI() called.");
 
-        // === إصلاح شامل: حقن CSS لحل مشاكل العرض والتمرير ===
-        const style = document.createElement('style');
-        style.innerHTML = `
-            /* إزالة الخلفية البيضاء والظل الافتراضي */
-            .gm-style-iw-c {
-                background: transparent !important;
-                box-shadow: none !important;
-                padding: 0 !important;
-                border-radius: 0 !important;
-                /* السماح بالتمرير إذا لزم الأمر من الحاوية الأم */
-                overflow: visible !important; 
-            }
-            /* السماح للمحتوى بالظهور والتمرير */
-            .gm-style-iw-d {
-                overflow: visible !important;
-                max-height: none !important;
-                padding: 0 !important;
-                background: transparent !important;
-            }
-            /* إخفاء السهم الصغير أسفل نافذة */
-            .gm-style-iw-tc {
-                display: none !important;
-            }
-            /* إخفاء زر الإغلاق (X) الافتراضي من جوجل تماماً */
-            .gm-ui-hover-effect {
-                display: none !important;
-                opacity: 0 !important;
-                pointer-events: none !important;
-            }
-        `;
-        document.head.appendChild(style);
+        /* ---------- CSS Injection (مرة واحدة) ---------- */
+        if (!document.getElementById("ui-infowindow-style")) {
+            const style = document.createElement("style");
+            style.id = "ui-infowindow-style";
+            style.innerHTML = `
+                .gm-style-iw-c {
+                    background: transparent !important;
+                    box-shadow: none !important;
+                    padding: 0 !important;
+                    border-radius: 0 !important;
+                    overflow: visible !important;
+                }
+                .gm-style-iw-d {
+                    overflow: visible !important;
+                    max-height: none !important;
+                    padding: 0 !important;
+                    background: transparent !important;
+                }
+                .gm-style-iw-tc { display: none !important; }
+                .gm-ui-hover-effect {
+                    display: none !important;
+                    opacity: 0 !important;
+                    pointer-events: none !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
 
+        /* ---------- Share Mode ---------- */
         if (MAP.shareMode) {
             this.applyShareMode();
         }
 
-        // إنشاء نافذة المعلومات
+        /* ---------- InfoWindow ---------- */
         this.sharedInfoWindow = new google.maps.InfoWindow();
 
         MAP.map.addListener("click", () => {
             this.closeSharedInfoCard();
         });
 
-        if (this.btnLayers) {
+        /* ---------- Layers Panel ---------- */
+        if (this.btnLayers && !MAP.shareMode) {
             this.btnLayers.addEventListener("click", () => this.toggleLayersPanel());
         }
-        if (this.btnCloseLayers) {
+        if (this.btnCloseLayers && !MAP.shareMode) {
             this.btnCloseLayers.addEventListener("click", () => this.toggleLayersPanel());
         }
 
-        const baseMapRadios = document.querySelectorAll('input[name="base-map"]');
-        baseMapRadios.forEach(radio => {
-            radio.addEventListener('change', () => {
-                this.setBaseMap(radio.value);
+        /* ---------- Base Maps ---------- */
+        if (!MAP.shareMode) {
+            document.querySelectorAll('input[name="base-map"]').forEach(radio => {
+                radio.addEventListener("change", () => {
+                    this.setBaseMap(radio.value);
+                });
             });
-        });
 
-        const layerCheckboxes = document.querySelectorAll('#layer-traffic, #layer-bicycling, #layer-transit');
-        layerCheckboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', () => {
-                this.toggleLayer(checkbox.id, checkbox.checked);
-            });
-        });
+            document.querySelectorAll("#layer-traffic, #layer-bicycling, #layer-transit")
+                .forEach(cb => {
+                    cb.addEventListener("change", () => {
+                        this.toggleLayer(cb.id, cb.checked);
+                    });
+                });
+        }
 
+        /* ---------- Edit Mode ---------- */
         if (this.btnEdit && !MAP.shareMode) {
             this.btnEdit.addEventListener("click", () => {
                 MAP.setEditMode(!MAP.editMode);
-                this.btnEdit.setAttribute("aria-pressed", MAP.editMode ? "true" : "false");
+                this.btnEdit.setAttribute(
+                    "aria-pressed",
+                    MAP.editMode ? "true" : "false"
+                );
                 this.updateModeBadge();
-                if (!MAP.editMode) {
-                    this.showDefaultUI();
-                }
+                if (!MAP.editMode) this.showDefaultUI();
             });
         }
 
-        if (this.btnAdd && !MAP.shareMode) {
+        if (!MAP.shareMode) {
+            this.bindEditButtons();
+        }
+
+        this.updateModeBadge();
+    }
+
+    bindEditButtons() {
+        if (this.btnAdd) {
             this.btnAdd.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode('add');
+                this.setActiveMode("add");
             });
         }
 
-        if (this.btnRoute && !MAP.shareMode) {
+        if (this.btnRoute) {
             this.btnRoute.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode('route');
+                this.setActiveMode("route");
             });
         }
 
-        if (this.btnPolygon && !MAP.shareMode) {
+        if (this.btnPolygon) {
             this.btnPolygon.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode('polygon');
+                this.setActiveMode("polygon");
             });
         }
 
-        if (this.btnMeasure && !MAP.shareMode) {
+        if (this.btnMeasure) {
             this.btnMeasure.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode('measure');
+                this.setActiveMode("measure");
             });
         }
 
-        if (this.btnFreeDraw && !MAP.shareMode) {
+        if (this.btnFreeDraw) {
             this.btnFreeDraw.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode('freedraw');
+                this.setActiveMode("freedraw");
             });
         }
 
-        if (this.btnDrawFinish && !MAP.shareMode) {
+        if (this.btnDrawFinish) {
             this.btnDrawFinish.addEventListener("click", () => {
-                if (MAP.modeRouteAdd) {
-                    ROUTES.finishCurrentRoute();
-                } else if (MAP.modePolygonAdd) {
-                    POLYGONS.finishCurrentPolygon();
-                }
+                if (MAP.modeRouteAdd) ROUTES.finishCurrentRoute();
+                else if (MAP.modePolygonAdd) POLYGONS.finishCurrentPolygon();
                 this.showDefaultUI();
             });
         }
 
-        if (this.btnRouteClear && !MAP.shareMode) {
+        if (this.btnRouteClear) {
             this.btnRouteClear.addEventListener("click", () => {
-                if (ROUTES.activeRouteIndex === -1) return this.showToast("لا يوجد مسار نشط لحذفه");
+                if (ROUTES.activeRouteIndex === -1)
+                    return this.showToast("لا يوجد مسار نشط لحذفه");
                 if (!confirm("حذف المسار الحالي؟")) return;
                 ROUTES.removeRoute(ROUTES.activeRouteIndex);
                 this.showDefaultUI();
                 this.showToast("تم حذف المسار");
             });
         }
-
-        this.updateModeBadge();
     }
 
     toggleLayersPanel() {
-        if (this.layersPanel) {
-            this.layersPanel.classList.toggle("show");
-            const isPressed = this.layersPanel.classList.contains("show");
-            this.btnLayers.setAttribute("aria-is-pressed", isPressed ? "true" : "false");
+        if (!this.layersPanel) return;
+        this.layersPanel.classList.toggle("show");
+        const isOpen = this.layersPanel.classList.contains("show");
+        if (this.btnLayers) {
+            this.btnLayers.setAttribute("aria-pressed", isOpen ? "true" : "false");
         }
     }
 
     setBaseMap(mapTypeId) {
         switch (mapTypeId) {
-            case 'roadmap': MAP.setRoadmap(); break;
-            case 'satellite': MAP.setSatellite(); break;
-            case 'terrain': MAP.setTerrain(); break;
-            case 'dark': MAP.setDarkMode(); break;
-            case 'silver': MAP.setSilverMode(); break;
+            case "roadmap": MAP.setRoadmap(); break;
+            case "satellite": MAP.setSatellite(); break;
+            case "terrain": MAP.setTerrain(); break;
+            case "dark": MAP.setDarkMode(); break;
+            case "silver": MAP.setSilverMode(); break;
         }
     }
 
-    toggleLayer(layerId, isChecked) {
+    toggleLayer(layerId) {
         switch (layerId) {
-            case 'layer-traffic': MAP.toggleTraffic(); break;
-            case 'layer-bicycling': MAP.toggleBicycling(); break;
-            case 'layer-transit': MAP.toggleTransit(); break;
+            case "layer-traffic": MAP.toggleTraffic(); break;
+            case "layer-bicycling": MAP.toggleBicycling(); break;
+            case "layer-transit": MAP.toggleTransit(); break;
         }
     }
 
     openSharedInfoCard(content, position, isPinned = false) {
         this.sharedInfoWindow.close();
-        
         this.sharedInfoWindow.setContent(content);
         this.sharedInfoWindow.setPosition(position);
-        
-        // === تحديث الخيارات لحل مشاكل العرض ===
         this.sharedInfoWindow.setOptions({
-            maxWidth: 450, 
+            maxWidth: 450,
             pixelOffset: new google.maps.Size(0, -50),
             zIndex: 1000
         });
-        
         this.sharedInfoWindow.open({ map: MAP.map });
         this.infoWindowPinned = isPinned;
     }
-   
+
     closeSharedInfoCard() {
         if (this.sharedInfoWindow && !this.infoWindowPinned) {
             this.sharedInfoWindow.close();
@@ -3469,62 +3477,64 @@ class UIManager {
         MAP.setCursor("grab");
 
         switch (mode) {
-            case 'add':
+            case "add":
                 MAP.modeAdd = true;
-                if (this.btnAdd) this.btnAdd.setAttribute("aria-pressed", "true");
                 MAP.setCursor("crosshair");
                 this.showDefaultUI();
                 this.showToast("اضغط على الخريطة لإضافة موقع");
                 break;
-            case 'route':
+
+            case "route":
                 ROUTES.startNewRouteSequence();
                 MAP.modeRouteAdd = true;
                 MAP.setCursor("crosshair");
                 this.showDrawFinishUI();
-                this.showToast("اضغط لإضافة نقاط المسار الأول");
+                this.showToast("اضغط لإضافة نقاط المسار");
                 break;
-            case 'polygon':
+
+            case "polygon":
                 POLYGONS.startPolygonSequence();
                 MAP.modePolygonAdd = true;
-                if (this.btnPolygon) this.btnPolygon.setAttribute("aria-pressed", "true");
                 MAP.setCursor("crosshair");
                 this.showDrawFinishUI();
-                this.showToast("اضغط لإضافة رؤوس المضلع، ثم 'إنهاء الرسم'");
+                this.showToast("اضغط لإضافة رؤوس المضلع");
                 break;
-            case 'measure':
+
+            case "measure":
                 MEASURE.activate();
-                if (this.btnMeasure) this.btnMeasure.setAttribute("aria-pressed", "true");
                 this.showDefaultUI();
                 break;
-            case 'freedraw':
+
+            case "freedraw":
                 MAP.modeFreeDraw = true;
-                if (this.btnFreeDraw) this.btnFreeDraw.setAttribute("aria-pressed", "true");
                 MAP.setCursor("crosshair");
                 this.showDefaultUI();
-                this.showToast("اضغط على الخريطة لإضافة أيقونة أو نص");
                 break;
-            case 'default':
-                // وضع افتراضي لإيقاف جميع الأوضاع
+
+            default:
                 this.showDefaultUI();
-                break;
         }
     }
 
     applyShareMode() {
-        if (this.btnAdd) this.btnAdd.style.display = "none";
-        if (this.btnRoute) this.btnRoute.style.display = "none";
-        if (this.btnPolygon) this.btnPolygon.style.display = "none";
-        if (this.btnMeasure) this.btnMeasure.style.display = "none";
-        if (this.btnFreeDraw) this.btnFreeDraw.style.display = "none";
-        if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
-        if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
-        if (this.btnEdit) this.btnEdit.style.display = "none";
-        if (this.btnLayers) this.btnLayers.style.display = "none";
+        [
+            this.btnAdd,
+            this.btnRoute,
+            this.btnPolygon,
+            this.btnMeasure,
+            this.btnFreeDraw,
+            this.btnDrawFinish,
+            this.btnRouteClear,
+            this.btnEdit,
+            this.btnLayers
+        ].forEach(btn => {
+            if (btn) btn.style.display = "none";
+        });
+
         this.updateModeBadge("view");
     }
 
     showDrawFinishUI() {
-        if (this.btnAdd) this.btnAdd.setAttribute("aria-pressed", "false");
         if (this.btnRoute) this.btnRoute.style.display = "none";
         if (this.btnPolygon) this.btnPolygon.style.display = "none";
         if (this.btnMeasure) this.btnMeasure.style.display = "none";
@@ -3541,19 +3551,24 @@ class UIManager {
     }
 
     showPolygonEditingUI() {
-        if (this.btnAdd) this.btnAdd.style.display = "none";
-        if (this.btnRoute) this.btnRoute.style.display = "none";
-        if (this.btnPolygon) this.btnPolygon.style.display = "none";
-        if (this.btnMeasure) this.btnMeasure.style.display = "none";
-        if (this.btnFreeDraw) this.btnFreeDraw.style.display = "none";
-        if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
+        [
+            this.btnAdd,
+            this.btnRoute,
+            this.btnPolygon,
+            this.btnMeasure,
+            this.btnFreeDraw,
+            this.btnDrawFinish
+        ].forEach(btn => {
+            if (btn) btn.style.display = "none";
+        });
     }
 
     updateModeBadge(forceMode = null) {
         if (!this.modeBadge) return;
         const mode = forceMode || (MAP.editMode ? "edit" : "view");
         this.modeBadge.style.display = "block";
-        this.modeBadge.textContent = (mode === "edit") ? "وضع التحرير" : "وضع العرض";
+        this.modeBadge.textContent =
+            mode === "edit" ? "وضع التحرير" : "وضع العرض";
         this.modeBadge.className = "";
         this.modeBadge.classList.add("badge", mode);
     }
@@ -3562,8 +3577,8 @@ class UIManager {
         if (!this.toastElement) return;
         this.toastElement.innerHTML = `
             <div style="display:flex;align-items:center;gap:8px;">
-                <img src="${this.logo}" style="width:22px;height:22px;border-radius:6px;opacity:0.9;">
-                <span style="font-family: 'Tajawal', sans-serif;">${message}</span>
+                <img src="${this.logo}" style="width:22px;height:22px;border-radius:6px;">
+                <span style="font-family:'Tajawal',sans-serif;">${message}</span>
             </div>
         `;
         this.toastElement.classList.add("show");
@@ -3575,6 +3590,7 @@ class UIManager {
 }
 
 const UI = new UIManager();
+
 
 /*
 ============================================================
