@@ -2,13 +2,10 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.5 (Enhanced Routes & Text)
-   • إضافة ميزة حذف المسار بالرقم
-   • إخفاء أرقام المسارات عند المشاركة
-   • إبقاء الأرقام في وضع التحرير فقط
-   • إمكانية إضافة مسار فوق مسار
-   • تحسين النص في الرسم الحر مع دعم Enter
-   • عرض النص بترتيب منظم مع فواصل مناسبة
+   Diriyah Security Map – v25.6 (Fixed Share Dialog)
+   • إصلاح مشكلة زر المشاركة
+   • تحسين واجهة المشاركة
+   • الحفاظ على جميع الميزات السابقة
    ============================================================ */
 
 /*
@@ -211,7 +208,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v25.5 - Enhanced Routes & Text");
+        console.log("Boot v25.6 - Fixed Share Dialog");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
@@ -955,7 +952,7 @@ class FreeLayerManager {
             gmpDraggable: this.editMode && !this.shareMode
         });
         
-        // FIX: Add a direct click listener to the marker content for reliable editing
+        // FIX: Add a direct click listener to marker content for reliable editing
         iconElement.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent map click
             this.openEditCard(item);
@@ -1019,7 +1016,7 @@ class FreeLayerManager {
             gmpDraggable: this.editMode && !this.shareMode
         });
 
-        // FIX: Add a direct click listener to the marker content for reliable editing
+        // FIX: Add a direct click listener to marker content for reliable editing
         textElement.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent map click
             this.openEditCard(item);
@@ -1062,7 +1059,7 @@ class FreeLayerManager {
         element.style.fontWeight = 'normal';
         element.style.textShadow = 'none';
         element.style.lineHeight = '1.4'; // تحسين تباعد الأسطر
-        element.style.whiteSpace = 'pre-wrap'; // الحفاظة على المسافات والأسطر
+        element.style.whiteSpace = 'pre-wrap'; // الحفاظ على المسافات والأسطر
         element.style.wordBreak = 'break-word'; // كسر الكلمات الطويلة
         element.style.maxWidth = '300px'; // تحديد أقصى عرض للنص
         
@@ -2246,7 +2243,7 @@ class RouteManager {
         
         if (deleteBtn) {
             deleteBtn.addEventListener("click", () => {
-                if (confirm(`هل أنت متأكد من حذف المسار رقم ${rt.routeNumber}؟`)) {
+                if (!confirm(`هل أنت متأكد من حذف المسار رقم ${rt.routeNumber}؟`)) {
                     this.removeRoute(routeIndex);
                     bus.emit("toast", "تم حذف المسار");
                 }
@@ -2349,7 +2346,7 @@ class PolygonManager {
     constructor() {
         this.polygons = []; this.map = null; this.shareMode = false; this.editMode = true; this.activePolygonIndex = -1; this.isEditing = false; this.editingPolygonIndex = -1;
         bus.on("map:ready", map => { this.map = map; this.shareMode = MAP.shareMode; this.editMode = MAP.editMode; this.onMapReady();});
-        bus.on("state:load", st => this.applyState(st)); bus.on("state:save", () => this.exportState());
+        bus.on("state:load", st => this.applyState(st)); bus.on("state:save", () => this.exportState()); 
     }
     
     onMapReady() { 
@@ -2619,7 +2616,7 @@ class PolygonManager {
     attachCardEvents(polyIndex, hoverOnly) {
         const poly = this.polygons[polyIndex];
         const isEditingShape = this.editingPolygonIndex === polyIndex;
-        if (isEditingShape) { const stopEditBtn = document.getElementById("poly-stop-edit"); if (stopEditBtn) stopEditBtn.addEventListener("click", () => { this.exitEditMode(); UI.forceCloseSharedInfoCard();}); return; }
+        if (isEditingShape) { const stopEditBtn = document.getElementById("poly-stop-edit"); if (stopEditBtn) stopEditBtn.addEventListener("click", () => { this.exitEditMode(); UI.forceCloseSharedInfoCard(); }); return; }
         if (hoverOnly || !MAP.editMode) return;
         const savePropsBtn = document.getElementById("poly-save-properties"); const editShapeBtn = document.getElementById("poly-edit-shape"); const delBtn = document.getElementById("poly-delete"); const closeBtn = document.getElementById("poly-close");
         const nameEl = document.getElementById("poly-name"); const notesEl = document.getElementById("poly-notes");
@@ -2631,8 +2628,7 @@ class PolygonManager {
         if (savePropsBtn) {
             savePropsBtn.addEventListener("click", () => {
                 poly.name = nameEl.value.trim(); poly.notes = notesEl.value.trim(); poly.color = colEl.value;
-                poly.strokeWeight = Utils.clamp(+strokeEl.value, 1, 10); poly.strokeOpacity = Utils.clamp(+strokeOpEl.value, 0, 100) / 100;
-                poly.fillOpacity = Utils.clamp(+fillOpEl.value, 0, 100) / 100;
+                poly.strokeWeight = Utils.clamp(+strokeEl.value, 1, 10); poly.strokeOpacity = Utils.clamp(+strokeOpEl.value, 0, 100) / 100; poly.fillOpacity = Utils.clamp(+fillOpEl.value, 0, 100) / 100;
                 poly.polygon.setOptions({ fillColor: poly.color, strokeColor: poly.color, strokeWeight: poly.strokeWeight, strokeOpacity: poly.strokeOpacity, fillOpacity: poly.fillOpacity });
                 bus.emit("persist"); UI.forceCloseSharedInfoCard(); bus.emit("toast", "تم حفظ خصائص المضلع");
             });
@@ -3148,7 +3144,7 @@ class ShareManager {
                 border: none;
                 border-radius: 8px;
                 cursor: pointer;
-                font-family: 'Tajawal', sans-serif;
+                font-family: 'font-family: 'Tajawal', sans-serif;
                 font-size: 14px;
                 transition: all 0.2s;
             }
@@ -3925,7 +3921,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v25.5 - Enhanced Routes & Text");
+        console.log("Diriyah Security Map v25.6 - Fixed Share Dialog");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
