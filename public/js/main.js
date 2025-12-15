@@ -2,8 +2,9 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.6 (Fixed Share Dialog)
+   Diriyah Security Map – v25.7 (Fixed Share Dialog & Share Mode)
    • إصلاح مشكلة زر المشاركة
+   • إصلاح وضع المشاركة
    • تحسين واجهة المشاركة
    • الحفاظ على جميع الميزات السابقة
    ============================================================ */
@@ -208,7 +209,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v25.6 - Fixed Share Dialog");
+        console.log("Boot v25.7 - Fixed Share Dialog & Share Mode");
 
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
@@ -3921,7 +3922,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v25.6 - Fixed Share Dialog");
+        console.log("Diriyah Security Map v25.7 - Fixed Share Dialog & Share Mode");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
