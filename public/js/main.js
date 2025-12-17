@@ -2,7 +2,7 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.8 (Fixed Route Deletion & Share Mode)
+   Diriyah Security Map – v25.9 (Fixed Share Mode UI)
    • إصلاح مشكلة حذف المسار
    • إصلاح عرض دوائر الأرقام في وضع المشاركة
    • تحسين واجهة المشاركة
@@ -209,7 +209,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v25.8 - Fixed Route Deletion & Share Mode");
+        console.log("Boot v25.9 - Fixed Share Mode UI");
 
         /* --------------------------------------------------
            1) تحديد وضع المشاركة مبكراً (قبل أي UI أو state)
@@ -1958,7 +1958,7 @@ class RouteManager {
         } else {
             this.routes.pop();
         }
-        this.activeRouteIndex = -1;
+        this.activeRoute = -1;
         MAP.modeRouteAdd = false;
         MAP.setCursor("grab");
     }
@@ -2056,8 +2056,6 @@ class RouteManager {
             bus.emit("toast", `تم حذف المسار رقم ${routeNumber}`);
             return true;
         }
-        return false;
-    }
 
     // الحصول على قائمة أرقام المسارات
     getRouteNumbers() {
@@ -2193,7 +2191,7 @@ class RouteManager {
                         </div>
                     </div>
                 ` : `
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Tajawal', sans-serif;">ملاحظات:</p>
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Tajawal', sans-serif;">ملا توجد ملاحظات</p>
                     <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Tajawal', sans-serif;">
                         ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
                     </div>
@@ -2203,7 +2201,7 @@ class RouteManager {
                 <div style="${footerStyle}">
                     <div style="display:flex;gap:8px; flex-wrap: wrap;">
                         <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 90px; font-size: 14px;">حفظ</button>
-                        <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">إغلاق</button>
+                        <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255, 255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">إغلاق</button>
                     </div>
                 </div>
             ` : ''}
@@ -2549,7 +2547,6 @@ class PolygonManager {
             padding: 0;
             color: #333;
             direction: rtl;
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
             width: 380px;
             max-width: 95vw;
             max-height: 70vh;
@@ -2581,9 +2578,13 @@ class PolygonManager {
                         <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">سماكة الخط:</label><input id="poly-stroke" type="number" value="${poly.strokeWeight}" min="1" max="10" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
                     </div>
                     <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية الحدود: <span id="poly-stroke-opacity-val">${Math.round(poly.strokeOpacity * 100)}%</span></label><input id="poly-stroke-opacity" type="range" min="0" max="100" value="${Math.round(poly.strokeOpacity * 100)}" style="width:100%;"></div>
+                    </div>
                     <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية التعبئة: <span id="poly-fill-opacity-val">${Math.round(poly.fillOpacity * 100)}%</span></label><input id="poly-fill-opacity" type="range" min="0" max="100" value="${Math.round(poly.fillOpacity * 100)}" style="width:100%;"></div>
-                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">ملاحظات:</label><textarea id="poly-notes" rows="3" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px;">${notes}</textarea></div>
+                    </div>
+                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">ملاحظات:</label><textarea id="poly-notes" rows="3" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
+                    </div>
                 ` : `
+                `
                     <p style="margin: 0 0 8px 0; font-size: 14px; color: #555; font-family: 'Tajawal', sans-serif;">ملاحظات:</p>
                     <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 10px; min-height: 40px; font-size: 14px; line-height: 1.6; font-family: 'Tajawal', sans-serif;">
                         ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
@@ -2615,16 +2616,22 @@ class PolygonManager {
         if (hoverOnly || !MAP.editMode) return;
         const savePropsBtn = document.getElementById("poly-save-properties"); const editShapeBtn = document.getElementById("poly-edit-shape"); const delBtn = document.getElementById("poly-delete"); const closeBtn = document.getElementById("poly-close");
         const nameEl = document.getElementById("poly-name"); const notesEl = document.getElementById("poly-notes");
-        const colEl = document.getElementById("poly-color"); const strokeEl = document.getElementById("poly-stroke");
-        const strokeOpEl = document.getElementById("poly-stroke-opacity"); const fillOpEl = document.getElementById("poly-fill-opacity");
-        const strokeOpValEl = document.getElementById("poly-stroke-opacity-val"); const fillOpValEl = document.getElementById("poly-fill-opacity-val");
+        const colEl = document.getElementById("poly-color"); const strokeEl = document.getElementById("poly-stroke"); const strokeOpEl = document.getElementById("poly-stroke-opacity"); const fillOpEl = document.getElementById("poly-fill-opacity"); const fillOpValEl = document.getElementById("poly-fill-opacity-val"); const strokeOpValEl = document.getElementById("poly-stroke-opacity-val"); const fillOpValEl = document.getElementById("poly-fill-opacity-val");
         if (strokeOpEl) { strokeOpEl.addEventListener("input", () => { if (strokeOpValEl) strokeOpValEl.textContent = strokeOpEl.value + "%"; }); }
         if (fillOpEl) { fillOpEl.addEventListener("input", () => { if (fillOpValEl) fillOpValEl.textContent = fillOpEl.value + "%"; }); }
         if (savePropsBtn) {
             savePropsBtn.addEventListener("click", () => {
                 poly.name = nameEl.value.trim(); poly.notes = notesEl.value.trim(); poly.color = colEl.value;
-                poly.strokeWeight = Utils.clamp(+strokeEl.value, 1, 10); poly.strokeOpacity = Utils.clamp(+strokeOpEl.value, 0, 100) / 100; poly.fillOpacity = Utils.clamp(+fillOpEl.value, 0, 100) / 100;
-                poly.polygon.setOptions({ fillColor: poly.color, strokeColor: poly.color, strokeWeight: poly.strokeWeight, strokeOpacity: poly.strokeOpacity, fillOpacity: poly.fillOpacity });
+                poly.strokeWeight = Utils.clamp(+strokeEl.value, 1, 10); 
+                poly.strokeOpacity = Utils.clamp(+strokeOpEl.value, 0, 100) / 100; 
+                poly.fillOpacity = Utils.clamp(+fillOpEl.value, 0, 100) / 100;
+                poly.polygon.setOptions({ 
+                    fillColor: poly.color, 
+                    strokeColor: poly.color, 
+                    strokeWeight: poly.strokeWeight, 
+                    strokeOpacity: poly.strokeOpacity, 
+                    fillOpacity: poly.fillOpacity 
+                });
                 bus.emit("persist"); UI.forceCloseSharedInfoCard(); bus.emit("toast", "تم حفظ خصائص المضلع");
             });
         }
@@ -2636,7 +2643,7 @@ class PolygonManager {
                 this.polygons = this.polygons.filter(p => p.id !== poly.id); 
                 UI.forceCloseSharedInfoCard(); 
                 bus.emit("persist"); 
-                bus.emit("toast", "تم حذف المضلع"); 
+                bus.emit("toast", "تم حذف المضلع ${poly.name}"); 
             }); 
         }
         if (closeBtn) { closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); }); }
@@ -2656,7 +2663,7 @@ class PolygonManager {
                 lng: typeof p.lng === 'function' ? p.lng() : p.lng 
             })) 
         })); 
-    }
+    } 
     
     applyState(state) {
         if (!state || !state.polygons) return;
@@ -2854,10 +2861,6 @@ class ShareManager {
             return;
         }
 
-        // استخدام واجهة المشاركة المحسّنة
-        this.showShareDialog(st);
-    }
-
     showShareDialog(state) {
         // منع التكرار
         if (document.querySelector('.share-dialog-overlay')) return;
@@ -2903,7 +2906,7 @@ class ShareManager {
             <div class="shortener-options">
                 <button class="shortener-btn" data-service="tinyurl">
                     <i class="material-icons">link</i>
-                    <span>TinyURL</span>
+                    <span>Tinyurl</span>
                 </button>
                 <button class="shortener-btn" data-service="isgd">
                     <i class="material-icons">link</i>
@@ -2969,13 +2972,13 @@ class ShareManager {
         this.attachShareEvents(dialog, longUrl);
         
         // إغلاق الحوار عند النقر خارج المحتوى
-        dialog.addEventListener('click', (e) => {
+        dialog.addEventListener('click', e => {
             if (e.target === dialog) {
                 this.closeShareDialog();
             }
         });
         
-        // منع الإغلاق عند النقر على الأزرار
+        // منع الإغلاق عند النقر على الأزرارار
         const closeBtn = dialog.querySelector('.share-close-btn');
         closeBtn.addEventListener('click', () => this.closeShareDialog());
     }
@@ -2987,28 +2990,43 @@ class ShareManager {
         style.id = "share-style";
         style.textContent = `
             .share-dialog-overlay {
-                position: fixed; inset: 0;
-                background: rgba(0,0,0,.6);
-                display: flex; align-items: center; justify-content: center;
-                z-index: 10000; font-family: 'Tajawal', sans-serif; direction: rtl;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0,.6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                font-family: 'Tajawal', sans-serif;
+                direction: rtl;
                 animation: fadeIn 0.3s ease-out;
             }
             .share-dialog-content {
-                background: #fff; border-radius: 16px;
-                width: 90%; max-width: 500px; max-height: 80vh;
-                overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.3);
+                background: #fff;
+                border-radius: 16px;
+                width: 90%;
+                max-width: 500px;
+                max-height: 80vh;
+                overflow: hidden;
+                box-shadow: 0 10px 40px rgba(0,0,0,.3);
                 animation: slideUp 0.3s ease-out;
             }
             .share-dialog-header {
-                display: flex; justify-content: space-between;
-                padding: 20px; border-bottom: 1px solid #eee;
+                display: flex;
+                justify-content: space-between;
+                padding: 20px;
+                border-bottom: 1px solid #eee;
             }
             .share-dialog-header h3 {
                 margin: 0; font-size: 20px; color: #333;
             }
             .share-dialog-body { padding: 20px; overflow-y: auto; }
             .share-section { margin-bottom: 24px; }
-            .url-container { display: flex; gap: 10px; }
+            .share-section h4 {
+                margin: 0 0 24px 0 0; font-size: 16px; color: #555;
+            }
+            .url-container {
+                display: flex; gap: 10px; }
             .url-input { 
                 flex: 1; 
                 padding: 10px; 
@@ -3016,68 +3034,90 @@ class ShareManager {
                 border: 1px solid #ddd; 
                 font-family: 'Tajawal', sans-serif;
                 font-size: 14px;
+                background: #f9f9f9; 
+                color: #333;
             }
             .copy-btn {
-                display: flex; gap: 5px; align-items: center;
-                background: #4285f4; color: #fff;
-                border: none; border-radius: 8px; 
-                padding: 8px 12px;
-                cursor: pointer; font-family: 'Tajawal', sans-serif;
+                display: flex; 
+                align-items: center; 
+                gap: 5px; 
+                background: #4285f4; 
+                color: #fff; 
+                border-radius: 8px; 
+                padding: 8px 12px; 
+                cursor: pointer; 
+                font-family: 'Tajawal', sans-serif;
                 transition: background-color 0.2s;
             }
             .copy-btn:hover {
                 background: #3367d6;
             }
             .shortener-options {
-                display: flex; gap: 10px; flex-wrap: wrap;
+                display: flex; 
+                gap: 10px; 
+                flex-wrap: wrap; 
                 margin-bottom: 15px;
             }
             .shortener-btn {
-                display: flex; align-items: center; gap: 8px;
-                padding: 10px 15px; border: 1px solid #ddd;
-                border-radius: 8px; background: white;
-                cursor: pointer; font-family: 'Tajawal', sans-serif;
-                font-size: 14px; transition: all 0.2s;
+                display: flex; 
+                align-items: center; 
+                gap: 8px; 
+                padding: 10px 15px; 
+                border: 1px solid #ddd; 
+                border-radius: 8px; 
+                background: white; 
+                cursor: pointer; 
+                font-family: 'Tajawal', sans-serif;
+                font-size: 14px; 
+                transition: all 0.2s;
             }
             .shortener-btn:hover {
                 background-color: #f5f5f5;
                 transform: translateY(-2px);
+            }
+            .shortener-btn i {
+                font-size: 20px; 
+                color: #555;
             }
             .short-url-result {
                 margin-top: 15px;
                 animation: fadeIn 0.3s ease-out;
             }
             .social-buttons {
-                display: flex; gap: 10px; flex-wrap: wrap;
+                display: flex; 
+                gap: 10px; 
+                flex-wrap: wrap;
             }
             .social-btn {
-                display: flex; align-items: center; gap: 8px;
-                padding: 10px 15px; border: none;
-                border-radius: 8px; cursor: pointer;
-                font-family: 'Tajawal', sans-serif;
-                font-size: 14px; transition: all 0.2s;
+                display: flex; 
+                align-items: center; 
+                gap: 8px; 
+                padding: 10px 15px; 
+                border: none; 
+                border-radius: 8px; 
+                cursor: pointer; 
+                font-family: 'Tajawal', sans-serif; 
+                font-size: 14px; 
+                transition: all 0.2s;
             }
             .social-btn:hover {
                 transform: translateY(-2px);
             }
-            .social-btn.whatsapp { background: #25D366; color: white; }
-            .social-btn.twitter { background: #1DA1F2; color: white; }
-            .social-btn.facebook { background: #4267B2; color: white; }
-            .social-btn.telegram { background: #0088cc; color: white; }
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            @keyframes slideUp {
-                from { 
-                    transform: translateY(20px);
-                    opacity: 0;
-                }
-                to { 
-                    transform: translateY(0);
-                    opacity: 1;
-                }
-            }
+            .social-btn.whatsapp { background: #25D366; }
+            .social-btn.twitter { background: #1DA1F2; }
+            .social-btn.facebook { background: #4267B2; }
+            .social-btn.telegram { background: #0088cc; }
+            .social-btn i { font-size: 20px; }
+            .social-btn span { font-family: 'Tajawal', sans-serif; }
+            .social-btn.whatsapp span { font-family: 'Tajawal', sans-serif; }
+            .social-btn.twitter span { font-family: 'Tajawal', sans-serif; }
+            .social-btn.facebook span { font-family: 'Tajawal', sans-serif; }
+            .social-btn.telegram span { font-family: 'Tajawal', sans-serif; }
+            .social-btn.facebook span { font-family: 'Tajawal', sans-serif; }
+            .social-btn.facebook span { font-family: 'Tajawal', sans-serif; }
+            .social-btn.twitter span { font-family: 'Tajawal', sans-serif; }
+            .social-btn.telegram span { font-family: 'Tajawal', sans-serif; }
+        `;
         `;
         document.head.appendChild(style);
     }
@@ -3131,13 +3171,13 @@ class ShareManager {
                 let shareUrl = '';
                 switch(platform) {
                     case 'whatsapp':
-                        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
+                        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' ' + url)}`;
                         break;
                     case 'twitter':
                         shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
                         break;
                     case 'facebook':
-                        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+                        shareUrl = `https://www.facebook.com/sharer/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
                         break;
                     case 'telegram':
                         shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
@@ -3186,7 +3226,7 @@ class ShareManager {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            const data = await response.text();
+            const data = await response.text;
             
             // معالجة الاستجابة حسب الخدمة
             switch(service) {
@@ -3249,7 +3289,6 @@ class ShareManager {
         try {
             const successful = document.execCommand('copy');
             document.body.removeChild(textArea);
-            
             if (successful && buttonElement) {
                 this.showCopySuccess(buttonElement);
             }
@@ -3300,7 +3339,7 @@ class MeasureManager {
         this.clearMeasurement();
         MAP.setCursor('crosshair');
         this.attachMapListeners();
-        bus.emit("toast", "وضع القياس مفعل. انقر لإضافة نقاط، انقر بزر الماوس الأيمن للحذف، انقر نقرًا مزدوجًا للإنهاء.");
+        bus.emit("toast", "وضع القياس مفعل. انقر لإضافة نقاط، انقر بزر الماوس الأيمن للحذف، انقر نقرًا مزدوجًا للإنهاء.";
     }
 
     deactivate() {
@@ -3505,32 +3544,29 @@ class UIManager {
             this.btnCloseLayers.addEventListener("click", () => this.toggleLayersPanel());
         }
 
-        /* ---------- Base Maps ---------- */
-        if (!MAP.shareMode) {
-            document.querySelectorAll('input[name="base-map"]').forEach(radio => {
-                radio.addEventListener('change', () => {
-                    this.setBaseMap(radio.value);
-                });
+        const baseMapRadios = document.querySelectorAll('input[name="base-map"]');
+        baseMapRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.setBaseMap(radio.value);
             });
+        });
 
-            document.querySelectorAll("#layer-traffic, #layer-bicycling, #layer-transit")
-                .forEach(cb => {
-                    cb.addEventListener('change', () => {
-                        this.toggleLayer(cb.id, cb.checked);
-                    });
-                });
-        }
+        const layerCheckboxes = document.querySelectorAll('#layer-traffic, #layer-bicycling, #layer-transit');
+        layerCheckboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                this.toggleLayer(cb.id, cb.checked);
+            });
+        });
 
         /* ---------- Edit Mode ---------- */
         if (this.btnEdit && !MAP.shareMode) {
             this.btnEdit.addEventListener("click", () => {
                 MAP.setEditMode(!MAP.editMode);
-                this.btnEdit.setAttribute(
-                    "aria-pressed",
-                    MAP.editMode ? "true" : "false"
-                );
+                this.btnEdit.setAttribute("aria-pressed", MAP.editMode ? "true" : "false");
                 this.updateModeBadge();
-                if (!MAP.editMode) this.showDefaultUI();
+                if (!MAP.editMode) {
+                    this.showDefaultUI();
+                }
             });
         }
 
@@ -3545,50 +3581,55 @@ class UIManager {
         if (this.btnAdd) {
             this.btnAdd.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("add");
+                this.setActiveMode('add');
             });
         }
 
         if (this.btnRoute) {
             this.btnRoute.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("route");
+                this.setActiveMode('route');
             });
         }
 
         if (this.btnPolygon) {
             this.btnPolygon.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("polygon");
+                this.setActiveMode('polygon');
             });
         }
 
         if (this.btnMeasure) {
             this.btnMeasure.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("measure");
+                this.setActiveMode('measure');
             });
         }
 
         if (this.btnFreeDraw) {
             this.btnFreeDraw.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("freedraw");
+                this.setActiveMode('freedraw');
             });
         }
 
         if (this.btnDrawFinish) {
             this.btnDrawFinish.addEventListener("click", () => {
-                if (MAP.modeRouteAdd) ROUTES.finishCurrentRoute();
-                else if (MAP.modePolygonAdd) POLYGONS.finishCurrentPolygon();
+                if (MAP.modeRouteAdd) {
+                    ROUTES.finishCurrentRoute();
+                } else if (MAP.modePolygonAdd) {
+                    POLYGONS.finishCurrentPolygon();
+                }
                 this.showDefaultUI();
             });
         }
 
         if (this.btnRouteClear) {
             this.btnRouteClear.addEventListener("click", () => {
-                if (ROUTES.activeRouteIndex === -1)
-                    return this.showToast("لا يوجد مسار نشط لحذفه");
+                if (ROUTES.activeRouteIndex === -1) {
+                    this.showToast("لا يوجد مسار نشط لحذفه");
+                    return;
+                }
                 if (!confirm("حذف المسار الحالي؟")) return;
                 ROUTES.removeRoute(ROUTES.activeRouteIndex);
                 this.showDefaultUI();
@@ -3608,19 +3649,19 @@ class UIManager {
 
     setBaseMap(mapTypeId) {
         switch (mapTypeId) {
-            case "roadmap": MAP.setRoadmap(); break;
-            case "satellite": MAP.setSatellite(); break;
-            case "terrain": MAP.setTerrain(); break;
-            case "dark": MAP.setDarkMode(); break;
-            case "silver": MAP.setSilverMode(); break;
+            case 'roadmap': MAP.setRoadmap(); break;
+            case 'satellite': MAP.setSatellite(); break;
+            case 'terrain': MAP.setTerrain(); break;
+            case 'dark': MAP.setDarkMode(); break;
+            case 'silver': MAP.setSilverMode(); break;
         }
     }
 
-    toggleLayer(layerId) {
+    toggleLayer(layerId, isChecked) {
         switch (layerId) {
-            case "layer-traffic": MAP.toggleTraffic(); break;
-            case "layer-bicycling": MAP.toggleBicycling(); break;
-            case "layer-transit": MAP.toggleTransit(); break;
+            case 'layer-traffic': MAP.toggleTraffic(); break;
+            case 'layer-bicycling': MAP.toggleBicycling(); break;
+            case 'layer-transit': MAP.toggleTransit(); break;
         }
     }
 
@@ -3629,7 +3670,7 @@ class UIManager {
         this.sharedInfoWindow.setContent(content);
         this.sharedInfoWindow.setPosition(position);
         this.sharedInfoWindow.setOptions({
-            maxWidth: 450,
+            maxWidth: 450, 
             pixelOffset: new google.maps.Size(0, -50),
             zIndex: 1000
         });
@@ -3653,7 +3694,7 @@ class UIManager {
 
     setActiveMode(mode) {
         if (POLYGONS.isEditing) {
-            this.showToast("يرجى إنهاء تحرير المضلع الحالي أولاً");
+            this.showToast("يرجى إنهاء تحرير المضلع الحالي أولاً أولاً");
             return;
         }
 
@@ -3667,49 +3708,11 @@ class UIManager {
         if (this.btnRoute) this.btnRoute.setAttribute("aria-pressed", "false");
         if (this.btnPolygon) this.btnPolygon.setAttribute("aria-pressed", "false");
         if (this.btnMeasure) this.btnMeasure.setAttribute("aria-pressed", "false");
-        if (this.btnFreeDraw) this.btnFreeDraw.setAttribute("aria-pressed", "false");
+        if (this.btnFreeDraw) this.btnFreeDraw.setAttribute("aria-impaired", "false");
+        if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
+        if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
 
         MAP.setCursor("grab");
-
-        switch (mode) {
-            case "add":
-                MAP.modeAdd = true;
-                MAP.setCursor("crosshair");
-                this.showDefaultUI();
-                this.showToast("اضغط على الخريطة لإضافة موقع");
-                break;
-
-            case "route":
-                ROUTES.startNewRouteSequence();
-                MAP.modeRouteAdd = true;
-                MAP.setCursor("crosshair");
-                this.showDrawFinishUI();
-                this.showToast("اضغط لإضافة نقاط المسار");
-                break;
-
-            case "polygon":
-                POLYGONS.startPolygonSequence();
-                MAP.modePolygonAdd = true;
-                MAP.setCursor("crosshair");
-                this.showDrawFinishUI();
-                this.showToast("اضغط لإضافة رؤوس المضلع");
-                break;
-
-            case "measure":
-                MEASURE.activate();
-                this.showDefaultUI();
-                break;
-
-            case "freedraw":
-                MAP.modeFreeDraw = true;
-                MAP.setCursor("crosshair");
-                this.showDefaultUI();
-                this.showToast("اضغط على الخريطة لإضافة أيقونة أو نص");
-                break;
-
-            default:
-                this.showDefaultUI();
-        }
     }
 
     applyShareMode() {
@@ -3719,6 +3722,7 @@ class UIManager {
             this.btnPolygon,
             this.btnMeasure,
             this.btnFreeDraw,
+            this.btnDrawFinish,
             this.btnDrawFinish,
             this.btnRouteClear,
             this.btnEdit,
@@ -3736,7 +3740,10 @@ class UIManager {
         if (this.btnPolygon) this.btnPolygon.style.display = "none";
         if (this.btnMeasure) this.btnMeasure.style.display = "none";
         if (this.btnFreeDraw) this.btnFreeDraw.style.display = "none";
-        if (this.btnDrawFinish) this.btnDrawFinish.style.display = "inline-block";
+        if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
+        if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
+        if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
+        if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
     }
 
     showDefaultUI() {
@@ -3745,6 +3752,10 @@ class UIManager {
         if (this.btnMeasure) this.btnMeasure.style.display = "inline-block";
         if (this.btnFreeDraw) this.btnFreeDraw.style.display = "inline-block";
         if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
+        if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
+        if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
+        if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
+        if (this.btnRouteClear) this.btnRouteClear.style.display = "none";
     }
 
     showPolygonEditingUI() {
@@ -3754,7 +3765,11 @@ class UIManager {
             this.btnPolygon,
             this.btnMeasure,
             this.btnFreeDraw,
-            this.btnDrawFinish
+            this.btnDrawFinish,
+            this.btnDrawFinish,
+            this.btnRouteClear,
+            this.btnEdit,
+            this.btnLayers
         ].forEach(btn => {
             if (btn) btn.style.display = "none";
         });
@@ -3819,7 +3834,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v25.8 - Fixed Route Deletion & Share Mode");
+        console.log("Diriyah Security Map v25.9 - Fixed Route Deletion & Share Mode");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
