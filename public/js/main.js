@@ -2,9 +2,9 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.7 (Fixed Share Dialog & Share Mode)
-   • إصلاح مشكلة زر المشاركة
-   • إصلاح وضع المشاركة
+   Diriyah Security Map – v25.8 (Fixed Route Deletion & Share Mode)
+   • إصلاح مشكلة حذف المسار
+   • إصلاح عرض دوائر الأرقام في وضع المشاركة
    • تحسين واجهة المشاركة
    • الحفاظ على جميع الميزات السابقة
    ============================================================ */
@@ -209,7 +209,7 @@ class MapController {
     }
 
     init() {
-        console.log("Boot v25.7 - Fixed Share Dialog & Share Mode");
+        console.log("Boot v25.8 - Fixed Route Deletion & Share Mode");
 
         /* --------------------------------------------------
            1) تحديد وضع المشاركة مبكراً (قبل أي UI أو state)
@@ -309,7 +309,7 @@ class MapController {
 
         this.waitForGmpMarkersAndEmit();
     }
-
+    
     setupEditModePersistence() {
         bus.on("editMode:change", (isEditMode) => {
             Utils.saveEditMode(isEditMode);
@@ -387,7 +387,7 @@ class IconPickerModal {
             // فئة جديدة للمركبات الأمنية
             security_vehicles: ['directions_car', 'local_shipping', 'local_taxi', 'airport_shuttle', 'rv_hookup', 'car_rental', 'two_wheeler', 'motorcycle', 'electric_car', 'electric_moped', 'electric_scooter'],
             // فئة جديدة للمعدات الأمنية
-            security_equipment: ['videocam', 'photo_camera', 'camera', 'camera_alt', 'camera_enhance', 'camera_indoor', 'camera_outdoor', 'camera_rear', 'switch_video', 'videocam_off', 'photo_camera_back', 'photo_camera_front', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'add_photo_alternate', 'add_a_photo', 'image', 'image_search', 'image_not_supported', 'broken_image', 'filter', 'filter_b_and_w', 'filter_center_focus', 'filter_drama', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage', 'blur_circular', 'blur_linear', 'blur_on', 'blur_off', 'flare', 'flash_on', 'flash_off', 'flash_auto', 'highlight', 'gradient', 'tonality', 'texture', 'grain', 'vignette', 'center_focus_strong', 'center_focus_weak', 'center_focus', 'panorama', 'panorama_fish_eye', 'panorama_horizontal', 'panorama_vertical', 'panorama_wide_angle', 'photo', 'photo_library', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'slideshow', 'switch_camera', 'switch_video', 'timelapse', 'timer', 'timer_10', 'timer_3', 'timer_off', 'camera', 'camera_alt', 'camera_enhance', 'camera_front', 'camera_rear', 'camera_roll', 'camera_indoor', 'camera_outdoor', 'add_a_photo', 'add_photo_alternate', 'image', 'image_search', 'image_not_supported', 'broken_image', 'filter', 'filter_b_and_w', 'filter_center_focus', 'filter_drama', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage', 'blur_circular', 'blur_linear', 'blur_on', 'blur_off', 'flare', 'flash_on', 'flash_off', 'flash_auto', 'highlight', 'gradient', 'tonality', 'texture', 'grain', 'vignette', 'center_focus_strong', 'center_focus_weak', 'center_focus', 'panorama', 'panorama_fish_eye', 'panorama_horizontal', 'panorama_vertical', 'panorama_wide_angle', 'photo', 'photo_library', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'slideshow', 'switch_camera', 'switch_video', 'timelapse', 'timer', 'timer_10', 'timer_3', 'timer_off']
+            security_equipment: ['videocam', 'photo_camera', 'camera', 'camera_alt', 'camera_enhance', 'camera_indoor', 'camera_outdoor', 'camera_rear', 'switch_video', 'videocam_off', 'photo_camera_back', 'photo_camera_front', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'add_photo_alternate', 'add_a_photo', 'image', 'image_search', 'image_not_supported', 'broken_image', 'filter', 'filter_b_and_w', 'filter_center_focus', 'filter_drama', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage', 'blur_circular', 'blur_linear', 'blur_on', 'blur_off', 'flare', 'flash_on', 'flash_off', 'flash_auto', 'highlight', 'gradient', 'tonality', 'texture', 'grain', 'vignette', 'center_focus_strong', 'center_focus_weak', 'center_focus', 'panorama', 'panorama_fish_eye', 'panorama_horizontal', 'panorama_vertical', 'panorama_wide_angle', 'photo', 'photo_library', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'slideshow', 'switch_camera', 'switch_video', 'timelapse', 'timer', 'timer_10', 'timer_3', 'timer_off', 'camera', 'camera_alt', 'camera_enhance', 'camera_front', 'camera_rear', 'camera_roll', 'camera_indoor', 'camera_outdoor', 'add_a_photo', 'add_photo_alternate', 'image', 'image_search', 'image_not_supported', 'broken_image', 'filter', 'filter_b_and_w', 'filter_center_focus', 'filter_drama', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage', 'blur_circular', 'blur_linear', 'blur_on', 'blur_off', 'flare', 'flash_on', 'flash_off', 'flash_auto', 'highlight', 'gradient', 'tonality', 'texture', 'grain', 'vignette', 'center_focus_strong', 'center_focus_weak', 'center_focus', 'panorama', 'panorama_fish_eye', 'panorama_horizontal', 'panorama_vertical', 'panorama_wide_angle', 'photo', 'photo_library', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'slideshow', 'switch_camera', 'switch_video', 'timelapse', 'timer', 'timer_10', 'timer_3', 'timer_off', 'camera', 'camera_alt', 'camera_enhance', 'camera_front', 'camera_rear', 'camera_roll', 'camera_indoor', 'camera_outdoor', 'add_a_photo', 'add_photo_alternate', 'image', 'image_search', 'image_not_supported', 'broken_image', 'filter', 'filter_b_and_w', 'filter_center_focus', 'filter_drama', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage', 'blur_circular', 'blur_linear', 'blur_on', 'blur_off', 'flare', 'flash_on', 'flash_off', 'flash_auto', 'highlight', 'gradient', 'tonality', 'texture', 'grain', 'vignette', 'center_focus_strong', 'center_focus_weak', 'center_focus', 'panorama', 'panorama_fish_eye', 'panorama_horizontal', 'panorama_vertical', 'panorama_wide_angle', 'photo', 'photo_library', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'slideshow', 'switch_camera', 'switch_video', 'timelapse', 'timer', 'timer_10', 'timer_3', 'timer_off']
         };
         
         this.initModal();
@@ -2237,7 +2237,8 @@ class RouteManager {
         
         if (deleteBtn) {
             deleteBtn.addEventListener("click", () => {
-                if (!confirm(`هل أنت متأكد من حذف المسار رقم ${rt.routeNumber}؟`)) {
+                // إصلاح: عكس الشرط لحذف المسار عند تأكيد المستخدم
+                if (confirm(`هل أنت متأكد من حذف المسار رقم ${rt.routeNumber}؟`)) {
                     this.removeRoute(routeIndex);
                     bus.emit("toast", "تم حذف المسار");
                 }
@@ -2829,10 +2830,9 @@ class StateManager {
 const STATE = new StateManager();
 
 /*
-/*
 ============================================================
    ShareManager
-— نسخ آمن مع ضغط البيانات (مُصحّح)
+— نسخ آمن مع ضغط البيانات (مُحسّن)
 ============================================================
 */
 class ShareManager {
@@ -2841,7 +2841,7 @@ class ShareManager {
         this.btn = document.getElementById("btn-share");
         this.btnText = this.btn ? this.btn.textContent : 'مشاركة';
         this.btnIcon = this.btn ? this.btn.querySelector(".material-icons") : null;
-
+        
         if (this.btn) {
             this.btn.addEventListener("click", () => this.generateShareLink());
         }
@@ -2853,6 +2853,8 @@ class ShareManager {
             bus.emit("toast", "تعذر إنشاء رابط المشاركة");
             return;
         }
+
+        // استخدام واجهة المشاركة المحسّنة
         this.showShareDialog(st);
     }
 
@@ -2862,24 +2864,24 @@ class ShareManager {
 
         const longUrl = STATE.writeShare(state);
 
+        // إنشاء واجهة المشاركة
         const dialog = document.createElement('div');
         dialog.className = 'share-dialog-overlay';
-
+        
         const content = document.createElement('div');
         content.className = 'share-dialog-content';
-
+        
         const header = document.createElement('div');
         header.className = 'share-dialog-header';
         header.innerHTML = `
             <h3>مشاركة الخريطة</h3>
-            <button class="share-close-btn">
-                <i class="material-icons">close</i>
-            </button>
+            <button class="share-close-btn"><i class="material-icons">close</i></button>
         `;
-
+        
         const body = document.createElement('div');
         body.className = 'share-dialog-body';
-
+        
+        // قسم الرابط الطويل
         const longUrlSection = document.createElement('div');
         longUrlSection.className = 'share-section';
         longUrlSection.innerHTML = `
@@ -2887,62 +2889,95 @@ class ShareManager {
             <div class="url-container">
                 <input type="text" readonly value="${longUrl}" class="url-input" id="long-url">
                 <button class="copy-btn" data-target="long-url">
-                    <i class="material-icons">content_copy</i><span>نسخ</span>
+                    <i class="material-icons">content_copy</i>
+                    <span>نسخ</span>
                 </button>
             </div>
         `;
-
+        
+        // قسم الروابط المختصرة
         const shortUrlSection = document.createElement('div');
         shortUrlSection.className = 'share-section';
         shortUrlSection.innerHTML = `
             <h4>تقصير الرابط:</h4>
             <div class="shortener-options">
-                <button class="shortener-btn" data-service="tinyurl"><i class="material-icons">link</i><span>TinyURL</span></button>
-                <button class="shortener-btn" data-service="isgd"><i class="material-icons">link</i><span>is.gd</span></button>
-                <button class="shortener-btn" data-service="vgd"><i class="material-icons">link</i><span>v.gd</span></button>
-                <button class="shortener-btn" data-service="cuttly"><i class="material-icons">content_cut</i><span>Shrtco</span></button>
+                <button class="shortener-btn" data-service="tinyurl">
+                    <i class="material-icons">link</i>
+                    <span>TinyURL</span>
+                </button>
+                <button class="shortener-btn" data-service="isgd">
+                    <i class="material-icons">link</i>
+                    <span>is.gd</span>
+                </button>
+                <button class="shortener-btn" data-service="vgd">
+                    <i class="material-icons">link</i>
+                    <span>v.gd</span>
+                </button>
+                <button class="shortener-btn" data-service="cuttly">
+                    <i class="material-icons">content_cut</i>
+                    <span>Shrtco.de</span>
+                </button>
             </div>
-            <div class="short-url-result" id="short-url-result" style="display:none">
+            <div class="short-url-result" id="short-url-result" style="display: none;">
                 <input type="text" readonly class="url-input" id="short-url">
                 <button class="copy-btn" data-target="short-url">
-                    <i class="material-icons">content_copy</i><span>نسخ</span>
+                    <i class="material-icons">content_copy</i>
+                    <span>نسخ</span>
                 </button>
             </div>
         `;
-
+        
+        // قسم المشاركة الاجتماعية
         const socialSection = document.createElement('div');
         socialSection.className = 'share-section';
         socialSection.innerHTML = `
             <h4>مشاركة على:</h4>
             <div class="social-buttons">
-                <button class="social-btn whatsapp" data-platform="whatsapp"><span>WhatsApp</span></button>
-                <button class="social-btn twitter" data-platform="twitter"><span>Twitter</span></button>
-                <button class="social-btn facebook" data-platform="facebook"><span>Facebook</span></button>
-                <button class="social-btn telegram" data-platform="telegram"><span>Telegram</span></button>
+                <button class="social-btn" data-platform="whatsapp">
+                    <i class="material-icons">whatsapp</i>
+                    <span>WhatsApp</span>
+                </button>
+                <button class="social-btn" data-platform="twitter">
+                    <i class="material-icons">alternate_email</i>
+                    <span>Twitter</span>
+                </button>
+                <button class="social-btn" data-platform="facebook">
+                    <i class="material-icons">facebook</i>
+                    <span>Facebook</span>
+                </button>
+                <button class="social-btn" data-platform="telegram">
+                    <i class="material-icons">send</i>
+                    <span>Telegram</span>
+                </button>
             </div>
         `;
-
+        
         body.appendChild(longUrlSection);
         body.appendChild(shortUrlSection);
         body.appendChild(socialSection);
-
-        // ⭐️ التجميع الصحيح (كان مفقوداً)
+        
+        // إضافة CSS
+        this.addShareStyles();
+        
+        // التجميع الصحيح
         content.appendChild(header);
         content.appendChild(body);
         dialog.appendChild(content);
         document.body.appendChild(dialog);
-
-        this.addShareStyles();
+        
+        // إضافة الأحداث
         this.attachShareEvents(dialog, longUrl);
-
-        dialog.addEventListener('click', e => {
-            if (e.target === dialog) this.closeShareDialog();
+        
+        // إغلاق الحوار عند النقر خارج المحتوى
+        dialog.addEventListener('click', (e) => {
+            if (e.target === dialog) {
+                this.closeShareDialog();
+            }
         });
-
+        
+        // منع الإغلاق عند النقر على الأزرار
         const closeBtn = dialog.querySelector('.share-close-btn');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => this.closeShareDialog());
-        }
+        closeBtn.addEventListener('click', () => this.closeShareDialog());
     }
 
     addShareStyles() {
@@ -2956,45 +2991,105 @@ class ShareManager {
                 background: rgba(0,0,0,.6);
                 display: flex; align-items: center; justify-content: center;
                 z-index: 10000; font-family: 'Tajawal', sans-serif; direction: rtl;
+                animation: fadeIn 0.3s ease-out;
             }
             .share-dialog-content {
                 background: #fff; border-radius: 16px;
                 width: 90%; max-width: 500px; max-height: 80vh;
                 overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.3);
+                animation: slideUp 0.3s ease-out;
             }
             .share-dialog-header {
                 display: flex; justify-content: space-between;
                 padding: 20px; border-bottom: 1px solid #eee;
             }
+            .share-dialog-header h3 {
+                margin: 0; font-size: 20px; color: #333;
+            }
             .share-dialog-body { padding: 20px; overflow-y: auto; }
             .share-section { margin-bottom: 24px; }
             .url-container { display: flex; gap: 10px; }
-            .url-input { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; }
+            .url-input { 
+                flex: 1; 
+                padding: 10px; 
+                border-radius: 8px; 
+                border: 1px solid #ddd; 
+                font-family: 'Tajawal', sans-serif;
+                font-size: 14px;
+            }
             .copy-btn {
                 display: flex; gap: 5px; align-items: center;
                 background: #4285f4; color: #fff;
-                border: none; border-radius: 8px; padding: 8px 12px;
+                border: none; border-radius: 8px; 
+                padding: 8px 12px;
                 cursor: pointer; font-family: 'Tajawal', sans-serif;
+                transition: background-color 0.2s;
+            }
+            .copy-btn:hover {
+                background: #3367d6;
+            }
+            .shortener-options {
+                display: flex; gap: 10px; flex-wrap: wrap;
+                margin-bottom: 15px;
+            }
+            .shortener-btn {
+                display: flex; align-items: center; gap: 8px;
+                padding: 10px 15px; border: 1px solid #ddd;
+                border-radius: 8px; background: white;
+                cursor: pointer; font-family: 'Tajawal', sans-serif;
+                font-size: 14px; transition: all 0.2s;
+            }
+            .shortener-btn:hover {
+                background-color: #f5f5f5;
+                transform: translateY(-2px);
+            }
+            .short-url-result {
+                margin-top: 15px;
+                animation: fadeIn 0.3s ease-out;
+            }
+            .social-buttons {
+                display: flex; gap: 10px; flex-wrap: wrap;
             }
             .social-btn {
-                padding: 10px 14px; border-radius: 8px; border: none;
-                cursor: pointer; font-family: 'Tajawal', sans-serif; color: #fff;
+                display: flex; align-items: center; gap: 8px;
+                padding: 10px 15px; border: none;
+                border-radius: 8px; cursor: pointer;
+                font-family: 'Tajawal', sans-serif;
+                font-size: 14px; transition: all 0.2s;
             }
-            .social-btn.whatsapp { background:#25D366 }
-            .social-btn.twitter { background:#1DA1F2 }
-            .social-btn.facebook { background:#4267B2 }
-            .social-btn.telegram { background:#0088cc }
+            .social-btn:hover {
+                transform: translateY(-2px);
+            }
+            .social-btn.whatsapp { background: #25D366; color: white; }
+            .social-btn.twitter { background: #1DA1F2; color: white; }
+            .social-btn.facebook { background: #4267B2; color: white; }
+            .social-btn.telegram { background: #0088cc; color: white; }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes slideUp {
+                from { 
+                    transform: translateY(20px);
+                    opacity: 0;
+                }
+                to { 
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
         `;
         document.head.appendChild(style);
     }
 
     attachShareEvents(dialog, longUrl) {
+        // نسخ الروابط
         dialog.querySelectorAll('.copy-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const input = document.getElementById(btn.dataset.target);
-                if (!input) return;
+                const targetId = btn.dataset.target;
+                const input = document.getElementById(targetId);
                 const url = input.value;
-
+                
                 try {
                     await navigator.clipboard.writeText(url);
                     this.showCopySuccess(btn);
@@ -3003,74 +3098,175 @@ class ShareManager {
                 }
             });
         });
-
+        
+        // خدمات تقصير الروابط
         dialog.querySelectorAll('.shortener-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const short = await this.shortenUrl(longUrl, btn.dataset.service);
-                if (short) this.showShortUrl(short);
+                const service = btn.dataset.service;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="material-icons">hourglass_empty</i><span>جاري التقصير...</span>';
+                
+                try {
+                    let shortUrl = await this.shortenUrl(longUrl, service);
+                    if (shortUrl) {
+                        this.showShortUrl(shortUrl);
+                    }
+                } catch (error) {
+                    console.error('Error shortening URL:', error);
+                    bus.emit("toast", "فشل تقصير الرابط. الرجاء استخدام الرابط الكامل");
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="material-icons">${btn.querySelector('i').textContent}</i><span>${btn.querySelector('span').textContent}</span>`;
+                }
             });
         });
-
+        
+        // المشاركة الاجتماعية
         dialog.querySelectorAll('.social-btn').forEach(btn => {
             btn.addEventListener('click', () => {
+                const platform = btn.dataset.platform;
+                const url = longUrl;
                 const text = "شاهد خريطة الدرعية الأمنية";
-                const url = encodeURIComponent(longUrl);
-                const map = {
-                    whatsapp: `https://wa.me/?text=${text} ${url}`,
-                    twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
-                    facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
-                    telegram: `https://t.me/share/url?url=${url}&text=${text}`
-                };
-                window.open(map[btn.dataset.platform], '_blank');
+                
+                let shareUrl = '';
+                switch(platform) {
+                    case 'whatsapp':
+                        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
+                        break;
+                    case 'twitter':
+                        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+                        break;
+                    case 'facebook':
+                        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+                        break;
+                    case 'telegram':
+                        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+                        break;
+                }
+                
+                if (shareUrl) {
+                    window.open(shareUrl, '_blank', 'width=600,height=400');
+                }
             });
         });
     }
 
     async shortenUrl(longUrl, service) {
+        const services = {
+            tinyurl: {
+                url: `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`,
+                method: 'GET'
+            },
+            isgd: {
+                url: `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
+                method: 'GET'
+            },
+            vgd: {
+                url: `https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
+                method: 'GET'
+            },
+            cuttly: {
+                url: `https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(longUrl)}`,
+                method: 'GET'
+            }
+        };
+        
+        const serviceConfig = services[service];
+        if (!serviceConfig) return longUrl;
+        
         try {
-            const urls = {
-                tinyurl: `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`,
-                isgd: `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
-                vgd: `https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
-                cuttly: `https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(longUrl)}`
-            };
-            const res = await fetch(urls[service]);
-            const data = await res.text();
-            if (service === 'tinyurl') return data;
-            const json = JSON.parse(data);
-            return json.shorturl || json.result?.full_short_link || null;
-        } catch {
-            bus.emit("toast", "فشل تقصير الرابط");
-            return null;
+            const response = await fetch(serviceConfig.url, {
+                method: serviceConfig.method,
+                headers: {
+                    'Accept': 'application/json, text/plain'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.text();
+            
+            // معالجة الاستجابة حسب الخدمة
+            switch(service) {
+                case 'tinyurl':
+                    return data.trim(); // TinyURL يرجع الرابط المختصر كنص عادي
+                case 'isgd':
+                case 'vgd':
+                    const gdData = JSON.parse(data);
+                    return gdData.shorturl || data;
+                case 'cuttly':
+                    const jsonData = JSON.parse(data);
+                    return jsonData.result?.full_short_link || data;
+                default:
+                    return data;
+            }
+        } catch (error) {
+            console.error(`Error shortening URL with ${service}:`, error);
+            throw error;
         }
     }
 
     showShortUrl(shortUrl) {
-        const box = document.getElementById('short-url-result');
-        const input = document.getElementById('short-url');
-        if (!box || !input) return;
-        box.style.display = 'block';
-        input.value = shortUrl;
+        const resultDiv = document.getElementById('short-url-result');
+        const shortUrlInput = document.getElementById('short-url');
+        
+        resultDiv.style.display = 'block';
+        shortUrlInput.value = shortUrl;
+        
+        // نسخ تلقائي الرابط المختصر
+        setTimeout(() => {
+            if (Utils.supportsModernClipboard()) {
+                navigator.clipboard.writeText(shortUrl);
+            } else {
+                this.fallbackCopyToClipboard(shortUrl);
+            }
+        }, 100);
     }
 
     showCopySuccess(btn) {
-        const html = btn.innerHTML;
-        btn.innerHTML = "✓ تم النسخ";
-        setTimeout(() => btn.innerHTML = html, 1500);
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<i class="material-icons">check</i><span>تم النسخ!</span>';
+        btn.style.backgroundColor = '#4CAF50';
+        
+        setTimeout(() => {
+            btn.innerHTML = originalContent;
+            btn.style.backgroundColor = '#4285f4';
+        }, 2000);
     }
 
-    fallbackCopyToClipboard(text) {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
+    fallbackCopyToClipboard(text, buttonElement) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            if (successful && buttonElement) {
+                this.showCopySuccess(buttonElement);
+            }
+        } catch (err) {
+            document.body.removeChild(textArea);
+            console.error('Fallback copy failed:', err);
+        }
     }
 
     closeShareDialog() {
         const dialog = document.querySelector('.share-dialog-overlay');
-        if (dialog) dialog.remove();
+        if (dialog) {
+            dialog.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => {
+                document.body.removeChild(dialog);
+            }, 300);
+        }
     }
 }
 
@@ -3225,8 +3421,7 @@ const MEASURE = new MeasureManager();
 ============================================================
    UIManager
 — واجهة المستخدم (مع نافذة معلومات متجاوبة بالكامل)
-============================================================
-*/
+  ============================================================ */
 class UIManager {
 
     constructor() {
@@ -3313,14 +3508,14 @@ class UIManager {
         /* ---------- Base Maps ---------- */
         if (!MAP.shareMode) {
             document.querySelectorAll('input[name="base-map"]').forEach(radio => {
-                radio.addEventListener("change", () => {
+                radio.addEventListener('change', () => {
                     this.setBaseMap(radio.value);
                 });
             });
 
             document.querySelectorAll("#layer-traffic, #layer-bicycling, #layer-transit")
                 .forEach(cb => {
-                    cb.addEventListener("change", () => {
+                    cb.addEventListener('change', () => {
                         this.toggleLayer(cb.id, cb.checked);
                     });
                 });
@@ -3509,6 +3704,7 @@ class UIManager {
                 MAP.modeFreeDraw = true;
                 MAP.setCursor("crosshair");
                 this.showDefaultUI();
+                this.showToast("اضغط على الخريطة لإضافة أيقونة أو نص");
                 break;
 
             default:
@@ -3535,6 +3731,7 @@ class UIManager {
     }
 
     showDrawFinishUI() {
+        if (this.btnAdd) this.btnAdd.style.display = "none";
         if (this.btnRoute) this.btnRoute.style.display = "none";
         if (this.btnPolygon) this.btnPolygon.style.display = "none";
         if (this.btnMeasure) this.btnMeasure.style.display = "none";
@@ -3591,7 +3788,6 @@ class UIManager {
 
 const UI = new UIManager();
 
-
 /*
 ============================================================
    BootLoader
@@ -3623,7 +3819,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v25.7 - Fixed Share Dialog & Share Mode");
+        console.log("Diriyah Security Map v25.8 - Fixed Route Deletion & Share Mode");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
