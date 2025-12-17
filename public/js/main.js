@@ -1909,8 +1909,10 @@ const LOCATIONS = new LocationManager();
 /*
 ============================================================
    RouteManager
-— إدارة المسارات + بطاقات Glass (مع إدارة الأرقام)
-  ============================================================ */
+— إدارة المسارات + بطاقات Glass
+— بدون نقاط أو أرقام في وضع المشاركة
+============================================================
+*/
 class RouteManager {
 
     constructor() {
@@ -1920,13 +1922,11 @@ class RouteManager {
         this.editMode = true;
         this.directionsService = null;
         this.activeRouteIndex = -1;
-        this.showNumbers = true; // التحكم في عرض أرقام المسارات
 
         bus.on("map:ready", map => {
             this.map = map;
             this.shareMode = MAP.shareMode;
             this.editMode = MAP.editMode;
-            this.showNumbers = !this.shareMode; // إخفاء الأرقام في وضع المشاركة
             this.onMapReady();
         });
 
@@ -1942,41 +1942,44 @@ class RouteManager {
         });
     }
 
-    startNewRouteSequence() { 
-        this.activeRouteIndex = -1; 
+    startNewRouteSequence() {
+        this.activeRouteIndex = -1;
         MAP.modeRouteAdd = true;
     }
-    
+
     finishCurrentRoute() {
         if (this.activeRouteIndex === -1) return;
         const rt = this.routes[this.activeRouteIndex];
+
         if (rt.poly) rt.poly.setMap(null);
         rt.stops.forEach(s => s.map = null);
+
         if (rt.points.length >= 2) {
             this.renderRoute(this.activeRouteIndex);
             bus.emit("persist");
         } else {
             this.routes.pop();
         }
+
         this.activeRouteIndex = -1;
         MAP.modeRouteAdd = false;
         MAP.setCursor("grab");
     }
 
     createNewRoute() {
-        const route = { 
-            id: "rt" + Date.now(), 
-            points: [], 
-            color: "#3344ff", 
-            weight: 6, 
-            opacity: 0.95, 
-            distance: 0, 
-            duration: 0, 
-            overview: null, 
-            poly: null, 
-            stops: [], 
+        const route = {
+            id: "rt" + Date.now(),
+            points: [],
+            color: "#3344ff",
+            weight: 6,
+            opacity: 0.95,
+            distance: 0,
+            duration: 0,
+            overview: null,
+            poly: null,
+            stops: [],
             notes: "",
-            routeNumber: this.routes.length + 1 // إضافة رقم المسار
+            routeNumber: this.routes.length + 1
         };
         this.routes.push(route);
         this.activeRouteIndex = this.routes.length - 1;
@@ -1986,121 +1989,101 @@ class RouteManager {
     addPointToRoute(routeIndex, latLng) {
         const rt = this.routes[routeIndex];
         rt.points.push(latLng);
-        const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1);
-        rt.stops.push(stop);
+
+        // لا تنشئ أي markers في وضع المشاركة
+        if (!this.shareMode) {
+            const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1);
+            rt.stops.push(stop);
+        }
+
         if (rt.points.length >= 2) this.requestRoute(routeIndex);
         else bus.emit("persist");
     }
 
     createStopMarker(pos, routeIndex, idx) {
+        if (this.shareMode) return null;
+
         const rt = this.routes[routeIndex];
         const el = document.createElement("div");
-        
-        // عرض رقم المسار فقط في وضع التحرير
-        const displayNumber = this.showNumbers ? `${rt.routeNumber}.${idx + 1}` : `${idx + 1}`;
-        
+
         el.style.cssText = `
-            width:26px; 
-            height:26px; 
-            background:white; 
-            border-radius:50%; 
-            border:3px solid ${rt.color}; 
-            display:flex; 
-            align-items:center; 
-            justify-content:center; 
-            font-size:11px; 
-            font-weight:bold; 
+            width:26px;
+            height:26px;
+            background:white;
+            border-radius:50%;
+            border:3px solid ${rt.color};
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:11px;
+            font-weight:bold;
             z-index:101;
-            font-family: 'Tajawal', sans-serif;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            font-family:'Tajawal', sans-serif;
+            box-shadow:0 2px 6px rgba(0,0,0,0.2);
         `;
-        el.textContent = displayNumber;
-        
-        const marker = new google.maps.marker.AdvancedMarkerElement({ 
-            position: pos, 
-            map: this.map, 
-            content: el, 
-            gmpDraggable: !this.shareMode 
+        el.textContent = `${rt.routeNumber}.${idx + 1}`;
+
+        const marker = new google.maps.marker.AdvancedMarkerElement({
+            position: pos,
+            map: this.map,
+            content: el,
+            gmpDraggable: true
         });
-        marker.addListener("dragend", () => { 
-            rt.points[idx] = marker.position; 
-            this.requestRoute(routeIndex); 
-            bus.emit("persist"); 
+
+        marker.addListener("dragend", () => {
+            rt.points[idx] = marker.position;
+            this.requestRoute(routeIndex);
+            bus.emit("persist");
         });
-        marker.addListener("contextmenu", () => { 
-            if (this.shareMode) return; 
-            this.removePoint(routeIndex, idx); 
+
+        marker.addListener("contextmenu", () => {
+            if (this.shareMode) return;
+            this.removePoint(routeIndex, idx);
         });
+
         return marker;
     }
 
     removePoint(routeIndex, idx) {
         const rt = this.routes[routeIndex];
         if (rt.stops[idx]) rt.stops[idx].map = null;
-        rt.points.splice(idx, 1); 
+
+        rt.points.splice(idx, 1);
         rt.stops.splice(idx, 1);
-        rt.stops.forEach((m, i) => { 
-            const displayNumber = this.showNumbers ? `${rt.routeNumber}.${i + 1}` : `${i + 1}`;
-            m.content.textContent = displayNumber;
+
+        rt.stops.forEach((m, i) => {
+            m.content.textContent = `${rt.routeNumber}.${i + 1}`;
         });
+
         if (rt.points.length >= 2) this.requestRoute(routeIndex);
         else this.clearRoute(routeIndex);
+
         bus.emit("persist");
-    }
-
-    // دالة جديدة لحذف مسار بالرقم
-    deleteRouteByNumber(routeNumber) {
-        const routeIndex = this.routes.findIndex(rt => rt.routeNumber === routeNumber);
-        if (routeIndex !== -1) {
-            this.removeRoute(routeIndex);
-            bus.emit("toast", `تم حذف المسار رقم ${routeNumber}`);
-            return true;
-        }
-        return false;
-    }
-
-    // الحصول على قائمة أرقام المسارات
-    getRouteNumbers() {
-        return this.routes.map(rt => rt.routeNumber);
-    }
-
-    removeRoute(routeIndex) {
-        const rt = this.routes[routeIndex];
-        if (rt.poly) rt.poly.setMap(null);
-        rt.stops.forEach(s => s.map = null);
-        this.routes.splice(routeIndex, 1);
-        
-        // إعادة ترقيم المسارات المتبقية
-        this.routes.forEach((route, index) => {
-            route.routeNumber = index + 1;
-            // تحديث أرقام النقاط
-            route.stops.forEach((stop, stopIndex) => {
-                const displayNumber = this.showNumbers ? `${route.routeNumber}.${stopIndex + 1}` : `${stopIndex + 1}`;
-                stop.content.textContent = displayNumber;
-            });
-        });
-        
-        this.activeRouteIndex = -1;
-        UI.forceCloseSharedInfoCard();
-        bus.emit("persist");
-    }
-
-    clearRoute(routeIndex) {
-        const rt = this.routes[routeIndex];
-        if (rt.poly) rt.poly.setMap(null);
-        rt.poly = null; rt.overview = null;
-        rt.distance = 0; rt.duration = 0;
     }
 
     requestRoute(routeIndex) {
-        if (!this.directionsService) this.directionsService = new google.maps.DirectionsService();
-        const rt = this.routes[routeIndex]; const pts = rt.points;
+        if (!this.directionsService) {
+            this.directionsService = new google.maps.DirectionsService();
+        }
+
+        const rt = this.routes[routeIndex];
+        const pts = rt.points;
         if (pts.length < 2) return;
-        const req = { origin: pts[0], destination: pts[pts.length - 1], travelMode: google.maps.TravelMode.DRIVING };
-        if (pts.length > 2) req.waypoints = pts.slice(1, -1).map(p => ({ location: p, stopover: true }));
+
+        const req = {
+            origin: pts[0],
+            destination: pts[pts.length - 1],
+            travelMode: google.maps.TravelMode.DRIVING
+        };
+
+        if (pts.length > 2) {
+            req.waypoints = pts.slice(1, -1).map(p => ({ location: p, stopover: true }));
+        }
+
         this.directionsService.route(req, (res, status) => {
-            if (status !== "OK") { bus.emit("toast", "تعذر حساب المسار"); return; }
-            const r = res.routes[0]; rt.overview = r.overview_polyline;
+            if (status !== "OK") return;
+            const r = res.routes[0];
+            rt.overview = r.overview_polyline;
             rt.distance = r.legs.reduce((s, l) => s + l.distance.value, 0);
             rt.duration = r.legs.reduce((s, l) => s + l.duration.value, 0);
             this.renderRoute(routeIndex);
@@ -2111,220 +2094,92 @@ class RouteManager {
     renderRoute(routeIndex) {
         const rt = this.routes[routeIndex];
         if (rt.poly) rt.poly.setMap(null);
-        const path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points;
-        rt.poly = new google.maps.Polyline({ 
-            map: this.map, 
-            path, 
-            strokeColor: rt.color, 
-            strokeWeight: rt.weight, 
-            strokeOpacity: rt.opacity, 
-            zIndex: 10 
+
+        const path = rt.overview
+            ? google.maps.geometry.encoding.decodePath(rt.overview)
+            : rt.points;
+
+        rt.poly = new google.maps.Polyline({
+            map: this.map,
+            path,
+            strokeColor: rt.color,
+            strokeWeight: rt.weight,
+            strokeOpacity: rt.opacity,
+            zIndex: 10
         });
-        
-        rt.poly.addListener("mouseover", (e) => { 
+
+        rt.poly.addListener("mouseover", e => {
             if (!UI.infoWindowPinned) this.openRouteCard(routeIndex, true, e.latLng);
         });
-        rt.poly.addListener("mouseout", () => { UI.closeSharedInfoCard();});
-        rt.poly.addListener("click", (e) => this.openRouteCard(routeIndex, false, e.latLng));
+
+        rt.poly.addListener("mouseout", () => UI.closeSharedInfoCard());
+        rt.poly.addListener("click", e => this.openRouteCard(routeIndex, false, e.latLng));
     }
 
-    openRouteCard(routeIndex, hoverOnly = false, position = null) {
+    clearRoute(routeIndex) {
         const rt = this.routes[routeIndex];
-        const dist = Utils.formatDistance(rt.distance);
-        const dur = Utils.formatDuration(rt.duration);
-        const notes = Utils.escapeHTML(rt.notes || "");
-        const isEditable = !hoverOnly && MAP.editMode;
-
-        const cardStyle = `
-            font-family: 'Tajawal', 'Cairo', sans-serif;
-            background: rgba(30, 30, 30, 0.5); 
-            backdrop-filter: blur(12px) saturate(1.5);
-            -webkit-backdrop-filter: blur(12px) saturate(1.5);
-            border-radius: 16px;
-            border: none;
-            padding: 0;
-            color: #f0f0f0;
-            direction: rtl;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            width: 400px;
-            max-width: 95vw;
-            max-height: 70vh;
-            overflow-y: auto;
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch;
-        `;
-        const headerStyle = `display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.05); position: sticky; top: 0; z-index: 10;`;
-        const bodyStyle = `padding: 16px;`;
-        const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.05); position: sticky; bottom: 0;`;
-
-        const html = `
-        <div style="${cardStyle}" class="glass-card-content">
-            <div style="${headerStyle}">
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <img src="img/logo.png" style="width: 30px; height: 30px; border-radius: 6px;">
-                    <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;">مسار رقم ${rt.routeNumber}</h3>
-                </div>
-            </div>
-            <div style="${bodyStyle}">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-family: 'Tajawal', sans-serif;">
-                    <span><b>المسافة:</b> ${dist}</span>
-                    <span><b>الوقت:</b> ${dur}</span>
-                </div>
-                ${isEditable ? `
-                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:30px;border:none;border-radius:6px;cursor:pointer;"></div>
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;color:#333;"></div>
-                    </div>
-                    <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
-                        <input id="route-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
-                    </div>
-                    <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">ملاحظات:</label>
-                        <textarea id="route-notes" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
-                    </div>
-                    <div style="margin-bottom:14px; background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px;">
-                        <label style="font-size:12px; display:block; margin-bottom:8px; font-family: 'Tajawal', sans-serif; font-weight: bold;">إدارة المسارات:</label>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button id="delete-route-btn" style="padding: 6px 12px; border: none; border-radius: 6px; background: #e94235; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 13px;">
-                                <i class="material-icons" style="font-size: 16px; vertical-align: middle; margin-left: 4px;">delete</i>
-                                حذف هذا المسار
-                            </button>
-                        </div>
-                    </div>
-                ` : `
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Tajawal', sans-serif;">ملاحظات:</p>
-                    <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Tajawal', sans-serif;">
-                        ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
-                    </div>
-                `}
-            </div>
-            ${isEditable ? `
-                <div style="${footerStyle}">
-                    <div style="display:flex;gap:8px; flex-wrap: wrap;">
-                        <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 90px; font-size: 14px;">حفظ</button>
-                        <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">إغلاق</button>
-                    </div>
-                </div>
-            ` : ''}
-        </div>`;
-
-        const cardPosition = position || this.getRouteCenter(rt);
-        UI.openSharedInfoCard(html, cardPosition, !hoverOnly);
-        google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachRouteCardEvents(routeIndex, hoverOnly));
+        if (rt.poly) rt.poly.setMap(null);
+        rt.poly = null;
+        rt.overview = null;
+        rt.distance = 0;
+        rt.duration = 0;
     }
 
-    getRouteCenter(rt) {
-        const path = rt.poly.getPath();
-        const bounds = new google.maps.LatLngBounds();
-        for (let i = 0; i < path.getLength(); i++) { bounds.extend(path.getAt(i)); }
-        return bounds.getCenter();
-    }
-
-    attachRouteCardEvents(routeIndex, hoverOnly) {
-        if (hoverOnly || !MAP.editMode) return;
-        const rt = this.routes[routeIndex];
-        const saveBtn = document.getElementById("route-save"); 
-        const closeBtn = document.getElementById("route-close");
-        const deleteBtn = document.getElementById("delete-route-btn");
-        const colEl = document.getElementById("route-color"); 
-        const weightEl = document.getElementById("route-weight");
-        const opEl = document.getElementById("route-opacity"); 
-        const opValEl = document.getElementById("route-opacity-val"); 
-        const notesEl = document.getElementById("route-notes");
-        
-        if (opEl) { opEl.addEventListener("input", () => { if (opValEl) opValEl.textContent = opEl.value + "%"; }); }
-        
-        if (deleteBtn) {
-            deleteBtn.addEventListener("click", () => {
-                // إصلاح: عكس الشرط لحذف المسار عند تأكيد المستخدم
-                if (confirm(`هل أنت متأكد من حذف المسار رقم ${rt.routeNumber}؟`)) {
-                    this.removeRoute(routeIndex);
-                    bus.emit("toast", "تم حذف المسار");
-                }
-            });
-        }
-        
-        if (saveBtn) {
-            saveBtn.addEventListener("click", () => {
-                rt.color = colEl.value; 
-                rt.weight = Utils.clamp(+weightEl.value, 1, 20); 
-                rt.opacity = Utils.clamp(+opEl.value, 0, 100) / 100; 
-                rt.notes = notesEl.value.trim();
-                rt.poly.setOptions({ 
-                    strokeColor: rt.color, 
-                    strokeWeight: rt.weight, 
-                    strokeOpacity: rt.opacity 
-                });
-                bus.emit("persist"); 
-                UI.forceCloseSharedInfoCard(); 
-                bus.emit("toast", "تم حفظ تعديلات المسار");
-            });
-        }
-        if (closeBtn) { 
-            closeBtn.addEventListener("click", () => { 
-                UI.forceCloseSharedInfoCard(); 
-            }); 
-        }
-    }
-   
     exportState() {
         return this.routes.map(rt => ({
-            id: rt.id, 
+            id: rt.id,
             routeNumber: rt.routeNumber,
-            color: rt.color, 
-            weight: rt.weight, 
-            opacity: rt.opacity, 
-            distance: rt.distance, 
-            duration: rt.duration, 
-            overview: rt.overview, 
+            color: rt.color,
+            weight: rt.weight,
+            opacity: rt.opacity,
+            distance: rt.distance,
+            duration: rt.duration,
+            overview: rt.overview,
             notes: rt.notes,
-            points: rt.points.map(p => ({ 
-                lat: typeof p.lat === 'function' ? p.lat() : p.lat, 
-                lng: typeof p.lng === 'function' ? p.lng() : p.lng 
+            points: rt.points.map(p => ({
+                lat: typeof p.lat === "function" ? p.lat() : p.lat,
+                lng: typeof p.lng === "function" ? p.lng() : p.lng
             }))
         }));
     }
 
     applyState(state) {
         if (!state || !state.routes) return;
-        this.routes.forEach(rt => { 
-            if (rt.poly) rt.poly.setMap(null); 
-            rt.stops.forEach(s => s.map = null); 
-        });
-        this.routes = [];
-        state.routes.forEach(rt => {
-            const newRoute = { 
-                id: rt.id, 
-                routeNumber: rt.routeNumber || (this.routes.length + 1),
-                color: rt.color, 
-                weight: rt.weight, 
-                opacity: rt.opacity, 
-                distance: rt.distance, 
-                duration: rt.duration, 
-                overview: rt.overview, 
-                notes: rt.notes || "", 
-                points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)), 
-                poly: null, 
-                stops: [] 
-            };
-            this.routes.push(newRoute);
-            newRoute.points.forEach((pt, i) => { 
-                const stop = this.createStopMarker(pt, this.routes.length - 1, i); 
-                newRoute.stops.push(stop); 
-            });
-            this.renderRoute(this.routes.length - 1);
-        });
-    }
 
-    // دالة لتحديث عرض الأرقام
-    updateNumbersVisibility() {
-        this.showNumbers = !this.shareMode;
         this.routes.forEach(rt => {
-            rt.stops.forEach((stop, index) => {
-                const displayNumber = this.showNumbers ? `${rt.routeNumber}.${index + 1}` : `${index + 1}`;
-                stop.content.textContent = displayNumber;
-            });
+            if (rt.poly) rt.poly.setMap(null);
+            rt.stops.forEach(s => s && (s.map = null));
+        });
+
+        this.routes = [];
+
+        state.routes.forEach(rt => {
+            const newRoute = {
+                id: rt.id,
+                routeNumber: rt.routeNumber,
+                color: rt.color,
+                weight: rt.weight,
+                opacity: rt.opacity,
+                distance: rt.distance,
+                duration: rt.duration,
+                overview: rt.overview,
+                notes: rt.notes || "",
+                points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)),
+                poly: null,
+                stops: []
+            };
+
+            this.routes.push(newRoute);
+
+            // markers فقط في edit mode
+            if (!this.shareMode) {
+                newRoute.points.forEach((pt, i) => {
+                    const stop = this.createStopMarker(pt, this.routes.length - 1, i);
+                    newRoute.stops.push(stop);
+                });
+            }
+
+            this.renderRoute(this.routes.length - 1);
         });
     }
 }
