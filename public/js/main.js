@@ -3271,7 +3271,8 @@ const MEASURE = new MeasureManager();
 ============================================================
    UIManager
 — واجهة المستخدم (مع نافذة معلومات متجاوبة بالكامل)
-  ============================================================ */
+============================================================
+*/
 class UIManager {
 
     constructor() {
@@ -3305,173 +3306,72 @@ class UIManager {
         if (this._initialized) return;
         this._initialized = true;
 
-        console.log("UI: initializeUI() called.");
-
-        /* ---------- CSS Injection (مرة واحدة) ---------- */
+        /* ---------- CSS Injection ---------- */
         if (!document.getElementById("ui-infowindow-style")) {
             const style = document.createElement("style");
             style.id = "ui-infowindow-style";
             style.innerHTML = `
-                .gm-style-iw-c {
-                    background: transparent !important;
-                    box-shadow: none !important;
-                    padding: 0 !important;
-                    border-radius: 0 !important;
-                    overflow: visible !important;
-                }
-                .gm-style-iw-d {
-                    overflow: visible !important;
-                    max-height: none !important;
-                    padding: 0 !important;
-                    background: transparent !important;
-                }
+                .gm-style-iw-c { background: transparent !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; overflow: visible !important; }
+                .gm-style-iw-d { overflow: visible !important; max-height: none !important; padding: 0 !important; background: transparent !important; }
                 .gm-style-iw-tc { display: none !important; }
-                .gm-ui-hover-effect {
-                    display: none !important;
-                    opacity: 0 !important;
-                    pointer-events: none !important;
-                }
+                .gm-ui-hover-effect { display: none !important; opacity: 0 !important; pointer-events: none !important; }
             `;
             document.head.appendChild(style);
         }
 
-        /* ---------- Share Mode ---------- */
-        if (MAP.shareMode) {
-            this.applyShareMode();
-        }
-
-        /* ---------- InfoWindow ---------- */
         this.sharedInfoWindow = new google.maps.InfoWindow();
 
         MAP.map.addListener("click", () => {
+            this.infoWindowPinned = false;
             this.closeSharedInfoCard();
         });
 
-        /* ---------- Layers Panel ---------- */
-        if (this.btnLayers && !MAP.shareMode) {
-            this.btnLayers.addEventListener("click", () => this.toggleLayersPanel());
-        }
-        if (this.btnCloseLayers && !MAP.shareMode) {
-            this.btnCloseLayers.addEventListener("click", () => this.toggleLayersPanel());
-        }
-
-        /* ---------- Base Maps ---------- */
-        if (!MAP.shareMode) {
-            document.querySelectorAll('input[name="base-map"]').forEach(radio => {
-                radio.addEventListener('change', () => {
-                    this.setBaseMap(radio.value);
-                });
-            });
-
-            document.querySelectorAll("#layer-traffic, #layer-bicycling, #layer-transit")
-                .forEach(cb => {
-                    cb.addEventListener('change', () => {
-                        this.toggleLayer(cb.id, cb.checked);
-                    });
-                });
-        }
-
-        /* ---------- Edit Mode ---------- */
-        if (this.btnEdit && !MAP.shareMode) {
-            this.btnEdit.addEventListener("click", () => {
-                MAP.setEditMode(!MAP.editMode);
-                this.btnEdit.setAttribute(
-                    "aria-pressed",
-                    MAP.editMode ? "true" : "false"
-                );
-                this.updateModeBadge();
-                if (!MAP.editMode) this.showDefaultUI();
-            });
-        }
-
-        if (!MAP.shareMode) {
-            this.bindEditButtons();
-        }
+        if (MAP.shareMode) this.applyShareMode();
+        else this.bindEditButtons();
 
         this.updateModeBadge();
     }
 
-    bindEditButtons() {
-        if (this.btnAdd) {
-            this.btnAdd.addEventListener("click", () => {
-                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("add");
+    /* ===================== Route Card Support ===================== */
+    openRouteCard(routeIndex, hover = false, latLng = null) {
+        const rt = ROUTES.routes[routeIndex];
+        if (!rt) return;
+
+        const content = document.createElement("div");
+        content.style.cssText = `
+            min-width:250px;
+            max-width:450px;
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 12px;
+            font-family:'Tajawal',sans-serif;
+            box-shadow:0 4px 12px rgba(0,0,0,0.2);
+        `;
+
+        content.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <strong>المسار #${rt.routeNumber}</strong>
+                <img src="${this.logo}" style="width:24px;height:24px;border-radius:4px;">
+            </div>
+            <div>عدد النقاط: ${rt.points.length}</div>
+            <div>المسافة: ${rt.distance} متر</div>
+            <div>المدة: ${rt.duration} ثانية</div>
+            <div style="margin-top:8px;">
+                <label>ملاحظات:</label><br>
+                <textarea ${this.shareMode ? "disabled" : ""} style="width:100%;font-family:'Tajawal';border-radius:6px;padding:4px;" id="route-notes-${routeIndex}">${rt.notes}</textarea>
+            </div>
+        `;
+
+        if (!this.shareMode && !hover) {
+            // حفظ التغييرات عند الخروج
+            content.querySelector(`#route-notes-${routeIndex}`).addEventListener("input", (e) => {
+                rt.notes = e.target.value;
+                bus.emit("persist");
             });
         }
 
-        if (this.btnRoute) {
-            this.btnRoute.addEventListener("click", () => {
-                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("route");
-            });
-        }
-
-        if (this.btnPolygon) {
-            this.btnPolygon.addEventListener("click", () => {
-                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("polygon");
-            });
-        }
-
-        if (this.btnMeasure) {
-            this.btnMeasure.addEventListener("click", () => {
-                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("measure");
-            });
-        }
-
-        if (this.btnFreeDraw) {
-            this.btnFreeDraw.addEventListener("click", () => {
-                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("freedraw");
-            });
-        }
-
-        if (this.btnDrawFinish) {
-            this.btnDrawFinish.addEventListener("click", () => {
-                if (MAP.modeRouteAdd) ROUTES.finishCurrentRoute();
-                else if (MAP.modePolygonAdd) POLYGONS.finishCurrentPolygon();
-                this.showDefaultUI();
-            });
-        }
-
-        if (this.btnRouteClear) {
-            this.btnRouteClear.addEventListener("click", () => {
-                if (ROUTES.activeRouteIndex === -1)
-                    return this.showToast("لا يوجد مسار نشط لحذفه");
-                if (!confirm("حذف المسار الحالي؟")) return;
-                ROUTES.removeRoute(ROUTES.activeRouteIndex);
-                this.showDefaultUI();
-                this.showToast("تم حذف المسار");
-            });
-        }
-    }
-
-    toggleLayersPanel() {
-        if (!this.layersPanel) return;
-        this.layersPanel.classList.toggle("show");
-        const isOpen = this.layersPanel.classList.contains("show");
-        if (this.btnLayers) {
-            this.btnLayers.setAttribute("aria-pressed", isOpen ? "true" : "false");
-        }
-    }
-
-    setBaseMap(mapTypeId) {
-        switch (mapTypeId) {
-            case "roadmap": MAP.setRoadmap(); break;
-            case "satellite": MAP.setSatellite(); break;
-            case "terrain": MAP.setTerrain(); break;
-            case "dark": MAP.setDarkMode(); break;
-            case "silver": MAP.setSilverMode(); break;
-        }
-    }
-
-    toggleLayer(layerId) {
-        switch (layerId) {
-            case "layer-traffic": MAP.toggleTraffic(); break;
-            case "layer-bicycling": MAP.toggleBicycling(); break;
-            case "layer-transit": MAP.toggleTransit(); break;
-        }
+        this.openSharedInfoCard(content, latLng || rt.points[0], !hover);
     }
 
     openSharedInfoCard(content, position, isPinned = false) {
@@ -3488,80 +3388,15 @@ class UIManager {
     }
 
     closeSharedInfoCard() {
-        if (this.sharedInfoWindow && !this.infoWindowPinned) {
-            this.sharedInfoWindow.close();
-        }
-        this.infoWindowPinned = false;
+        if (!this.infoWindowPinned) this.sharedInfoWindow.close();
     }
 
     forceCloseSharedInfoCard() {
-        if (this.sharedInfoWindow) {
-            this.sharedInfoWindow.close();
-        }
+        this.sharedInfoWindow.close();
         this.infoWindowPinned = false;
     }
 
-    setActiveMode(mode) {
-        if (POLYGONS.isEditing) {
-            this.showToast("يرجى إنهاء تحرير المضلع الحالي أولاً");
-            return;
-        }
-
-        MAP.modeAdd = false;
-        MAP.modeRouteAdd = false;
-        MAP.modePolygonAdd = false;
-        MAP.modeFreeDraw = false;
-        MEASURE.deactivate();
-
-        if (this.btnAdd) this.btnAdd.setAttribute("aria-pressed", "false");
-        if (this.btnRoute) this.btnRoute.setAttribute("aria-pressed", "false");
-        if (this.btnPolygon) this.btnPolygon.setAttribute("aria-pressed", "false");
-        if (this.btnMeasure) this.btnMeasure.setAttribute("aria-pressed", "false");
-        if (this.btnFreeDraw) this.btnFreeDraw.setAttribute("aria-pressed", "false");
-
-        MAP.setCursor("grab");
-
-        switch (mode) {
-            case "add":
-                MAP.modeAdd = true;
-                MAP.setCursor("crosshair");
-                this.showDefaultUI();
-                this.showToast("اضغط على الخريطة لإضافة موقع");
-                break;
-
-            case "route":
-                ROUTES.startNewRouteSequence();
-                MAP.modeRouteAdd = true;
-                MAP.setCursor("crosshair");
-                this.showDrawFinishUI();
-                this.showToast("اضغط لإضافة نقاط المسار");
-                break;
-
-            case "polygon":
-                POLYGONS.startPolygonSequence();
-                MAP.modePolygonAdd = true;
-                MAP.setCursor("crosshair");
-                this.showDrawFinishUI();
-                this.showToast("اضغط لإضافة رؤوس المضلع");
-                break;
-
-            case "measure":
-                MEASURE.activate();
-                this.showDefaultUI();
-                break;
-
-            case "freedraw":
-                MAP.modeFreeDraw = true;
-                MAP.setCursor("crosshair");
-                this.showDefaultUI();
-                this.showToast("اضغط على الخريطة لإضافة أيقونة أو نص");
-                break;
-
-            default:
-                this.showDefaultUI();
-        }
-    }
-
+    /* ===================== Share Mode ===================== */
     applyShareMode() {
         [
             this.btnAdd,
@@ -3573,11 +3408,44 @@ class UIManager {
             this.btnRouteClear,
             this.btnEdit,
             this.btnLayers
-        ].forEach(btn => {
-            if (btn) btn.style.display = "none";
-        });
+        ].forEach(btn => { if (btn) btn.style.display = "none"; });
 
         this.updateModeBadge("view");
+    }
+
+    bindEditButtons() {
+        if (this.btnRoute) {
+            this.btnRoute.addEventListener("click", () => {
+                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
+                this.setActiveMode("route");
+            });
+        }
+
+        if (this.btnDrawFinish) {
+            this.btnDrawFinish.addEventListener("click", () => {
+                if (MAP.modeRouteAdd) ROUTES.finishCurrentRoute();
+                else if (MAP.modePolygonAdd) POLYGONS.finishCurrentPolygon();
+                this.showDefaultUI();
+            });
+        }
+
+        if (this.btnRouteClear) {
+            this.btnRouteClear.addEventListener("click", () => {
+                if (ROUTES.activeRouteIndex === -1) return this.showToast("لا يوجد مسار نشط لحذفه");
+                if (!confirm("حذف المسار الحالي؟")) return;
+                ROUTES.removeRoute(ROUTES.activeRouteIndex);
+                this.showDefaultUI();
+                this.showToast("تم حذف المسار");
+            });
+        }
+    }
+
+    showDefaultUI() {
+        if (this.btnRoute) this.btnRoute.style.display = "inline-block";
+        if (this.btnPolygon) this.btnPolygon.style.display = "inline-block";
+        if (this.btnMeasure) this.btnMeasure.style.display = "inline-block";
+        if (this.btnFreeDraw) this.btnFreeDraw.style.display = "inline-block";
+        if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
     }
 
     showDrawFinishUI() {
@@ -3589,33 +3457,11 @@ class UIManager {
         if (this.btnDrawFinish) this.btnDrawFinish.style.display = "inline-block";
     }
 
-    showDefaultUI() {
-        if (this.btnRoute) this.btnRoute.style.display = "inline-block";
-        if (this.btnPolygon) this.btnPolygon.style.display = "inline-block";
-        if (this.btnMeasure) this.btnMeasure.style.display = "inline-block";
-        if (this.btnFreeDraw) this.btnFreeDraw.style.display = "inline-block";
-        if (this.btnDrawFinish) this.btnDrawFinish.style.display = "none";
-    }
-
-    showPolygonEditingUI() {
-        [
-            this.btnAdd,
-            this.btnRoute,
-            this.btnPolygon,
-            this.btnMeasure,
-            this.btnFreeDraw,
-            this.btnDrawFinish
-        ].forEach(btn => {
-            if (btn) btn.style.display = "none";
-        });
-    }
-
     updateModeBadge(forceMode = null) {
         if (!this.modeBadge) return;
         const mode = forceMode || (MAP.editMode ? "edit" : "view");
         this.modeBadge.style.display = "block";
-        this.modeBadge.textContent =
-            mode === "edit" ? "وضع التحرير" : "وضع العرض";
+        this.modeBadge.textContent = mode === "edit" ? "وضع التحرير" : "وضع العرض";
         this.modeBadge.className = "";
         this.modeBadge.classList.add("badge", mode);
     }
@@ -3630,13 +3476,281 @@ class UIManager {
         `;
         this.toastElement.classList.add("show");
         clearTimeout(this.toastTimer);
-        this.toastTimer = setTimeout(() => {
-            this.toastElement.classList.remove("show");
-        }, 2600);
+        this.toastTimer = setTimeout(() => this.toastElement.classList.remove("show"), 2600);
     }
 }
 
 const UI = new UIManager();
+
+/*
+============================================================
+   RouteManager
+— إدارة المسارات + بطاقات Glass
+============================================================
+*/
+class RouteManager {
+
+    constructor() {
+        this.routes = [];
+        this.map = null;
+        this.shareMode = false;
+        this.editMode = true;
+        this.directionsService = null;
+        this.activeRouteIndex = -1;
+
+        bus.on("map:ready", map => {
+            this.map = map;
+            this.shareMode = MAP.shareMode;
+            this.editMode = MAP.editMode;
+            this.onMapReady();
+        });
+
+        bus.on("state:load", st => this.applyState(st));
+        bus.on("state:save", () => this.exportState());
+    }
+
+    onMapReady() {
+        this.map.addListener("click", e => {
+            if (!MAP.modeRouteAdd || this.shareMode) return;
+            if (this.activeRouteIndex === -1) this.createNewRoute();
+            this.addPointToRoute(this.activeRouteIndex, e.latLng);
+        });
+    }
+
+    startNewRouteSequence() {
+        this.activeRouteIndex = -1;
+        MAP.modeRouteAdd = true;
+    }
+
+    finishCurrentRoute() {
+        if (this.activeRouteIndex === -1) return;
+        const rt = this.routes[this.activeRouteIndex];
+
+        if (rt.poly) rt.poly.setMap(null);
+        rt.stops.forEach(s => s.map = null);
+
+        if (rt.points.length >= 2) {
+            this.renderRoute(this.activeRouteIndex);
+            bus.emit("persist");
+        } else {
+            this.routes.pop();
+        }
+
+        this.activeRouteIndex = -1;
+        MAP.modeRouteAdd = false;
+        MAP.setCursor("grab");
+    }
+
+    createNewRoute() {
+        const route = {
+            id: "rt" + Date.now(),
+            points: [],
+            color: "#3344ff",
+            weight: 6,
+            opacity: 0.95,
+            distance: 0,
+            duration: 0,
+            overview: null,
+            poly: null,
+            stops: [],
+            notes: "",
+            routeNumber: this.routes.length + 1
+        };
+        this.routes.push(route);
+        this.activeRouteIndex = this.routes.length - 1;
+        return route;
+    }
+
+    addPointToRoute(routeIndex, latLng) {
+        const rt = this.routes[routeIndex];
+        rt.points.push(latLng);
+
+        if (!this.shareMode) {
+            const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1);
+            rt.stops.push(stop);
+        }
+
+        if (rt.points.length >= 2) this.requestRoute(routeIndex);
+        else bus.emit("persist");
+    }
+
+    createStopMarker(pos, routeIndex, idx) {
+        if (this.shareMode) return null;
+
+        const rt = this.routes[routeIndex];
+        const el = document.createElement("div");
+        el.style.cssText = `
+            width:26px;height:26px;background:white;border-radius:50%;
+            border:3px solid ${rt.color};display:flex;align-items:center;
+            justify-content:center;font-size:11px;font-weight:bold;z-index:101;
+            font-family:'Tajawal', sans-serif;box-shadow:0 2px 6px rgba(0,0,0,0.2);
+        `;
+        el.textContent = `${rt.routeNumber}.${idx + 1}`;
+
+        const marker = new google.maps.marker.AdvancedMarkerElement({
+            position: pos,
+            map: this.map,
+            content: el,
+            gmpDraggable: true
+        });
+
+        marker.addListener("dragend", () => {
+            rt.points[idx] = marker.position;
+            this.requestRoute(routeIndex);
+            bus.emit("persist");
+        });
+
+        marker.addListener("contextmenu", () => {
+            if (this.shareMode) return;
+            this.removePoint(routeIndex, idx);
+        });
+
+        return marker;
+    }
+
+    removePoint(routeIndex, idx) {
+        const rt = this.routes[routeIndex];
+        if (rt.stops[idx]) rt.stops[idx].map = null;
+        rt.points.splice(idx, 1);
+        rt.stops.splice(idx, 1);
+        rt.stops.forEach((m, i) => {
+            m.content.textContent = `${rt.routeNumber}.${i + 1}`;
+        });
+        if (rt.points.length >= 2) this.requestRoute(routeIndex);
+        else this.clearRoute(routeIndex);
+        bus.emit("persist");
+    }
+
+    requestRoute(routeIndex) {
+        if (!this.directionsService) this.directionsService = new google.maps.DirectionsService();
+
+        const rt = this.routes[routeIndex];
+        const pts = rt.points;
+        if (pts.length < 2) return;
+
+        const req = {
+            origin: pts[0],
+            destination: pts[pts.length - 1],
+            travelMode: google.maps.TravelMode.DRIVING
+        };
+
+        if (pts.length > 2) req.waypoints = pts.slice(1, -1).map(p => ({ location: p, stopover: true }));
+
+        this.directionsService.route(req, (res, status) => {
+            if (status !== "OK") return;
+            const r = res.routes[0];
+            rt.overview = r.overview_polyline;
+            rt.distance = r.legs.reduce((s, l) => s + l.distance.value, 0);
+            rt.duration = r.legs.reduce((s, l) => s + l.duration.value, 0);
+            this.renderRoute(routeIndex);
+            bus.emit("persist");
+        });
+    }
+
+    renderRoute(routeIndex) {
+        const rt = this.routes[routeIndex];
+        if (!rt) return;
+
+        if (rt.poly) {
+            google.maps.event.clearInstanceListeners(rt.poly);
+            rt.poly.setMap(null);
+            rt.poly = null;
+        }
+
+        const path = (rt.overview && typeof rt.overview === "string")
+            ? google.maps.geometry.encoding.decodePath(rt.overview)
+            : rt.points;
+
+        rt.poly = new google.maps.Polyline({
+            map: this.map,
+            path,
+            strokeColor: rt.color || "#ff0000",
+            strokeWeight: rt.weight || 4,
+            strokeOpacity: rt.opacity ?? 1,
+            clickable: true,
+            zIndex: 10
+        });
+
+        rt.poly.addListener("mouseover", e => { if (!UI.infoWindowPinned) UI.openRouteCard(routeIndex, true, e.latLng); });
+        rt.poly.addListener("mouseout", () => { if (!UI.infoWindowPinned) UI.closeSharedInfoCard(); });
+        rt.poly.addListener("click", e => { UI.infoWindowPinned = true; UI.openRouteCard(routeIndex, false, e.latLng); });
+
+        if (!this._mapClickBound) {
+            this._mapClickBound = true;
+            this.map.addListener("click", () => { UI.infoWindowPinned = false; UI.closeSharedInfoCard(); });
+        }
+
+        if (!this.shareMode) rt.poly.setOptions({ editable: true, draggable: false });
+    }
+
+    clearRoute(routeIndex) {
+        const rt = this.routes[routeIndex];
+        if (rt.poly) rt.poly.setMap(null);
+        rt.poly = null;
+        rt.overview = null;
+        rt.distance = 0;
+        rt.duration = 0;
+    }
+
+    exportState() {
+        return { routes: this.routes.map(rt => ({
+            id: rt.id,
+            routeNumber: rt.routeNumber,
+            color: rt.color,
+            weight: rt.weight,
+            opacity: rt.opacity,
+            distance: rt.distance,
+            duration: rt.duration,
+            overview: rt.overview,
+            notes: rt.notes,
+            points: rt.points.map(p => ({ lat: typeof p.lat === "function" ? p.lat() : p.lat, lng: typeof p.lng === "function" ? p.lng() : p.lng }))
+        }))};
+    }
+
+    applyState(state) {
+        if (!state || !state.routes) return;
+        this.routes.forEach(rt => { if (rt.poly) rt.poly.setMap(null); rt.stops.forEach(s => s && (s.map = null)); });
+        this.routes = [];
+
+        state.routes.forEach(rt => {
+            const newRoute = {
+                id: rt.id,
+                routeNumber: rt.routeNumber,
+                color: rt.color,
+                weight: rt.weight,
+                opacity: rt.opacity,
+                distance: rt.distance,
+                duration: rt.duration,
+                overview: rt.overview,
+                notes: rt.notes || "",
+                points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)),
+                poly: null,
+                stops: []
+            };
+            this.routes.push(newRoute);
+
+            if (!this.shareMode) {
+                newRoute.points.forEach((pt, i) => {
+                    const stop = this.createStopMarker(pt, this.routes.length - 1, i);
+                    newRoute.stops.push(stop);
+                });
+            }
+
+            this.renderRoute(this.routes.length - 1);
+        });
+    }
+
+    removeRoute(routeIndex) {
+        const rt = this.routes[routeIndex];
+        if (!rt) return;
+        if (rt.poly) rt.poly.setMap(null);
+        rt.stops.forEach(s => s.map = null);
+        this.routes.splice(routeIndex, 1);
+        bus.emit("persist");
+    }
+}
+
+const ROUTES = new RouteManager();
 
 /*
 ============================================================
