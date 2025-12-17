@@ -2177,9 +2177,12 @@ exportState() {
 applyState(state) {
     if (!state || !state.routes) return;
 
+    // تنظيف أي مسارات سابقة
     this.routes.forEach(rt => {
         if (rt.poly) rt.poly.setMap(null);
-        rt.stops.forEach(s => s && (s.map = null));
+        if (rt.stops && rt.stops.length) {
+            rt.stops.forEach(s => s && (s.map = null));
+        }
     });
 
     this.routes = [];
@@ -2187,35 +2190,43 @@ applyState(state) {
     state.routes.forEach(rt => {
         const newRoute = {
             id: rt.id,
-            routeNumber: rt.routeNumber,
+            routeNumber: rt.routeNumber || (this.routes.length + 1),
             color: rt.color,
             weight: rt.weight,
             opacity: rt.opacity,
-            distance: rt.distance,
-            duration: rt.duration,
-            overview: rt.overview,
+            distance: rt.distance || 0,
+            duration: rt.duration || 0,
+            overview: rt.overview || null,
             notes: rt.notes || "",
-            points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)),
+            points: rt.points.map(p =>
+                new google.maps.LatLng(p.lat, p.lng)
+            ),
             poly: null,
             stops: []
         };
 
         this.routes.push(newRoute);
 
-        // markers فقط في edit mode
+        // إنشاء markers فقط في وضع التحرير
         if (!this.shareMode) {
             newRoute.points.forEach((pt, i) => {
-                const stop = this.createStopMarker(pt, this.routes.length - 1, i);
+                const stop = this.createStopMarker(
+                    pt,
+                    this.routes.length - 1,
+                    i
+                );
                 newRoute.stops.push(stop);
             });
         }
 
         this.renderRoute(this.routes.length - 1);
     });
-}
+} // ← نهاية الدالة
 
+} // ← إغلاق class RouteManager (مهم جداً)
 
 const ROUTES = new RouteManager();
+
 
 /*
 ============================================================
