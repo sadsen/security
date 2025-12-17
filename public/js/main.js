@@ -2093,137 +2093,68 @@ class RouteManager {
 
     renderRoute(routeIndex) {
     const rt = this.routes[routeIndex];
+    if (!rt) return;
 
-    // إزالة المسار السابق مع تنظيف الـ listeners
+    // إزالة المسار السابق إن وجد
     if (rt.poly) {
         google.maps.event.clearInstanceListeners(rt.poly);
         rt.poly.setMap(null);
+        rt.poly = null;
     }
 
-    const path = rt.overview
+    // تحديد المسار (overview أو points)
+    const path = (rt.overview && typeof rt.overview === "string")
         ? google.maps.geometry.encoding.decodePath(rt.overview)
         : rt.points;
 
+    // إنشاء Polyline
     rt.poly = new google.maps.Polyline({
         map: this.map,
-        path: path,
-        strokeColor: rt.color,
-        strokeWeight: rt.weight,
-        strokeOpacity: rt.opacity,
+        path,
+        strokeColor: rt.color || "#ff0000",
+        strokeWeight: rt.weight || 4,
+        strokeOpacity: rt.opacity ?? 1,
+        clickable: true,
         zIndex: 10
     });
 
-    // Hover → إظهار الكرت (غير مثبت)
-    rt.poly.addListener("mouseover", (e) => {
+    // ===== ربط كرت المعلومات =====
+
+    // Hover → عرض الكرت (غير مثبت)
+    rt.poly.addListener("mouseover", e => {
         if (UI.infoWindowPinned) return;
-        this.openRouteCard(routeIndex, true, e.latLng);
+        UI.openRouteCard(routeIndex, true, e.latLng);
     });
 
-    // Mouse out → إخفاء الكرت إذا لم يكن مثبتاً
+    // خروج المؤشر → إغلاق إن لم يكن مثبت
     rt.poly.addListener("mouseout", () => {
         if (UI.infoWindowPinned) return;
         UI.closeSharedInfoCard();
     });
 
-    // Click على المسار → تثبيت الكرت
-    rt.poly.addListener("click", (e) => {
+    // Click → تثبيت الكرت + تمكين التحرير
+    rt.poly.addListener("click", e => {
         UI.infoWindowPinned = true;
-        this.openRouteCard(routeIndex, false, e.latLng);
-
-        // منع إغلاقه مباشرة بسبب click الخريطة
-        if (e && e.domEvent) {
-            e.domEvent.stopPropagation();
-        }
+        UI.openRouteCard(routeIndex, false, e.latLng);
     });
 
-    // Click على أي مكان في الخريطة → فك التثبيت وإغلاق الكرت
+    // الضغط على الخريطة → فك التثبيت
     if (!this._mapClickBound) {
         this._mapClickBound = true;
         this.map.addListener("click", () => {
-            if (!UI.infoWindowPinned) return;
             UI.infoWindowPinned = false;
-            UI.forceCloseSharedInfoCard();
+            UI.closeSharedInfoCard();
+        });
+    }
+
+    // ===== تمكين التحرير (Edit Mode فقط) =====
+    if (!this.shareMode) {
+        rt.poly.setOptions({
+            editable: true,
+            draggable: false
         });
     }
 }
-
-clearRoute(routeIndex) {
-    const rt = this.routes[routeIndex];
-    if (rt.poly) rt.poly.setMap(null);
-    rt.poly = null;
-    rt.overview = null;
-    rt.distance = 0;
-    rt.duration = 0;
-}
-
-exportState() {
-    return this.routes.map(rt => ({
-        id: rt.id,
-        routeNumber: rt.routeNumber,
-        color: rt.color,
-        weight: rt.weight,
-        opacity: rt.opacity,
-        distance: rt.distance,
-        duration: rt.duration,
-        overview: rt.overview,
-        notes: rt.notes,
-        points: rt.points.map(p => ({
-            lat: typeof p.lat === "function" ? p.lat() : p.lat,
-            lng: typeof p.lng === "function" ? p.lng() : p.lng
-        }))
-    }));
-}
-
-applyState(state) {
-    if (!state || !state.routes) return;
-
-    // تنظيف أي مسارات سابقة
-    this.routes.forEach(rt => {
-        if (rt.poly) rt.poly.setMap(null);
-        if (rt.stops && rt.stops.length) {
-            rt.stops.forEach(s => s && (s.map = null));
-        }
-    });
-
-    this.routes = [];
-
-    state.routes.forEach(rt => {
-        const newRoute = {
-            id: rt.id,
-            routeNumber: rt.routeNumber || (this.routes.length + 1),
-            color: rt.color,
-            weight: rt.weight,
-            opacity: rt.opacity,
-            distance: rt.distance || 0,
-            duration: rt.duration || 0,
-            overview: rt.overview || null,
-            notes: rt.notes || "",
-            points: rt.points.map(p =>
-                new google.maps.LatLng(p.lat, p.lng)
-            ),
-            poly: null,
-            stops: []
-        };
-
-        this.routes.push(newRoute);
-
-        // إنشاء markers فقط في وضع التحرير
-        if (!this.shareMode) {
-            newRoute.points.forEach((pt, i) => {
-                const stop = this.createStopMarker(
-                    pt,
-                    this.routes.length - 1,
-                    i
-                );
-                newRoute.stops.push(stop);
-            });
-        }
-
-        this.renderRoute(this.routes.length - 1);
-    });
-} // ← نهاية الدالة
-
-} // ← إغلاق class RouteManager (مهم جداً)
 
 const ROUTES = new RouteManager();
 
