@@ -1990,7 +1990,6 @@ class RouteManager {
         const rt = this.routes[routeIndex];
         rt.points.push(latLng);
 
-        // لا تنشئ أي markers في وضع المشاركة
         if (!this.shareMode) {
             const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1);
             rt.stops.push(stop);
@@ -2092,71 +2091,94 @@ class RouteManager {
     }
 
     renderRoute(routeIndex) {
-    const rt = this.routes[routeIndex];
-    if (!rt) return;
+        const rt = this.routes[routeIndex];
+        if (!rt || !this.map) return;
 
-    // إزالة المسار السابق إن وجد
-    if (rt.poly) {
-        google.maps.event.clearInstanceListeners(rt.poly);
-        rt.poly.setMap(null);
-        rt.poly = null;
-    }
+        // إزالة المسار السابق
+        if (rt.poly) {
+            google.maps.event.clearInstanceListeners(rt.poly);
+            rt.poly.setMap(null);
+            rt.poly = null;
+        }
 
-    // تحديد المسار (overview أو points)
-    const path = (rt.overview && typeof rt.overview === "string")
-        ? google.maps.geometry.encoding.decodePath(rt.overview)
-        : rt.points;
+        const path =
+            rt.overview && typeof rt.overview === "string"
+                ? google.maps.geometry.encoding.decodePath(rt.overview)
+                : rt.points;
 
-    // إنشاء Polyline
-    rt.poly = new google.maps.Polyline({
-        map: this.map,
-        path,
-        strokeColor: rt.color || "#ff0000",
-        strokeWeight: rt.weight || 4,
-        strokeOpacity: rt.opacity ?? 1,
-        clickable: true,
-        zIndex: 10
-    });
+        if (!path || path.length < 2) return;
 
-    // ===== ربط كرت المعلومات =====
+        rt.poly = new google.maps.Polyline({
+            map: this.map,
+            path,
+            strokeColor: rt.color,
+            strokeWeight: rt.weight,
+            strokeOpacity: rt.opacity,
+            clickable: true,
+            zIndex: 10
+        });
 
-    // Hover → عرض الكرت (غير مثبت)
-    rt.poly.addListener("mouseover", e => {
-        if (UI.infoWindowPinned) return;
-        UI.openRouteCard(routeIndex, true, e.latLng);
-    });
+        // Hover → عرض كرت المعلومات (غير مثبت)
+        rt.poly.addListener("mouseover", e => {
+            if (this.shareMode) return;
+            if (UI.infoWindowPinned) return;
+            UI.openRouteCard(routeIndex, true, e.latLng);
+        });
 
-    // خروج المؤشر → إغلاق إن لم يكن مثبت
-    rt.poly.addListener("mouseout", () => {
-        if (UI.infoWindowPinned) return;
-        UI.closeSharedInfoCard();
-    });
-
-    // Click → تثبيت الكرت + تمكين التحرير
-    rt.poly.addListener("click", e => {
-        UI.infoWindowPinned = true;
-        UI.openRouteCard(routeIndex, false, e.latLng);
-    });
-
-    // الضغط على الخريطة → فك التثبيت
-    if (!this._mapClickBound) {
-        this._mapClickBound = true;
-        this.map.addListener("click", () => {
-            UI.infoWindowPinned = false;
+        // خروج المؤشر → إغلاق الكرت إن لم يكن مثبت
+        rt.poly.addListener("mouseout", () => {
+            if (this.shareMode) return;
+            if (UI.infoWindowPinned) return;
             UI.closeSharedInfoCard();
         });
+
+        // Click → تثبيت الكرت + تمكين التحرير
+        rt.poly.addListener("click", e => {
+            if (this.shareMode) return;
+            UI.infoWindowPinned = true;
+            this.activeRouteIndex = routeIndex;
+            UI.openRouteCard(routeIndex, false, e.latLng);
+        });
+
+        // الضغط على الخريطة → فك التثبيت
+        if (!this._mapUnpinBound) {
+            this._mapUnpinBound = true;
+            this.map.addListener("click", () => {
+                if (this.shareMode) return;
+                UI.infoWindowPinned = false;
+                this.activeRouteIndex = -1;
+                UI.closeSharedInfoCard();
+            });
+        }
+
+        // تمكين التحرير فقط في وضع التحرير
+        if (!this.shareMode && this.editMode) {
+            rt.poly.setOptions({
+                editable: true,
+                draggable: false
+            });
+        }
     }
 
-    // ===== تمكين التحرير (Edit Mode فقط) =====
-    if (!this.shareMode) {
-        rt.poly.setOptions({
-            editable: true,
-            draggable: false
-        });
+    clearRoute(routeIndex) {
+        const rt = this.routes[routeIndex];
+        if (!rt) return;
+
+        if (rt.poly) {
+            google.maps.event.clearInstanceListeners(rt.poly);
+            rt.poly.setMap(null);
+        }
+
+        rt.poly = null;
+        rt.overview = null;
+        rt.distance = 0;
+        rt.duration = 0;
     }
 }
 
+// إنشاء instance
 const ROUTES = new RouteManager();
+
 
 
 /*
