@@ -252,7 +252,6 @@ class MapController {
         -------------------------------------------------- */
         if (this.shareMode) {
             this.editMode = false;
-            Utils.saveEditMode(false); // منع استرجاع editMode لاحقاً
         } else {
             this.editMode = Utils.getEditMode();
         }
@@ -2751,24 +2750,18 @@ class StateManager {
     constructor() {
         this.map = null;
         this.shareMode = false;
-        this.persistTimer = null;
+        this.draftKey = "securitymap:draft:" + location.pathname;
 
         bus.on("map:ready", map => {
             this.map = map;
             this.shareMode = MAP.shareMode;
 
-            const stateFromUrl = this.readShare();
-
-            if (stateFromUrl) {
-                console.log("State found in URL, applying...");
-                this.applyState(stateFromUrl);
-            } else {
-                console.log("No state found in URL.");
-            }
+            const state = this.shareMode ? this.readShare() : this.readDraft();
+            if (state) this.applyState(state);
 
             if (!this.shareMode) {
                 console.log("Enabling auto-persist for edit mode.");
-                bus.on("persist", () => this.schedulePersist());
+                bus.on("persist", () => this.saveDraft(this.buildState()));
             }
         });
     }
@@ -2798,7 +2791,6 @@ class StateManager {
             const encoded = Utils.b64uEncode(json);
             const base = location.origin + location.pathname;
             const url = base + "?x=" + encoded;
-            history.replaceState(null, "", url);
             return url;
         } catch (e) {
             console.error("writeShare error", e);
@@ -2806,14 +2798,22 @@ class StateManager {
         }
     }
 
-    schedulePersist() {
-        if (this.shareMode) return;
+    saveDraft(state) {
+        if (this.shareMode || !state) return;
+        try {
+            localStorage.setItem(this.draftKey, JSON.stringify(state));
+        } catch (error) {
+            console.warn("Unable to save the map draft", error);
+        }
+    }
 
-        clearTimeout(this.persistTimer);
-        this.persistTimer = setTimeout(() => {
-            const st = this.buildState();
-            if (st) this.writeShare(st);
-        },300);
+    readDraft() {
+        try {
+            return JSON.parse(localStorage.getItem(this.draftKey));
+        } catch (error) {
+            console.warn("Unable to read the map draft", error);
+            return null;
+        }
     }
 
     readShare() {
@@ -2906,6 +2906,7 @@ class ShareManager {
         // منع التكرار
         if (document.querySelector('.share-dialog-overlay')) return;
 
+        STATE.saveDraft(state);
         const longUrl = STATE.writeShare(state);
 
         // إنشاء واجهة المشاركة
