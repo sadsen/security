@@ -367,7 +367,7 @@ class MapController {
     }
 
     setRoadmap() { this.map.setMapTypeId("roadmap"); }
-    setSatellite() { this.map.setMapTypeId("hybrid"); }
+    setSatellite() { this.map.setMapTypeId("satellite"); }
     setTerrain() { this.map.setMapTypeId("terrain"); }
     setDarkMode() { this.map.setMapTypeId("dark"); }
     setSilverMode() { this.map.setMapTypeId("silver"); }
