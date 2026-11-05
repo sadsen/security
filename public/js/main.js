@@ -1529,10 +1529,6 @@ class LocationManager {
     }
 
     onMapReady() {
-        if (!this.shareMode && this.items.length === 0) {
-            this.waitForGmpMarkersAndLoad();
-        }
-
         this.map.addListener("click", e => {
             if (!MAP.modeAdd || this.shareMode) return;
             
@@ -1562,16 +1558,8 @@ class LocationManager {
         });
     }
 
-    waitForGmpMarkersAndLoad() {
-        if (typeof google.maps.marker !== 'undefined' && typeof google.maps.marker.AdvancedMarkerElement !== 'undefined') {
-            this.loadDefaultLocations();
-        } else {
-            setTimeout(() => this.waitForGmpMarkersAndLoad(), 100);
-        }
-    }
-
-    loadDefaultLocations() { 
-        const LOCS = [
+    removeLegacyDefaultLocations(locations) {
+        const formerDefaults = [
             { name: "مواقف نسما", lat: 24.738275101689318, lng: 46.57400430256134, iconType: 'local_police' },
             { name: "طريق الملك فيصل", lat: 24.736501294584695, lng: 46.576545241653285, iconType: 'local_police' },
             { name: "الحبيب", lat: 24.709422313107773, lng: 46.59397105888831, iconType: 'security' },
@@ -1593,20 +1581,14 @@ class LocationManager {
             { name: "منطقة سمحان", lat: 24.740913, lng: 46.571891, iconType: 'gpp_good' },
             { name: "دوار البجيري", lat: 24.737521, lng: 46.574069, iconType: 'local_police' },
             { name: "إشارة البجيري", lat: 24.737662, lng: 46.575429, iconType: 'report_problem' }
-        ]; 
-        LOCS.forEach(loc => this.addItem({ 
-            id: "d" + Date.now() + Math.random(),
-            name: loc.name,
-            lat: loc.lat,
-            lng: loc.lng,
-            radius: 22,
-            color: "#ff0000", 
-            fillOpacity: 0.3,
-            recipients: [],
-            iconType: loc.iconType 
-        })); 
+        ];
+        return locations.filter(location => !formerDefaults.some(point =>
+            point.name === location.name && point.iconType === location.iconType &&
+            Math.abs(point.lat - location.lat) < 1e-8 && Math.abs(point.lng - location.lng) < 1e-8 &&
+            location.color === "#ff0000" && location.radius === 22 && !location.recipients?.length
+        ));
     }
-    
+
     addItem(data) {
         const marker = new google.maps.marker.AdvancedMarkerElement({
             position: { lat: data.lat, lng: data.lng },
@@ -2813,7 +2795,15 @@ class StateManager {
 
     readDraft() {
         try {
-            return JSON.parse(localStorage.getItem(this.draftKey));
+            const draft = JSON.parse(localStorage.getItem(this.draftKey));
+            if (Array.isArray(draft?.locations)) {
+                const locations = LOCATIONS.removeLegacyDefaultLocations(draft.locations);
+                if (locations.length !== draft.locations.length) {
+                    draft.locations = locations;
+                    this.saveDraft(draft);
+                }
+            }
+            return draft;
         } catch (error) {
             console.warn("Unable to read the map draft", error);
             return null;
