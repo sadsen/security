@@ -344,22 +344,6 @@ class MapController {
             bus.emit("map:bounds");
         });
 
-        // Google imagery has a coverage gap in this part of Diriyah at higher zoom.
-        const imageryGap = new google.maps.LatLngBounds(
-            { lat: 24.7318, lng: 46.5600 },
-            { lat: 24.7419, lng: 46.5711 }
-        );
-        const keepSatelliteCoverage = () => {
-            const type = this.map.getMapTypeId();
-            if (type !== "satellite" && type !== "hybrid") return;
-            if (this.map.getZoom() > 15 && this.map.getBounds()?.intersects(imageryGap)) {
-                this.map.setZoom(15);
-                bus.emit("toast", "تم ضبط التكبير لتغطية التصوير الفضائي المتاحة");
-            }
-        };
-        this.map.addListener("idle", keepSatelliteCoverage);
-        this.map.addListener("maptypeid_changed", keepSatelliteCoverage);
-
         this.waitForGmpMarkersAndEmit();
     }
     
