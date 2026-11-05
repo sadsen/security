@@ -2562,6 +2562,7 @@ class PolygonManager {
                      <img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;">
                      <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: 700;">${Utils.escapeHTML(poly.name)}</h3>
                 </div>
+                ${this.shareMode && !hoverOnly ? `<button id="poly-share-close" type="button" aria-label="إغلاق بطاقة المضلع" title="إغلاق" style="width:40px;height:40px;border:1px solid #ddd;border-radius:10px;background:white;color:#333;font-size:26px;line-height:1;cursor:pointer;">×</button>` : ""}
             </div>
             <div style="${bodyStyle}">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px; font-family: 'Tajawal', sans-serif;">
@@ -2605,6 +2606,7 @@ class PolygonManager {
     getPolygonCenter(poly) { const bounds = new google.maps.LatLngBounds(); poly.points.forEach(pt => bounds.extend(pt)); return bounds.getCenter();}
 
     attachCardEvents(polyIndex, hoverOnly) {
+        document.getElementById("poly-share-close")?.addEventListener("click", () => UI.forceCloseSharedInfoCard());
         const poly = this.polygons[polyIndex];
         const isEditingShape = this.editingPolygonIndex === polyIndex;
         if (isEditingShape) { const stopEditBtn = document.getElementById("poly-stop-edit"); if (stopEditBtn) stopEditBtn.addEventListener("click", () => { this.exitEditMode(); UI.forceCloseSharedInfoCard(); }); return; }
@@ -3502,7 +3504,8 @@ class UIManager {
         this.sharedInfoWindow = new google.maps.InfoWindow();
 
         MAP.map.addListener("click", () => {
-            this.closeSharedInfoCard();
+            if (MAP.shareMode) this.forceCloseSharedInfoCard();
+            else this.closeSharedInfoCard();
         });
 
         /* ---------- Layers Panel ---------- */
