@@ -186,6 +186,36 @@ const Utils = {
 — وحدة إدارة الخريطة (مع دعم الطبقات المتقدمة)
 ============================================================
 */
+const EXTRA_BASE_MAPS = [
+    { id: "minimal-ivory", name: "عاجي بلا تسميات", styles: [
+        { elementType: "geometry", stylers: [{ color: "#faf6ed" }] },
+        { elementType: "labels", stylers: [{ visibility: "off" }] },
+        { featureType: "poi", stylers: [{ visibility: "off" }] },
+        { featureType: "road", elementType: "geometry", stylers: [{ color: "#e6e0d5" }] },
+        { featureType: "water", elementType: "geometry", stylers: [{ color: "#d5e4df" }] }
+    ] },
+    { id: "main-roads", name: "الطرق الرئيسية", styles: [
+        { featureType: "poi", stylers: [{ visibility: "off" }] },
+        { featureType: "transit", stylers: [{ visibility: "off" }] },
+        { featureType: "road.local", elementType: "labels", stylers: [{ visibility: "off" }] },
+        { featureType: "road.arterial", elementType: "geometry.fill", stylers: [{ color: "#d7dce4" }] },
+        { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#b9c4d5" }] }
+    ] },
+    { id: "detailed-landmarks", name: "المعالم والخدمات", styles: [
+        { featureType: "poi", elementType: "labels", stylers: [{ visibility: "on" }] },
+        { featureType: "poi.park", elementType: "geometry.fill", stylers: [{ color: "#cfe6bd" }] },
+        { featureType: "transit.station", elementType: "labels", stylers: [{ visibility: "on" }] }
+    ] },
+    { id: "desert-sand", name: "رملي دافئ", styles: [
+        { elementType: "geometry", stylers: [{ color: "#efdfc0" }] },
+        { elementType: "labels.text.fill", stylers: [{ color: "#65482e" }] },
+        { elementType: "labels.text.stroke", stylers: [{ color: "#fff5df" }] },
+        { featureType: "poi.business", stylers: [{ visibility: "off" }] },
+        { featureType: "road", elementType: "geometry", stylers: [{ color: "#fff7e7" }] },
+        { featureType: "water", elementType: "geometry", stylers: [{ color: "#b9c4a1" }] }
+    ] }
+];
+
 class MapController {
 
     constructor() {
@@ -298,6 +328,10 @@ class MapController {
 
         this.map.mapTypes.set("dark", new google.maps.StyledMapType(darkModeStyle, { name: "الوضع الليلي" }));
         this.map.mapTypes.set("silver", new google.maps.StyledMapType(silverStyle, { name: "فضي" }));
+
+        for (const { id, name, styles } of EXTRA_BASE_MAPS) {
+            this.map.mapTypes.set(id, new google.maps.StyledMapType(styles, { name }));
+        }
 
         this.map.addListener("zoom_changed", () => {
             bus.emit("map:zoom", this.map.getZoom());
@@ -3518,6 +3552,19 @@ class UIManager {
 
         /* ---------- Base Maps ---------- */
         if (!MAP.shareMode) {
+            const baseMapGroup = this.layersPanel.querySelector('input[name="base-map"]').closest(".layer-group");
+            for (const { id, name } of EXTRA_BASE_MAPS) {
+                const label = document.createElement("label");
+                const radio = document.createElement("input");
+                radio.type = "radio";
+                radio.name = "base-map";
+                radio.value = id;
+                label.append(radio, " " + name);
+                baseMapGroup.append(label);
+            }
+            this.layersPanel.querySelector(".panel-content").style.maxHeight = "min(65vh, 34rem)";
+            this.layersPanel.querySelector(".panel-content").style.overflowY = "auto";
+
             document.querySelectorAll('input[name="base-map"]').forEach(radio => {
                 radio.addEventListener('change', () => {
                     this.setBaseMap(radio.value);
@@ -3625,6 +3672,8 @@ class UIManager {
             case "terrain": MAP.setTerrain(); break;
             case "dark": MAP.setDarkMode(); break;
             case "silver": MAP.setSilverMode(); break;
+            default:
+                if (EXTRA_BASE_MAPS.some(({ id }) => id === mapTypeId)) MAP.map.setMapTypeId(mapTypeId);
         }
     }
 
