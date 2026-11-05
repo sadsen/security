@@ -195,16 +195,20 @@ const EXTRA_BASE_MAPS = [
         { featureType: "water", elementType: "geometry", stylers: [{ color: "#d5e4df" }] }
     ] },
     { id: "main-roads", name: "الطرق الرئيسية", styles: [
+        { elementType: "geometry", stylers: [{ color: "#eef2f6" }] },
         { featureType: "poi", stylers: [{ visibility: "off" }] },
-        { featureType: "transit", stylers: [{ visibility: "off" }] },
-        { featureType: "road.local", elementType: "labels", stylers: [{ visibility: "off" }] },
-        { featureType: "road.arterial", elementType: "geometry.fill", stylers: [{ color: "#d7dce4" }] },
-        { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#b9c4d5" }] }
+        { featureType: "road.local", stylers: [{ visibility: "off" }] },
+        { featureType: "road.arterial", elementType: "geometry.fill", stylers: [{ color: "#9cb9d2" }] },
+        { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#6797be" }] },
+        { featureType: "water", elementType: "geometry.fill", stylers: [{ color: "#ccdce8" }] }
     ] },
     { id: "detailed-landmarks", name: "المعالم والخدمات", styles: [
+        { elementType: "geometry", stylers: [{ color: "#f7f3e9" }] },
+        { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#ffffff" }] },
         { featureType: "poi", elementType: "labels", stylers: [{ visibility: "on" }] },
-        { featureType: "poi.park", elementType: "geometry.fill", stylers: [{ color: "#cfe6bd" }] },
-        { featureType: "transit.station", elementType: "labels", stylers: [{ visibility: "on" }] }
+        { featureType: "poi.park", elementType: "geometry.fill", stylers: [{ color: "#b7dca8" }] },
+        { featureType: "poi.attraction", elementType: "labels.text.fill", stylers: [{ color: "#754492" }] },
+        { featureType: "water", elementType: "geometry.fill", stylers: [{ color: "#acd9e6" }] }
     ] },
     { id: "desert-sand", name: "رملي دافئ", styles: [
         { elementType: "geometry", stylers: [{ color: "#efdfc0" }] },
