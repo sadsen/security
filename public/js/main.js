@@ -2363,7 +2363,8 @@ class PolygonManager {
         poly.markers.forEach(m => m.map = null);
         if (poly.points.length >= 3) {
             poly.polygon = new google.maps.Polygon({ paths: poly.points, map: this.map, strokeColor: poly.color, strokeOpacity: poly.strokeOpacity, strokeWeight: poly.strokeWeight, fillColor: poly.color, fillOpacity: poly.fillOpacity, zIndex: 5, clickable: true });
-            this.addPolygonEditListeners(poly, this.activePolygonIndex);
+            this.addPolygonEditListeners(poly);
+            this.openCard(this.activePolygonIndex);
             bus.emit("persist");
         } else { this.polygons.pop(); }
         this.activePolygonIndex = -1;
@@ -2388,8 +2389,10 @@ class PolygonManager {
         poly.activePolyline = new google.maps.Polyline({ path: poly.points, map: this.map, strokeColor: poly.color, strokeOpacity: 0.6, strokeWeight: 2, zIndex: 10 });
     }
     buildVertexMarkerContent(color) { const el = document.createElement("div"); el.style.width = "12px"; el.style.height = "12px"; el.style.borderRadius = "50%"; el.style.background = "white"; el.style.border = `2px solid ${color}`; el.style.cursor = 'pointer'; return el; }
-    addPolygonEditListeners(poly, index) {
+    addPolygonEditListeners(poly) {
         poly.polygon.addListener("click", (e) => {
+            const index = this.polygons.indexOf(poly);
+            if (index === -1 || MAP.modePolygonAdd || this.isEditing && this.editingPolygonIndex !== index) return;
             if (this.editingPolygonIndex === index) { this.insertVertex(poly, index, e.latLng); }
             else { this.openCard(this.polygons.indexOf(poly), false, e.latLng); } 
         });
@@ -2403,7 +2406,8 @@ class PolygonManager {
             const marker = new google.maps.marker.AdvancedMarkerElement({ 
                 position: point, 
                 map: this.map, 
-                gmpDraggable: true, 
+                gmpDraggable: true,
+                gmpClickable: true,
                 content: this.buildVertexMarkerContent(poly.color), 
                 title: `نقطة ${i + 1}` 
             });
@@ -2413,33 +2417,25 @@ class PolygonManager {
             marker.addListener("drag", (e) => { poly.points[i] = e.latLng; poly.polygon.setPaths(poly.points); });
             marker.addListener("dragend", () => { bus.emit("persist"); });
             
-            // خيار النقر للحذف
-            marker.addListener("click", () => {
-                const info = new google.maps.InfoWindow({
-                    content: `<div style="font-family:'Tajawal'; padding:5px; text-align:center;">
-                                <button id="btn-del-v-${i}" style="background:#e94235; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px;">حذف النقطة</button>
-                              </div>`
-                });
-                info.open(this.map, marker);
-                
-                google.maps.event.addListenerOnce(info, 'domready', () => {
-                    document.getElementById(`btn-del-v-${i}`).addEventListener('click', () => {
-                        this.deleteVertex(poly, index, i);
-                        info.close();
-                    });
-                });
+            marker.addEventListener("gmp-click", () => {
+                this.vertexInfo?.close();
+                const button = document.createElement("button");
+                button.type = "button";
+                button.textContent = "حذف النقطة";
+                button.addEventListener("click", () => this.deleteVertex(poly, index, i));
+                this.vertexInfo = new google.maps.InfoWindow({ content: button });
+                this.vertexInfo.open({ map: this.map, anchor: marker });
             });
-
-            // خيار الزر الأيمن
-            marker.addListener("contextmenu", () => { if (confirm(`حذف هذه النقطة؟`)) { this.deleteVertex(poly, index, i); } });
         });
         
         UI.showPolygonEditingUI();
-        bus.emit("toast", "وضع التحرير مفعل. اضغط على نقطة لحذفها.");
+        bus.emit("toast", "اسحب النقاط لتعديل الحدود، أو اضغط على نقطة لحذفها، ثم اضغط إنهاء.");
     }
     
     exitEditMode() {
         if (!this.isEditing) return;
+        this.vertexInfo?.close();
+        this.vertexInfo = null;
         const poly = this.polygons[this.editingPolygonIndex];
         if (poly && poly.vertexMarkers) {
             poly.vertexMarkers.forEach(m => m.map = null);
@@ -2471,8 +2467,7 @@ class PolygonManager {
             poly.polygon.setPaths(poly.points);
             
             // Update vertex markers
-            this.exitEditMode();
-            setTimeout(() => this.enterEditMode(index), 50);
+            this.enterEditMode(index);
             
             bus.emit("persist");
             bus.emit("toast", "تمت إضافة نقطة جديدة");
@@ -2496,8 +2491,7 @@ class PolygonManager {
         bus.emit("toast", "تم حذف النقطة");
 
         // إعادة تشغيل وضع التحرير لتحديث ترتيب النقاط ومواقعها
-        this.exitEditMode();
-        setTimeout(() => this.enterEditMode(index), 50);
+        this.enterEditMode(index);
     }
 
     distanceToSegment(point, segStart, segEnd) {
@@ -2595,6 +2589,8 @@ class PolygonManager {
                     <div style="display:flex;gap:8px; flex-wrap: wrap;">
                         <button id="poly-save-properties" style="flex:2;background:#ff9800;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 100px;">حفظ الخصائص</button>
                         <button id="poly-edit-shape" style="flex:2;background:#34a853;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 100px;">تعديل الشكل</button>
+                        <button id="poly-shrink" type="button" class="btn">تصغير 10%</button>
+                        <button id="poly-grow" type="button" class="btn">تكبير 10%</button>
                         <button id="poly-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px;">حذف</button>
                         <button id="poly-close" style="flex:1;background:rgba(0,0,0,0.05);color:#333;border:1px solid #ddd;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px;">إغلاق</button>
                     </div>
@@ -2626,6 +2622,18 @@ class PolygonManager {
                 poly.strokeWeight = Utils.clamp(+strokeEl.value, 1, 10); poly.strokeOpacity = Utils.clamp(+strokeOpEl.value, 0, 100) / 100; poly.fillOpacity = Utils.clamp(+fillOpEl.value, 0, 100) / 100;
                 poly.polygon.setOptions({ fillColor: poly.color, strokeColor: poly.color, strokeWeight: poly.strokeWeight, strokeOpacity: poly.strokeOpacity, fillOpacity: poly.fillOpacity });
                 bus.emit("persist"); UI.forceCloseSharedInfoCard(); bus.emit("toast", "تم حفظ خصائص المضلع");
+            });
+        }
+        for (const [id, factor] of [["poly-shrink", 0.9], ["poly-grow", 1.1]]) {
+            document.getElementById(id)?.addEventListener("click", () => {
+                const center = this.getPolygonCenter(poly);
+                const { computeDistanceBetween, computeHeading, computeOffset } = google.maps.geometry.spherical;
+                poly.points = poly.points.map(point => computeOffset(
+                    center, computeDistanceBetween(center, point) * factor, computeHeading(center, point)
+                ));
+                poly.polygon.setPaths(poly.points);
+                bus.emit("persist");
+                this.openCard(polyIndex);
             });
         }
         if (editShapeBtn) { editShapeBtn.addEventListener("click", () => { this.enterEditMode(polyIndex); UI.forceCloseSharedInfoCard(); }); }
@@ -2688,7 +2696,7 @@ class PolygonManager {
                 zIndex: 5, 
                 clickable: true 
             });
-            this.addPolygonEditListeners(newPoly, this.polygons.length);
+            this.addPolygonEditListeners(newPoly);
             this.polygons.push(newPoly);
         });
     }
@@ -3579,7 +3587,8 @@ class UIManager {
 
         if (this.btnDrawFinish) {
             this.btnDrawFinish.addEventListener("click", () => {
-                if (MAP.modeRouteAdd) ROUTES.finishCurrentRoute();
+                if (POLYGONS.isEditing) POLYGONS.exitEditMode();
+                else if (MAP.modeRouteAdd) ROUTES.finishCurrentRoute();
                 else if (MAP.modePolygonAdd) POLYGONS.finishCurrentPolygon();
                 this.showDefaultUI();
             });
@@ -3753,11 +3762,11 @@ class UIManager {
             this.btnRoute,
             this.btnPolygon,
             this.btnMeasure,
-            this.btnFreeDraw,
-            this.btnDrawFinish
+            this.btnFreeDraw
         ].forEach(btn => {
             if (btn) btn.style.display = "none";
         });
+        if (this.btnDrawFinish) this.btnDrawFinish.style.display = "inline-block";
     }
 
     updateModeBadge(forceMode = null) {
