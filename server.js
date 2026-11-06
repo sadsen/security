@@ -41,6 +41,26 @@ app.get('/', renderIndex);
 // Health check
 app.get('/health', (req, res) => res.send('OK'));
 
+app.get('/api/imagery/:z/:y/:x', async (req, res) => {
+  const { z, y, x } = req.params;
+  if (![z, y, x].every(value => /^\d+$/.test(value))) return res.sendStatus(400);
+  const zoom = Number(z);
+  if (zoom > 22 || Number(x) >= 2 ** zoom || Number(y) >= 2 ** zoom) return res.sendStatus(400);
+  if (!process.env.ARCGIS_API_KEY) return res.sendStatus(503);
+  try {
+    const url = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/' + zoom + '/' + Number(y) + '/' + Number(x);
+    const response = await fetch(url, { headers: { Authorization: 'Bearer ' + process.env.ARCGIS_API_KEY, Referer: 'https://securitymap.onrender.com/' }, timeout: 10000 });
+    const type = response.headers.get('content-type') || '';
+    if (!response.ok || !type.startsWith('image/')) return res.sendStatus(502);
+    res.set('Content-Type', type);
+    res.set('Cache-Control', 'public, max-age=3600');
+    response.body.pipe(res);
+  } catch (error) {
+    console.error('Imagery request failed:', error.message);
+    res.sendStatus(502);
+  }
+});
+
 /* =======================================================
    API — is.gd URL Shortener
 ======================================================= */
