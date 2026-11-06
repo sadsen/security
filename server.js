@@ -41,6 +41,36 @@ app.get('/', renderIndex);
 // Health check
 app.get('/health', (req, res) => res.send('OK'));
 
+// Satellite imagery is requested on the server so the ArcGIS key stays private.
+const imageryRequests = new Map();
+app.get('/api/imagery/:z/:y/:x', async (req, res) => {
+  const referer = req.get('referer') || '';
+  if (!referer.startsWith('https://securitymap.onrender.com/')) return res.sendStatus(403);
+  const {z, y, x} = req.params;
+  if (![z, y, x].every(v => /^\d+$/.test(v))) return res.sendStatus(400);
+  const zoom = Number(z), row = Number(y), col = Number(x);
+  if (zoom > 22 || row >= 2 ** zoom || col >= 2 ** zoom) return res.sendStatus(400);
+  if (!process.env.ARCGIS_API_KEY) return res.sendStatus(503);
+  const now = Date.now(), ip = req.ip;
+  if (imageryRequests.size > 10000) {
+    for (const [key, value] of imageryRequests) if (now > value.until) imageryRequests.delete(key);
+  }
+  let limit = imageryRequests.get(ip);
+  if (!limit || now > limit.until) { limit = {count: 0, until: now + 60000}; imageryRequests.set(ip, limit); }
+  if (++limit.count > 1200) return res.sendStatus(429);
+  try {
+    const url = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/' + zoom + '/' + row + '/' + col;
+    const response = await fetch(url + '?token=' + encodeURIComponent(process.env.ARCGIS_API_KEY), {headers: {Referer: 'https://securitymap.onrender.com/'}, timeout: 10000});
+    const type = response.headers.get('content-type') || '';
+    if (!response.ok || !type.startsWith('image/')) return res.sendStatus(502);
+    res.set('Content-Type', type);
+    res.set('Cache-Control', 'public, max-age=3600');
+    response.body.on('error', () => res.destroy());
+    response.body.pipe(res);
+  } catch (_) { res.sendStatus(502); }
+});
+
+
 /* =======================================================
    API — is.gd URL Shortener
 ======================================================= */
