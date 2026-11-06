@@ -52,7 +52,9 @@ app.get('/api/imagery/:z/:y/:x', async (req, res) => {
     const response = await fetch(url, { headers: { Authorization: 'Bearer ' + process.env.ARCGIS_API_KEY, Referer: 'https://securitymap.onrender.com/' }, timeout: 10000 });
     const type = response.headers.get('content-type') || '';
     if (!response.ok || !type.startsWith('image/')) {
-      console.error('ArcGIS imagery response:', response.status, type);
+      const body = await response.text();
+      try { const detail = JSON.parse(body); console.error('ArcGIS imagery error:', detail.error?.code, detail.error?.message); }
+      catch { console.error('ArcGIS imagery response:', response.status, type); }
       return res.sendStatus(502);
     }
     res.set('Content-Type', type);
