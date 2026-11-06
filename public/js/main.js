@@ -331,17 +331,26 @@ class MapController {
 
         this.map.mapTypes.set("dark", new google.maps.StyledMapType(darkModeStyle, { name: "الوضع الليلي" }));
         this.map.mapTypes.set("silver", new google.maps.StyledMapType(silverStyle, { name: "فضي" }));
-        this.map.mapTypes.set("arcgis-imagery", new google.maps.ImageMapType({
+        this.map.mapTypes.set("arcgis-imagery", {
             name: "قمر صناعي",
             tileSize: new google.maps.Size(256, 256),
             maxZoom: 22,
-            getTileUrl: (coord, zoom) => {
+            getTile: (coord, zoom, ownerDocument) => {
+                const tile = ownerDocument.createElement("div");
+                tile.style.cssText = "width:256px;height:256px;overflow:hidden;background-repeat:no-repeat";
                 const size = 2 ** zoom;
-                if (coord.y < 0 || coord.y >= size) return "";
+                if (coord.y < 0 || coord.y >= size) return tile;
                 const x = ((coord.x % size) + size) % size;
-                return "/api/imagery/" + zoom + "/" + coord.y + "/" + x;
-            }
-        }));
+                const sourceZoom = Math.min(zoom, 20);
+                const scale = 2 ** (zoom - sourceZoom);
+                const sourceX = Math.floor(x / scale), sourceY = Math.floor(coord.y / scale);
+                tile.style.backgroundImage = 'url("/api/imagery/' + sourceZoom + '/' + sourceY + '/' + sourceX + '")';
+                tile.style.backgroundSize = (256 * scale) + 'px ' + (256 * scale) + 'px';
+                tile.style.backgroundPosition = (-256 * (x % scale)) + 'px ' + (-256 * (coord.y % scale)) + 'px';
+                return tile;
+            },
+            releaseTile: () => {}
+        });
         const imageryCredit = document.createElement("div");
         imageryCredit.textContent = "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
         imageryCredit.style.cssText = "display:none;background:rgba(255,255,255,.9);color:#333;font:10px Arial,sans-serif;padding:3px 6px;direction:ltr";
