@@ -331,6 +331,24 @@ class MapController {
 
         this.map.mapTypes.set("dark", new google.maps.StyledMapType(darkModeStyle, { name: "الوضع الليلي" }));
         this.map.mapTypes.set("silver", new google.maps.StyledMapType(silverStyle, { name: "فضي" }));
+        this.map.mapTypes.set("arcgis-imagery", new google.maps.ImageMapType({
+            name: "قمر صناعي",
+            tileSize: new google.maps.Size(256, 256),
+            maxZoom: 22,
+            getTileUrl: (coord, zoom) => {
+                const size = 2 ** zoom;
+                if (coord.y < 0 || coord.y >= size) return "";
+                const x = ((coord.x % size) + size) % size;
+                return "/api/imagery/" + zoom + "/" + coord.y + "/" + x;
+            }
+        }));
+        const imageryCredit = document.createElement("div");
+        imageryCredit.textContent = "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
+        imageryCredit.style.cssText = "display:none;background:rgba(255,255,255,.9);color:#333;font:10px Arial,sans-serif;padding:3px 6px;direction:ltr";
+        this.map.controls[google.maps.ControlPosition.BOTTOM_LEFT].push(imageryCredit);
+        this.map.addListener("maptypeid_changed", () => {
+            imageryCredit.style.display = this.map.getMapTypeId() === "arcgis-imagery" ? "block" : "none";
+        });
 
         for (const { id, name, styles } of EXTRA_BASE_MAPS) {
             this.map.mapTypes.set(id, new google.maps.StyledMapType(styles, { name }));
@@ -367,7 +385,7 @@ class MapController {
     }
 
     setRoadmap() { this.map.setMapTypeId("roadmap"); }
-    setSatellite() { this.map.setMapTypeId("satellite"); }
+    setSatellite() { this.map.setMapTypeId("arcgis-imagery"); }
     setTerrain() { this.map.setMapTypeId("terrain"); }
     setDarkMode() { this.map.setMapTypeId("dark"); }
     setSilverMode() { this.map.setMapTypeId("silver"); }
@@ -2838,7 +2856,7 @@ class StateManager {
                 this.map.setZoom(mapState.z);
             }
             if (mapState.t) {
-                this.map.setMapTypeId(mapState.t);
+                this.map.setMapTypeId(mapState.t === "satellite" || mapState.t === "hybrid" ? "arcgis-imagery" : mapState.t);
             }
             if (mapState.traffic) {
                 MAP.trafficLayer.setMap(this.map);
