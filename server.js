@@ -51,7 +51,10 @@ app.get('/api/imagery/:z/:y/:x', async (req, res) => {
     const url = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/' + zoom + '/' + Number(y) + '/' + Number(x);
     const response = await fetch(url, { headers: { Authorization: 'Bearer ' + process.env.ARCGIS_API_KEY, Referer: 'https://securitymap.onrender.com/' }, timeout: 10000 });
     const type = response.headers.get('content-type') || '';
-    if (!response.ok || !type.startsWith('image/')) return res.sendStatus(502);
+    if (!response.ok || !type.startsWith('image/')) {
+      console.error('ArcGIS imagery response:', response.status, type);
+      return res.sendStatus(502);
+    }
     res.set('Content-Type', type);
     res.set('Cache-Control', 'public, max-age=3600');
     response.body.pipe(res);
