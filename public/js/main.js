@@ -3680,6 +3680,8 @@ class UIManager {
 
     toggleLayersPanel() {
         if (!this.layersPanel) return;
+        const currentType = MAP.map.getMapTypeId() === "arcgis-imagery" ? "satellite" : MAP.map.getMapTypeId();
+        this.layersPanel.querySelectorAll('input[name="base-map"]').forEach(input => { input.checked = input.value === currentType; });
         this.layersPanel.classList.toggle("show");
         const isOpen = this.layersPanel.classList.contains("show");
         if (this.btnLayers) {
