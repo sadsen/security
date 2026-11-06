@@ -341,7 +341,7 @@ class MapController {
                 const size = 2 ** zoom;
                 if (coord.y < 0 || coord.y >= size) return tile;
                 const x = ((coord.x % size) + size) % size;
-                const sourceZoom = Math.min(zoom, 20);
+                const sourceZoom = Math.min(zoom, 18);
                 const scale = 2 ** (zoom - sourceZoom);
                 const sourceX = Math.floor(x / scale), sourceY = Math.floor(coord.y / scale);
                 tile.style.backgroundImage = 'url("/api/imagery/' + sourceZoom + '/' + sourceY + '/' + sourceX + '")';
