@@ -3119,6 +3119,12 @@ class MapExportManager {
             const r = img.getBoundingClientRect();
             return img.src && r.width && r.height && r.right > rect.left && r.left < rect.right && r.bottom > rect.top && r.top < rect.bottom;
         }).map(img => img.src))];
+        const backgrounds = [...map.querySelectorAll('[style*="background-image"]')].filter(el => {
+            const r = el.getBoundingClientRect();
+            return r.width && r.height && r.right > rect.left && r.left < rect.right && r.bottom > rect.top && r.top < rect.bottom;
+        }).flatMap(el => [...el.style.backgroundImage.matchAll(/url\(["']?([^"')]+)["']?\)/g)].map(match => new URL(match[1], location.href).href));
+        if (MAP.map.getMapTypeId() === 'arcgis-imagery' && !backgrounds.length) throw new Error('الخريطة ما زالت قيد التحميل. انتظر لحظة ثم اضغط معاينة الصورة.');
+        sources.push(...backgrounds.filter(src => !sources.includes(src)));
         await Promise.all(sources.map(src => new Promise((resolve, reject) => {
             const image = new Image();
             const timer = setTimeout(() => { image.src = ''; reject(new Error('لم يكتمل تحميل الخريطة. انتظر ثم أعد المحاولة.')); }, 15000);
