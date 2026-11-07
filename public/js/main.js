@@ -2390,7 +2390,8 @@ class PolygonManager {
         bus.on("state:load", st => this.applyState(st)); bus.on("state:save", () => this.exportState()); 
     }
     
-    onMapReady() { 
+    onMapReady() {
+        this.map.addListener("bounds_changed", () => this.outsideShade?.draw()); 
         this.map.addListener("click", e => { 
             if (this.isEditing) {
                 if (this.addingVertices && !this.shareMode && MAP.editMode) {
@@ -2407,6 +2408,61 @@ class PolygonManager {
         }); 
     }
 
+    updateOutsideShade() {
+        const selected = this.polygons.find(p => p.outsideShade && p.polygon);
+        if (!selected) {
+            this.outsideShade?.setMap(null);
+            this.outsideShade = null;
+            return;
+        }
+        if (!this.outsideShade) {
+            const overlay = new google.maps.OverlayView();
+            this.outsideShade = overlay;
+            overlay.onAdd = () => {
+                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                svg.id = "polygon-outside-shade";
+                svg.setAttribute("aria-hidden", "true");
+                svg.style.cssText = "position:absolute;pointer-events:none;overflow:hidden";
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("fill-rule", "evenodd");
+                svg.appendChild(path);
+                overlay.shadeSvg = svg;
+                overlay.shadePath = path;
+                overlay.getPanes().overlayLayer.appendChild(svg);
+            };
+            overlay.draw = () => {
+                const poly = this.polygons.find(p => p.outsideShade && p.polygon);
+                const projection = overlay.getProjection();
+                if (!poly || !projection || !overlay.shadeSvg || !this.map.getCenter()) return;
+                const center = projection.fromLatLngToDivPixel(this.map.getCenter());
+                if (!center) return;
+                const width = Math.max(this.map.getDiv().clientWidth, 1) * 3;
+                const height = Math.max(this.map.getDiv().clientHeight, 1) * 3;
+                const left = center.x - width / 2, top = center.y - height / 2;
+                const worldWidth = 256 * 2 ** this.map.getZoom();
+                let previousX = center.x;
+                const points = poly.points.map(point => {
+                    const pixel = projection.fromLatLngToDivPixel(point);
+                    const x = pixel.x + Math.round((previousX - pixel.x) / worldWidth) * worldWidth;
+                    previousX = x;
+                    return [x - left, pixel.y - top];
+                });
+                const hole = points.map((p, i) => (i ? "L" : "M") + p[0] + " " + p[1]).join(" ") + " Z";
+                overlay.shadeSvg.style.left = left + "px";
+                overlay.shadeSvg.style.top = top + "px";
+                overlay.shadeSvg.setAttribute("width", width);
+                overlay.shadeSvg.setAttribute("height", height);
+                overlay.shadePath.setAttribute("d", "M0 0H" + width + "V" + height + "H0Z " + hole);
+                overlay.shadePath.setAttribute("fill", poly.shadeColor || "#000000");
+                overlay.shadePath.setAttribute("fill-opacity", poly.shadeOpacity ?? 0.6);
+            };
+            overlay.onRemove = () => { overlay.shadeSvg?.remove(); overlay.shadeSvg = null; };
+            overlay.setMap(this.map);
+        } else {
+            this.outsideShade.draw();
+        }
+    }
+
     startPolygonSequence() { this.activePolygonIndex = -1; }
     
     finishCurrentPolygon() {
@@ -2415,7 +2471,10 @@ class PolygonManager {
         if (poly.activePolyline) poly.activePolyline.setMap(null);
         poly.markers.forEach(m => m.map = null);
         if (poly.points.length >= 3) {
-            poly.polygon = new google.maps.Polygon({ paths: poly.points, map: this.map, strokeColor: poly.color, strokeOpacity: poly.strokeOpacity, strokeWeight: poly.strokeWeight, fillColor: poly.color, fillOpacity: poly.fillOpacity, zIndex: 5, clickable: true });
+            poly.polygon = new google.maps.Polygon({ paths: poly.points, map: this.map, strokeColor: poly.color, strokeOpacity: poly.strokeOpacity, strokeWeight: poly.strokeWeight, fillColor: poly.color, fillOpacity: poly.fillOpacity,
+            outsideShade: !!poly.outsideShade,
+            shadeColor: poly.shadeColor || "#000000",
+            shadeOpacity: poly.shadeOpacity ?? 0.6, zIndex: 5, clickable: true });
             this.addPolygonEditListeners(poly);
             this.openCard(this.activePolygonIndex);
             bus.emit("persist");
@@ -2469,7 +2528,7 @@ class PolygonManager {
             poly.vertexMarkers.push(marker);
             
             // السحب لتغيير الموقع
-            marker.addListener("drag", (e) => { poly.points[i] = e.latLng; poly.polygon.setPaths(poly.points); });
+            marker.addListener("drag", (e) => { poly.points[i] = e.latLng; poly.polygon.setPaths(poly.points); this.updateOutsideShade(); });
             marker.addListener("dragend", () => { bus.emit("persist"); });
             
             marker.addEventListener("gmp-click", () => {
@@ -2541,7 +2600,7 @@ class PolygonManager {
         
         if (insertIndex !== -1) {
             poly.points.splice(insertIndex, 0, latLng);
-            poly.polygon.setPaths(poly.points);
+            poly.polygon.setPaths(poly.points); this.updateOutsideShade();
             
             // Update vertex markers
             this.enterEditMode(index, this.addingVertices);
@@ -2561,7 +2620,7 @@ class PolygonManager {
         poly.points.splice(vertexIndex, 1);
         
         // تحديث رسم المضلع
-        poly.polygon.setPaths(poly.points);
+        poly.polygon.setPaths(poly.points); this.updateOutsideShade();
         
         // حفظ التغييرات
         bus.emit("persist");
@@ -2654,6 +2713,15 @@ class PolygonManager {
                     </div>
                     <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية الحدود: <span id="poly-stroke-opacity-val">${Math.round(poly.strokeOpacity * 100)}%</span></label><input id="poly-stroke-opacity" type="range" min="0" max="100" value="${Math.round(poly.strokeOpacity * 100)}" style="width:100%;"></div>
                     <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية التعبئة: <span id="poly-fill-opacity-val">${Math.round(poly.fillOpacity * 100)}%</span></label><input id="poly-fill-opacity" type="range" min="0" max="100" value="${Math.round(poly.fillOpacity * 100)}" style="width:100%;"></div>
+                    <fieldset style="margin:0 0 14px;padding:12px;border:1px solid #ddd;border-radius:10px;">
+<legend style="font-weight:600;">تظليل خارج المضلع</legend>
+<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input id="poly-outside-shade" type="checkbox" ${poly.outsideShade ? 'checked' : ''}> تفعيل التظليل خارج المضلع</label>
+<label for="poly-shade-color" style="display:block;margin-bottom:5px;">لون التظليل</label>
+<input id="poly-shade-color" type="color" value="${Utils.escapeHTML(poly.shadeColor || '#000000')}" style="width:100%;height:32px;border:0;cursor:pointer;">
+<label for="poly-shade-opacity" style="display:block;margin-top:10px;">مستوى التظليل: <span id="poly-shade-opacity-val">${Math.round((poly.shadeOpacity ?? 0.6) * 100)}%</span></label>
+<input id="poly-shade-opacity" type="range" min="0" max="100" value="${Math.round((poly.shadeOpacity ?? 0.6) * 100)}" style="width:100%;">
+<small style="display:block;color:#666;line-height:1.6;">0% بدون تظليل، 100% تغطية كاملة خارج المضلع. تُحفظ تلقائيًا، ويُفعّل التظليل لمضلع واحد في كل مرة.</small>
+</fieldset>
                     <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">ملاحظات:</label><textarea id="poly-notes" rows="3" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px;">${notes}</textarea></div>
                 ` : `
                     <p style="margin: 0 0 8px 0; font-size: 14px; color: #555; font-family: 'Tajawal', sans-serif;">ملاحظات:</p>
@@ -2689,6 +2757,21 @@ class PolygonManager {
         if (isEditingShape) { const stopEditBtn = document.getElementById("poly-stop-edit"); if (stopEditBtn) stopEditBtn.addEventListener("click", () => { this.exitEditMode(); UI.forceCloseSharedInfoCard(); }); return; }
         if (hoverOnly || !MAP.editMode) return;
         const savePropsBtn = document.getElementById("poly-save-properties"); const editShapeBtn = document.getElementById("poly-edit-shape"); const delBtn = document.getElementById("poly-delete"); const closeBtn = document.getElementById("poly-close");
+        const shadeToggle = document.getElementById("poly-outside-shade");
+        const shadeColor = document.getElementById("poly-shade-color");
+        const shadeOpacity = document.getElementById("poly-shade-opacity");
+        const updateShade = () => {
+            if (shadeToggle.checked) this.polygons.forEach(p => { p.outsideShade = p === poly; });
+            else poly.outsideShade = false;
+            poly.shadeColor = shadeColor.value;
+            poly.shadeOpacity = Utils.clamp(Number(shadeOpacity.value), 0, 100) / 100;
+            document.getElementById("poly-shade-opacity-val").textContent = Math.round(poly.shadeOpacity * 100) + "%";
+            this.updateOutsideShade();
+            bus.emit("persist");
+        };
+        shadeToggle?.addEventListener("change", updateShade);
+        shadeColor?.addEventListener("input", updateShade);
+        shadeOpacity?.addEventListener("input", updateShade);
         const nameEl = document.getElementById("poly-name"); const notesEl = document.getElementById("poly-notes");
         const colEl = document.getElementById("poly-color"); const strokeEl = document.getElementById("poly-stroke");
         const strokeOpEl = document.getElementById("poly-stroke-opacity"); const fillOpEl = document.getElementById("poly-fill-opacity");
@@ -2710,7 +2793,7 @@ class PolygonManager {
                 poly.points = poly.points.map(point => computeOffset(
                     center, computeDistanceBetween(center, point) * factor, computeHeading(center, point)
                 ));
-                poly.polygon.setPaths(poly.points);
+                poly.polygon.setPaths(poly.points); this.updateOutsideShade();
                 bus.emit("persist");
                 this.openCard(polyIndex);
             });
@@ -2720,7 +2803,8 @@ class PolygonManager {
             delBtn.addEventListener("click", () => { 
                 if (!confirm(`حذف المضلع "${poly.name}" كاملاً؟`)) return; 
                 poly.polygon.setMap(null); 
-                this.polygons = this.polygons.filter(p => p.id !== poly.id); 
+                this.polygons = this.polygons.filter(p => p.id !== poly.id);
+                this.updateOutsideShade(); 
                 UI.forceCloseSharedInfoCard(); 
                 bus.emit("persist"); 
                 bus.emit("toast", "تم حذف المضلع"); 
@@ -2757,7 +2841,10 @@ class PolygonManager {
                 color: polyData.color, 
                 strokeWeight: polyData.strokeWeight, 
                 strokeOpacity: polyData.strokeOpacity, 
-                fillOpacity: polyData.fillOpacity, 
+                fillOpacity: polyData.fillOpacity,
+                outsideShade: polyData.outsideShade === true,
+                shadeColor: /^#[0-9a-f]{6}$/i.test(polyData.shadeColor || "") ? polyData.shadeColor : "#000000",
+                shadeOpacity: Number.isFinite(polyData.shadeOpacity) ? Utils.clamp(polyData.shadeOpacity, 0, 1) : 0.6, 
                 points: polyData.points.map(p => new google.maps.LatLng(p.lat, p.lng)), 
                 polygon: null, 
                 markers: [], 
@@ -2778,6 +2865,7 @@ class PolygonManager {
             this.addPolygonEditListeners(newPoly);
             this.polygons.push(newPoly);
         });
+        this.updateOutsideShade();
     }
 }
 
