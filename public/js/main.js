@@ -3125,6 +3125,14 @@ class MapExportManager {
             useCORS: true, allowTaint: false, backgroundColor: '#ffffff', scale,
             logging: false, imageTimeout: 20000,
             onclone: doc => {
+                doc.querySelectorAll('#map img[src^="data:image/svg+xml"]').forEach(img => {
+                    const bounds = img.getBoundingClientRect();
+                    if (!bounds.width || !bounds.height) return;
+                    const svgDoc = new DOMParser().parseFromString(decodeURIComponent(img.src.slice(img.src.indexOf(',') + 1)), 'image/svg+xml');
+                    const root = svgDoc.documentElement;
+                    root.setAttribute('width', String(bounds.width)); root.setAttribute('height', String(bounds.height));
+                    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(root));
+                });
                 const shade = doc.getElementById('polygon-outside-shade');
                 if (shade) {
                     const path = shade.querySelector('path');
