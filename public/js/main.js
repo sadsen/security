@@ -3044,17 +3044,18 @@ class MapExportManager {
             '<p style="font-size:12px;color:#667;margin:8px 0">الدقة المضاعفة تكبّر أبعاد الملف؛ تفاصيل الخريطة تعتمد على مستوى التكبير الحالي.</p>' +
             '<button type="button" id="map-export-capture" style="width:100%;padding:11px;border:0;border-radius:8px;background:#2563eb;color:white;font:inherit;cursor:pointer">معاينة الصورة</button>' +
             '<p id="map-export-status" role="status" aria-live="polite" style="font-size:13px;line-height:1.6"></p>' +
-            '<div id="map-export-preview" hidden><img alt="معاينة الخريطة قبل الحفظ" style="display:block;width:100%;border:1px solid #ddd;border-radius:8px"><button type="button" id="map-export-download" style="width:100%;padding:11px;margin-top:10px;border:0;border-radius:8px;background:#15803d;color:white;font:inherit;cursor:pointer">تنزيل الملف</button></div>';
+            '<div id="map-export-preview" hidden><img alt="معاينة الخريطة قبل الحفظ" style="display:block;width:100%;border:1px solid #ddd;border-radius:8px"><button type="button" id="map-export-download" style="width:100%;padding:11px;margin-top:10px;border:0;border-radius:8px;background:#15803d;color:white;font:inherit;cursor:pointer">تجهيز الملف للحفظ</button></div>';
         const capture = panel.querySelector('#map-export-capture');
         const download = panel.querySelector('#map-export-download');
         const status = panel.querySelector('#map-export-status');
         const preview = panel.querySelector('#map-export-preview');
         let canvas = null;
+        panel.querySelector('#map-export-format').addEventListener('change', () => panel.querySelector('#map-export-save-link')?.remove());
         panel.querySelector('#map-export-scale').addEventListener('change', () => { canvas = null; preview.hidden = true; status.textContent = 'اضغط معاينة الصورة لتطبيق الدقة الجديدة.'; });
         capture.addEventListener('click', async () => {
             if (this.busy) return;
             if (MAP.modePolygonAdd || MAP.modeRouteAdd || POLYGONS.isEditing) { status.textContent = 'أنهِ الرسم أو تعديل الشكل أولًا، ثم احفظ الصورة.'; return; }
-            this.busy = true; capture.disabled = true; download.disabled = true; preview.hidden = true; canvas = null;
+            this.busy = true; capture.disabled = true; download.disabled = true; preview.hidden = true; canvas = null; panel.querySelector('#map-export-save-link')?.remove();
             status.textContent = 'جارٍ تجهيز الخريطة…';
             try {
                 canvas = await this.capture(Number(panel.querySelector('#map-export-scale').value));
@@ -3090,15 +3091,20 @@ class MapExportManager {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a'); link.href = url;
                 link.download = 'securitymap-' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + format;
-                document.body.appendChild(link); link.click(); link.remove();
-                setTimeout(() => URL.revokeObjectURL(url), 60000);
-                status.textContent = 'تم تجهيز الملف للتنزيل بصيغة ' + format.toUpperCase() + '.';
+                panel.querySelector('#map-export-save-link')?.remove();
+                if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
+                this.downloadUrl = url;
+                link.id = 'map-export-save-link';
+                link.textContent = 'حفظ الملف ' + format.toUpperCase();
+                link.style.cssText = 'display:block;text-align:center;padding:12px;margin-top:10px;border-radius:8px;background:#166534;color:white;text-decoration:none;font-weight:700';
+                preview.appendChild(link);
+                status.textContent = 'الملف جاهز. اضغط حفظ الملف لإكمال التنزيل.';
             } catch (error) { status.textContent = error.message || 'تعذر حفظ الملف. جرّب PNG.'; }
             finally { this.busy = false; download.disabled = false; capture.disabled = false; }
         });
         return panel;
     }
-    releasePreview() { if (this.previewUrl) URL.revokeObjectURL(this.previewUrl); this.previewUrl = null; }
+    releasePreview() { if (this.previewUrl) URL.revokeObjectURL(this.previewUrl); if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl); this.previewUrl = null; this.downloadUrl = null; }
     toBlob(canvas, type, quality) {
         return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('تعذر إنشاء الملف. جرّب الدقة العادية.')), type, quality));
     }
