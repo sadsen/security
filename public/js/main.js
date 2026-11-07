@@ -3125,6 +3125,17 @@ class MapExportManager {
             useCORS: true, allowTaint: false, backgroundColor: '#ffffff', scale,
             logging: false, imageTimeout: 20000,
             onclone: doc => {
+                const shade = doc.getElementById('polygon-outside-shade');
+                if (shade) {
+                    const path = shade.querySelector('path');
+                    const bitmap = doc.createElement('canvas');
+                    bitmap.width = Number(shade.getAttribute('width')); bitmap.height = Number(shade.getAttribute('height'));
+                    bitmap.style.cssText = shade.style.cssText;
+                    const context = bitmap.getContext('2d');
+                    context.fillStyle = path.getAttribute('fill'); context.globalAlpha = Number(path.getAttribute('fill-opacity'));
+                    context.fill(new Path2D(path.getAttribute('d')), 'evenodd');
+                    shade.replaceWith(bitmap);
+                }
                 doc.querySelectorAll('#toolbar,#mode-badge,#toast,.layers-panel,.share-dialog-overlay,.gm-bundled-control,.gm-fullscreen-control,.gm-style-mtc,.gm-svpc,.gm-style-iw-a,.gm-style-cc button').forEach(el => { el.style.visibility = 'hidden'; });
             }
         });
@@ -3289,7 +3300,7 @@ class ShareManager {
                 position: fixed; inset: 0;
                 background: rgba(0,0,0,.6);
                 display: flex; align-items: center; justify-content: center;
-                z-index: 10000; font-family: 'Tajawal', sans-serif; direction: rtl;
+                z-index: 1000000; font-family: 'Tajawal', sans-serif; direction: rtl;
                 animation: fadeIn 0.3s ease-out;
             }
             .share-dialog-content {
