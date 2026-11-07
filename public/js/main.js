@@ -2471,10 +2471,7 @@ class PolygonManager {
         if (poly.activePolyline) poly.activePolyline.setMap(null);
         poly.markers.forEach(m => m.map = null);
         if (poly.points.length >= 3) {
-            poly.polygon = new google.maps.Polygon({ paths: poly.points, map: this.map, strokeColor: poly.color, strokeOpacity: poly.strokeOpacity, strokeWeight: poly.strokeWeight, fillColor: poly.color, fillOpacity: poly.fillOpacity,
-            outsideShade: !!poly.outsideShade,
-            shadeColor: poly.shadeColor || "#000000",
-            shadeOpacity: poly.shadeOpacity ?? 0.6, zIndex: 5, clickable: true });
+            poly.polygon = new google.maps.Polygon({ paths: poly.points, map: this.map, strokeColor: poly.color, strokeOpacity: poly.strokeOpacity, strokeWeight: poly.strokeWeight, fillColor: poly.color, fillOpacity: poly.fillOpacity, zIndex: 5, clickable: true });
             this.addPolygonEditListeners(poly);
             this.openCard(this.activePolygonIndex);
             bus.emit("persist");
@@ -2821,7 +2818,10 @@ class PolygonManager {
             color: poly.color, 
             strokeWeight: poly.strokeWeight, 
             strokeOpacity: poly.strokeOpacity, 
-            fillOpacity: poly.fillOpacity, 
+            fillOpacity: poly.fillOpacity,
+            outsideShade: !!poly.outsideShade,
+            shadeColor: poly.shadeColor || "#000000",
+            shadeOpacity: poly.shadeOpacity ?? 0.6,
             points: poly.points.map(p => ({ 
                 lat: typeof p.lat === 'function' ? p.lat() : p.lat, 
                 lng: typeof p.lng === 'function' ? p.lng() : p.lng 
