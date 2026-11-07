@@ -2392,6 +2392,13 @@ class PolygonManager {
     
     onMapReady() { 
         this.map.addListener("click", e => { 
+            if (this.isEditing) {
+                if (this.addingVertices && !this.shareMode && MAP.editMode) {
+                    const index = this.editingPolygonIndex;
+                    this.insertVertex(this.polygons[index], index, e.latLng);
+                }
+                return;
+            }
             // التحقق الصارم: لن يتم الرسم إلا إذا كانت أيقونة المضلع مفعلة (modePolygonAdd = true)
             if (!MAP.modePolygonAdd || this.shareMode) return; 
             
@@ -2439,12 +2446,14 @@ class PolygonManager {
         poly.polygon.addListener("click", (e) => {
             const index = this.polygons.indexOf(poly);
             if (index === -1 || MAP.modePolygonAdd || this.isEditing && this.editingPolygonIndex !== index) return;
-            if (this.editingPolygonIndex === index) { this.insertVertex(poly, index, e.latLng); }
+            if (this.editingPolygonIndex === index) { if (this.addingVertices && !this.shareMode && MAP.editMode) this.insertVertex(poly, index, e.latLng); }
             else { this.openCard(this.polygons.indexOf(poly), false, e.latLng); } 
         });
     }
-    enterEditMode(index) {
+    enterEditMode(index, addingVertices = false) {
+        if (this.shareMode || !MAP.editMode || !this.polygons[index]?.polygon) return;
         this.exitEditMode();
+        this.addingVertices = addingVertices;
         const poly = this.polygons[index];
         this.isEditing = true; this.editingPolygonIndex = index;
         
@@ -2475,11 +2484,33 @@ class PolygonManager {
         });
         
         UI.showPolygonEditingUI();
-        bus.emit("toast", "اسحب النقاط لتعديل الحدود، أو اضغط على نقطة لحذفها، ثم اضغط إنهاء.");
+        const addButton = document.createElement("button");
+        addButton.id = "poly-add-vertices";
+        addButton.type = "button";
+        addButton.className = UI.btnDrawFinish?.className || "btn";
+        addButton.style.cssText = "display:inline-flex;align-items:center;padding:10px 14px;border-radius:12px;border:1px solid #fff;color:white;font-family:inherit;cursor:pointer";
+        const updateButton = () => {
+            addButton.textContent = this.addingVertices ? "إيقاف إضافة النقاط" : "إضافة نقاط جديدة";
+            addButton.setAttribute("aria-pressed", String(this.addingVertices));
+            addButton.style.background = this.addingVertices ? "#d97706" : "#2563eb";
+            MAP.setCursor(this.addingVertices ? "crosshair" : "grab");
+        };
+        addButton.addEventListener("click", () => {
+            this.addingVertices = !this.addingVertices;
+            this.vertexInfo?.close();
+            updateButton();
+            bus.emit("toast", this.addingVertices ? "اضغط على الخريطة داخل المضلع أو خارجه لإضافة نقاط جديدة، ثم اضغط إنهاء." : "تم إيقاف الإضافة. يمكنك سحب النقاط لتعديل الحدود.");
+        });
+        UI.btnDrawFinish?.before(addButton);
+        updateButton();
+        bus.emit("toast", this.addingVertices ? "اضغط على الخريطة لإضافة النقطة التالية، ثم اضغط إنهاء." : "اسحب النقاط أو اضغط إضافة نقاط جديدة لتوسعة المضلع، ثم اضغط إنهاء.");
     }
     
     exitEditMode() {
         if (!this.isEditing) return;
+        document.getElementById("poly-add-vertices")?.remove();
+        this.addingVertices = false;
+        MAP.setCursor("grab");
         this.vertexInfo?.close();
         this.vertexInfo = null;
         const poly = this.polygons[this.editingPolygonIndex];
@@ -2513,7 +2544,7 @@ class PolygonManager {
             poly.polygon.setPaths(poly.points);
             
             // Update vertex markers
-            this.enterEditMode(index);
+            this.enterEditMode(index, this.addingVertices);
             
             bus.emit("persist");
             bus.emit("toast", "تمت إضافة نقطة جديدة");
@@ -2537,7 +2568,7 @@ class PolygonManager {
         bus.emit("toast", "تم حذف النقطة");
 
         // إعادة تشغيل وضع التحرير لتحديث ترتيب النقاط ومواقعها
-        this.enterEditMode(index);
+        this.enterEditMode(index, this.addingVertices);
     }
 
     distanceToSegment(point, segStart, segEnd) {
@@ -2614,7 +2645,7 @@ class PolygonManager {
                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px; font-family: 'Tajawal', sans-serif;">
                     <span><b>المساحة:</b> ${areaText}</span>
                 </div>
-                ${isEditingShape ? `<p style="margin: 0; color: #555; text-align:center; font-family: 'Tajawal', sans-serif;">اسحب النقاط لتعديل الشكل. انقر على الحدود لإضافة نقطة. انقر بزر الماوس الأيمن على نقطة لحذفها.</p>` : 
+                ${isEditingShape ? `<p style="margin: 0; color: #555; text-align:center; font-family: 'Tajawal', sans-serif;">اسحب النقاط لتعديل الشكل. فعّل إضافة نقاط جديدة ثم اضغط داخل المضلع أو خارجه لتوسعة الحدود. اضغط على نقطة لحذفها.</p>` : 
                 (isEditable ? `
                     <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">الاسم:</label><input id="poly-name" type="text" value="${Utils.escapeHTML(poly.name)}" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
