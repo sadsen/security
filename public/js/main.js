@@ -3019,9 +3019,122 @@ const STATE = new StateManager();
 — نسخ آمن مع ضغط البيانات (مُحسّن)
 ============================================================
 */
+class MapExportManager {
+    constructor() { this.busy = false; this.previewUrl = null; this.libraries = {}; }
+    loadLibrary(name, url) {
+        if (window[name]) return Promise.resolve(window[name]);
+        if (!this.libraries[name]) this.libraries[name] = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            const timer = setTimeout(() => { script.remove(); reject(new Error('تعذر تحميل أداة الحفظ. تحقق من الاتصال ثم حاول مجددًا.')); }, 20000);
+            script.src = url;
+            script.onload = () => { clearTimeout(timer); window[name] ? resolve(window[name]) : reject(new Error('تعذر تحميل أداة الحفظ')); };
+            script.onerror = () => { clearTimeout(timer); script.remove(); reject(new Error('تعذر تحميل أداة الحفظ. تحقق من الاتصال ثم حاول مجددًا.')); };
+            document.head.appendChild(script);
+        }).catch(error => { delete this.libraries[name]; throw error; });
+        return this.libraries[name];
+    }
+    createPanel() {
+        const panel = document.createElement('section');
+        panel.className = 'share-section';
+        panel.style.cssText = 'padding:16px;border:1px solid #d9e3ee;border-radius:12px;background:#f6f9fc;color:#243447';
+        panel.innerHTML = '<h4 style="margin:0 0 10px">حفظ صورة الخريطة</h4>' +
+            '<p style="font-size:13px;line-height:1.7;margin:0 0 12px">حفظ الجزء الظاهر مع المواقع والمسارات والمضلعات والتظليل، دون القوائم وأزرار التحكم. تبقى حقوق مزوّد الخريطة ظاهرة.</p>' +
+            '<div style="display:flex;gap:10px;flex-wrap:wrap"><label style="flex:1">الصيغة<select id="map-export-format" style="display:block;width:100%;padding:9px;margin-top:5px"><option value="png">PNG — أعلى جودة</option><option value="jpg">JPG — حجم أصغر</option><option value="pdf">PDF — للطباعة</option><option value="webp">WebP — صورة مضغوطة</option></select></label>' +
+            '<label style="flex:1">الدقة<select id="map-export-scale" style="display:block;width:100%;padding:9px;margin-top:5px"><option value="1">عادية 1×</option><option value="2" selected>مضاعفة 2×</option></select></label></div>' +
+            '<p style="font-size:12px;color:#667;margin:8px 0">الدقة المضاعفة تكبّر أبعاد الملف؛ تفاصيل الخريطة تعتمد على مستوى التكبير الحالي.</p>' +
+            '<button type="button" id="map-export-capture" style="width:100%;padding:11px;border:0;border-radius:8px;background:#2563eb;color:white;font:inherit;cursor:pointer">معاينة الصورة</button>' +
+            '<p id="map-export-status" role="status" aria-live="polite" style="font-size:13px;line-height:1.6"></p>' +
+            '<div id="map-export-preview" hidden><img alt="معاينة الخريطة قبل الحفظ" style="display:block;width:100%;border:1px solid #ddd;border-radius:8px"><button type="button" id="map-export-download" style="width:100%;padding:11px;margin-top:10px;border:0;border-radius:8px;background:#15803d;color:white;font:inherit;cursor:pointer">تنزيل الملف</button></div>';
+        const capture = panel.querySelector('#map-export-capture');
+        const download = panel.querySelector('#map-export-download');
+        const status = panel.querySelector('#map-export-status');
+        const preview = panel.querySelector('#map-export-preview');
+        let canvas = null;
+        panel.querySelector('#map-export-scale').addEventListener('change', () => { canvas = null; preview.hidden = true; status.textContent = 'اضغط معاينة الصورة لتطبيق الدقة الجديدة.'; });
+        capture.addEventListener('click', async () => {
+            if (this.busy) return;
+            if (MAP.modePolygonAdd || MAP.modeRouteAdd || POLYGONS.isEditing) { status.textContent = 'أنهِ الرسم أو تعديل الشكل أولًا، ثم احفظ الصورة.'; return; }
+            this.busy = true; capture.disabled = true; download.disabled = true; preview.hidden = true; canvas = null;
+            status.textContent = 'جارٍ تجهيز الخريطة…';
+            try {
+                canvas = await this.capture(Number(panel.querySelector('#map-export-scale').value));
+                if (!panel.isConnected) return;
+                const blob = await this.toBlob(canvas, 'image/png');
+                this.releasePreview(); this.previewUrl = URL.createObjectURL(blob);
+                preview.querySelector('img').src = this.previewUrl;
+                preview.hidden = false;
+                status.textContent = 'المعاينة جاهزة — ' + canvas.width + ' × ' + canvas.height + ' بكسل. اختر الصيغة ثم نزّل الملف.';
+            } catch (error) { status.textContent = error.message || 'تعذر إنشاء الصورة. أعد المحاولة بعد اكتمال تحميل الخريطة.'; }
+            finally { this.busy = false; capture.disabled = false; download.disabled = false; }
+        });
+        download.addEventListener('click', async () => {
+            if (!canvas || this.busy) return;
+            this.busy = true; download.disabled = true; capture.disabled = true;
+            const format = panel.querySelector('#map-export-format').value;
+            status.textContent = 'جارٍ إعداد الملف…';
+            try {
+                let blob;
+                if (format === 'pdf') {
+                    const lib = await this.loadLibrary('PDFLib', 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+                    const pdf = await lib.PDFDocument.create();
+                    const png = await this.toBlob(canvas, 'image/png');
+                    const image = await pdf.embedPng(await png.arrayBuffer());
+                    const factor = 842 / Math.max(canvas.width, canvas.height);
+                    const page = pdf.addPage([canvas.width * factor, canvas.height * factor]);
+                    page.drawImage(image, { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() });
+                    blob = new Blob([await pdf.save()], { type: 'application/pdf' });
+                } else {
+                    blob = await this.toBlob(canvas, format === 'jpg' ? 'image/jpeg' : 'image/' + format, 0.95);
+                    if (format === 'webp' && blob.type !== 'image/webp') throw new Error('متصفحك لا يدعم WebP. اختر PNG أو JPG.');
+                }
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a'); link.href = url;
+                link.download = 'securitymap-' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + format;
+                document.body.appendChild(link); link.click(); link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+                status.textContent = 'تم تجهيز الملف للتنزيل بصيغة ' + format.toUpperCase() + '.';
+            } catch (error) { status.textContent = error.message || 'تعذر حفظ الملف. جرّب PNG.'; }
+            finally { this.busy = false; download.disabled = false; capture.disabled = false; }
+        });
+        return panel;
+    }
+    releasePreview() { if (this.previewUrl) URL.revokeObjectURL(this.previewUrl); this.previewUrl = null; }
+    toBlob(canvas, type, quality) {
+        return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('تعذر إنشاء الملف. جرّب الدقة العادية.')), type, quality));
+    }
+    async capture(requestedScale) {
+        const render = await this.loadLibrary('html2canvas', 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+        const map = MAP.map.getDiv();
+        if (MAP.map.getRenderingType?.() === 'VECTOR') throw new Error('التصدير غير متاح لهذا العرض. اختر طبقة الطرق أو القمر الصناعي ثم أعد المحاولة.');
+        await document.fonts.ready;
+        const rect = map.getBoundingClientRect();
+        const scale = Math.min(requestedScale, 8192 / Math.max(rect.width, rect.height), Math.sqrt(16000000 / (rect.width * rect.height)));
+        const sources = [...new Set([...map.querySelectorAll('img')].filter(img => {
+            const r = img.getBoundingClientRect();
+            return img.src && r.width && r.height && r.right > rect.left && r.left < rect.right && r.bottom > rect.top && r.top < rect.bottom;
+        }).map(img => img.src))];
+        await Promise.all(sources.map(src => new Promise((resolve, reject) => {
+            const image = new Image();
+            const timer = setTimeout(() => { image.src = ''; reject(new Error('لم يكتمل تحميل الخريطة. انتظر ثم أعد المحاولة.')); }, 15000);
+            image.crossOrigin = 'anonymous';
+            image.onload = () => { clearTimeout(timer); resolve(); };
+            image.onerror = () => { clearTimeout(timer); reject(new Error('تعذر التقاط إحدى صور الخريطة. جرّب طبقة أخرى أو أعد المحاولة.')); };
+            image.src = src;
+        })));
+        return render(map, {
+            useCORS: true, allowTaint: false, backgroundColor: '#ffffff', scale,
+            logging: false, imageTimeout: 20000,
+            onclone: doc => {
+                doc.querySelectorAll('#toolbar,#mode-badge,#toast,.layers-panel,.share-dialog-overlay,.gm-bundled-control,.gm-fullscreen-control,.gm-style-mtc,.gm-svpc,.gm-style-iw-a,.gm-style-cc button').forEach(el => { el.style.visibility = 'hidden'; });
+            }
+        });
+    }
+}
+
 class ShareManager {
 
     constructor() {
+        this.exporter = new MapExportManager();
         this.btn = document.getElementById("btn-share");
         this.btnText = this.btn ? this.btn.textContent : 'مشاركة';
         this.btnIcon = this.btn ? this.btn.querySelector(".material-icons") : null;
@@ -3137,6 +3250,7 @@ class ShareManager {
             </div>
         `;
         
+        body.appendChild(this.exporter.createPanel());
         body.appendChild(longUrlSection);
         body.appendChild(shortUrlSection);
         body.appendChild(socialSection);
@@ -3180,7 +3294,7 @@ class ShareManager {
             }
             .share-dialog-content {
                 background: #fff; border-radius: 16px;
-                width: 90%; max-width: 500px; max-height: 80vh;
+                width: 90%; max-width: 560px; max-height: 88vh; display:flex; flex-direction:column;
                 overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.3);
                 animation: slideUp 0.3s ease-out;
             }
@@ -3191,7 +3305,7 @@ class ShareManager {
             .share-dialog-header h3 {
                 margin: 0; font-size: 20px; color: #333;
             }
-            .share-dialog-body { padding: 20px; overflow-y: auto; }
+            .share-dialog-body { padding: 20px; overflow-y: auto; min-height:0; }
             .share-section { margin-bottom: 24px; }
             .url-container { display: flex; gap: 10px; }
             .url-input { 
@@ -3445,6 +3559,7 @@ class ShareManager {
     }
 
     closeShareDialog() {
+        this.exporter.releasePreview();
         const dialog = document.querySelector('.share-dialog-overlay');
         if (dialog) {
             dialog.style.animation = 'fadeOut 0.3s ease-out';
