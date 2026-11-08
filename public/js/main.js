@@ -2074,8 +2074,8 @@ class RouteManager {
         const rt = this.routes[routeIndex];
         const el = document.createElement("div");
         
-        // عرض رقم المسار فقط في وضع التحرير
-        const displayNumber = this.showNumbers ? `${rt.routeNumber}.${idx + 1}` : `${idx + 1}`;
+        // نُبقي أرقام نقاط المسار في وضع التحرير؛ رابط المشاركة يحدد إظهارها أو إخفاءها.
+        const displayNumber = this.getStopLabel(rt, idx);
         
         el.style.cssText = `
             width:26px; 
@@ -2096,7 +2096,7 @@ class RouteManager {
         
         const marker = new google.maps.marker.AdvancedMarkerElement({ 
             position: pos, 
-            map: this.map, 
+            map: this.showNumbers ? this.map : null, 
             content: el, 
             gmpDraggable: !this.shareMode 
         });
@@ -2118,8 +2118,7 @@ class RouteManager {
         rt.points.splice(idx, 1); 
         rt.stops.splice(idx, 1);
         rt.stops.forEach((m, i) => { 
-            const displayNumber = this.showNumbers ? `${rt.routeNumber}.${i + 1}` : `${i + 1}`;
-            m.content.textContent = displayNumber;
+            m.content.textContent = this.getStopLabel(rt, i);
         });
         if (rt.points.length >= 2) this.requestRoute(routeIndex);
         else this.clearRoute(routeIndex);
@@ -2153,8 +2152,7 @@ class RouteManager {
             route.routeNumber = index + 1;
             // تحديث أرقام النقاط
             route.stops.forEach((stop, stopIndex) => {
-                const displayNumber = this.showNumbers ? `${route.routeNumber}.${stopIndex + 1}` : `${stopIndex + 1}`;
-                stop.content.textContent = displayNumber;
+                stop.content.textContent = this.getStopLabel(route, stopIndex);
             });
         });
         
@@ -2395,15 +2393,24 @@ class RouteManager {
         });
     }
 
-    // دالة لتحديث عرض الأرقام
-    updateNumbersVisibility() {
-        this.showNumbers = !this.shareMode;
-        this.routes.forEach(rt => {
-            rt.stops.forEach((stop, index) => {
-                const displayNumber = this.showNumbers ? `${rt.routeNumber}.${index + 1}` : `${index + 1}`;
-                stop.content.textContent = displayNumber;
+    // النص المستخدم عند عرض أرقام النقاط: المحافظة على طريقة الترقيم الحالية.
+    getStopLabel(route, index) {
+        return this.shareMode ? `${index + 1}` : `${route.routeNumber}.${index + 1}`;
+    }
+
+    // إخفاء/إظهار علامـات الترقيم في الرابط، دون حذف النقاط أو خطوط المسارات.
+    setRouteNumberVisibility(visible) {
+        this.showNumbers = this.shareMode ? Boolean(visible) : true;
+        this.routes.forEach(route => {
+            route.stops.forEach((stop, index) => {
+                stop.content.textContent = this.getStopLabel(route, index);
+                stop.map = this.showNumbers ? this.map : null;
             });
         });
+    }
+
+    updateNumbersVisibility() {
+        this.setRouteNumberVisibility(this.showNumbers);
     }
 }
 
@@ -3030,6 +3037,10 @@ class StateManager {
         }
 
         if (state.routes) {
+            // رابط قديم دون الإعداد: يبقى ترقيمه ظاهرًا كما كان سابقًا.
+            // رابط جديد: يعتمد على الاختيار المحفوظ داخل بيانات رابط المشاركة.
+            const showNumbersInShare = state.shareOptions?.showRouteNumbers !== false;
+            ROUTES.setRouteNumberVisibility(this.shareMode ? showNumbersInShare : true);
             ROUTES.applyState({ routes: state.routes });
          }
          
@@ -3223,7 +3234,13 @@ class ShareManager {
         if (document.querySelector('.share-dialog-overlay')) return;
 
         STATE.saveDraft(state);
-        const longUrl = STATE.writeShare(state);
+        // الافتراضي عند إنشاء رابط جديد: إخفاء الترقيم في المشاركة فقط.
+        // لا نغيّر حالة التحرير أو نحذف علامات نقاط المسار من المشروع.
+        const initialShareState = {
+            ...state,
+            shareOptions: { ...(state.shareOptions || {}), showRouteNumbers: false }
+        };
+        const longUrl = STATE.writeShare(initialShareState);
 
         // إنشاء واجهة المشاركة
         const dialog = document.createElement('div');
@@ -3242,6 +3259,20 @@ class ShareManager {
         const body = document.createElement('div');
         body.className = 'share-dialog-body';
         
+        // خيار مستقل لكل رابط مشاركة: إظهار أو إخفاء الأرقام دون تعديل الخريطة الأصلية.
+        const numbersSection = document.createElement('section');
+        numbersSection.className = 'share-section';
+        numbersSection.style.cssText = 'padding:14px 16px;border:1px solid #d9e3ee;border-radius:12px;background:#f6f9fc;color:#243447';
+        numbersSection.innerHTML = `
+            <label for="share-route-numbers" style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:700;font-size:14px">
+                <input id="share-route-numbers" type="checkbox" style="width:18px;height:18px;accent-color:#2563eb;cursor:pointer">
+                إظهار ترقيم نقاط المسارات في رابط المشاركة
+            </label>
+            <p style="font-size:12px;line-height:1.7;margin:8px 28px 0;color:#536273">
+                عند إلغاء التحديد ستظهر خطوط المسارات دون دوائر الأرقام. لن تتغير الأرقام في وضع التحرير.
+            </p>
+        `;
+
         // قسم الرابط الطويل
         const longUrlSection = document.createElement('div');
         longUrlSection.className = 'share-section';
@@ -3314,6 +3345,7 @@ class ShareManager {
         `;
         
         body.appendChild(this.exporter.createPanel());
+        body.appendChild(numbersSection);
         body.appendChild(longUrlSection);
         body.appendChild(shortUrlSection);
         body.appendChild(socialSection);
@@ -3328,7 +3360,7 @@ class ShareManager {
         document.body.appendChild(dialog);
         
         // إضافة الأحداث
-        this.attachShareEvents(dialog, longUrl);
+        this.attachShareEvents(dialog, state);
         
         // إغلاق الحوار عند النقر خارج المحتوى
         dialog.addEventListener('click', (e) => {
@@ -3444,7 +3476,26 @@ class ShareManager {
         document.head.appendChild(style);
     }
 
-    attachShareEvents(dialog, longUrl) {
+    attachShareEvents(dialog, state) {
+        const fullLinkInput = dialog.querySelector('#long-url');
+        const showRouteNumbersInput = dialog.querySelector('#share-route-numbers');
+        // عند تبديل الخيار نُنشئ رابطًا جديدًا يحفظ الإعداد بداخله.
+        // تُلغى نتيجة التقصير القديمة حتى لا تُنسخ برابط بإعداد مختلف.
+        showRouteNumbersInput.addEventListener('change', () => {
+            const shareState = {
+                ...state,
+                shareOptions: {
+                    ...(state.shareOptions || {}),
+                    showRouteNumbers: showRouteNumbersInput.checked
+                }
+            };
+            fullLinkInput.value = STATE.writeShare(shareState);
+            const shortResult = dialog.querySelector('#short-url-result');
+            const shortLinkInput = dialog.querySelector('#short-url');
+            if (shortResult) shortResult.style.display = 'none';
+            if (shortLinkInput) shortLinkInput.value = '';
+        });
+
         // نسخ الروابط
         dialog.querySelectorAll('.copy-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -3469,7 +3520,10 @@ class ShareManager {
                 btn.innerHTML = '<i class="material-icons">hourglass_empty</i><span>جاري التقصير...</span>';
                 
                 try {
-                    let shortUrl = await this.shortenUrl(longUrl, service);
+                    const currentLongUrl = fullLinkInput.value;
+                    let shortUrl = await this.shortenUrl(currentLongUrl, service);
+                    // لا تعرض رابطًا مختصرًا قديمًا إن تغيّر الخيار أثناء انتظار الخدمة.
+                    if (currentLongUrl !== fullLinkInput.value) return;
                     if (shortUrl) {
                         this.showShortUrl(shortUrl);
                     }
@@ -3487,7 +3541,7 @@ class ShareManager {
         dialog.querySelectorAll('.social-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const platform = btn.dataset.platform;
-                const url = longUrl;
+                const url = fullLinkInput.value;
                 const text = "شاهد خريطة الدرعية الأمنية";
                 
                 let shareUrl = '';
