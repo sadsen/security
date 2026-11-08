@@ -217,6 +217,38 @@ const EXTRA_BASE_MAPS = [
         { featureType: "poi.business", stylers: [{ visibility: "off" }] },
         { featureType: "road", elementType: "geometry", stylers: [{ color: "#fff7e7" }] },
         { featureType: "water", elementType: "geometry", stylers: [{ color: "#b9c4a1" }] }
+    ] },
+    // كرتوني ملون: تخصيص مرئي ثنائي الأبعاد. المباني ثلاثية الأبعاد الفعلية
+    // تتطلب إعداد نمط Vector/3D منفصلًا عبر Google Cloud ولا تنتج من StyledMapType.
+    // تُضاف هذه الطبقة تلقائيًا إلى القائمة عبر EXTRA_BASE_MAPS دون تغيير منطق بقية الأدوات.
+    { id: "cartoon-color", name: "كرتوني ملون", styles: [
+        { elementType: "geometry", stylers: [{ color: "#fff0d9" }] },
+        { elementType: "labels.text.fill", stylers: [{ color: "#59466b" }] },
+        { elementType: "labels.text.stroke", stylers: [{ color: "#fffdf3" }] },
+        { elementType: "labels.icon", stylers: [{ saturation: -15 }] },
+        { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#d6bbd5" }, { weight: 0.8 }] },
+        { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+        { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#f6e9ba" }] },
+        { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#f3d8cf" }] },
+        { featureType: "poi", elementType: "geometry", stylers: [{ color: "#ffe6bd" }] },
+        { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#a7dba1" }] },
+        { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#377b51" }] },
+        { featureType: "poi.business", stylers: [{ visibility: "off" }] },
+        { featureType: "poi.school", elementType: "geometry", stylers: [{ color: "#ffe0a0" }] },
+        { featureType: "poi.medical", elementType: "geometry", stylers: [{ color: "#f7c6cd" }] },
+        { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#fffef7" }] },
+        { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#d6b8a9" }, { weight: 1.2 }] },
+        { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#ffc985" }] },
+        { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#d98f5b" }, { weight: 1.4 }] },
+        { featureType: "road.arterial", elementType: "geometry.fill", stylers: [{ color: "#ffe6b8" }] },
+        { featureType: "road.arterial", elementType: "geometry.stroke", stylers: [{ color: "#d8ae90" }, { weight: 1 }] },
+        { featureType: "road.local", elementType: "geometry.fill", stylers: [{ color: "#fffef7" }] },
+        { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#6f5a58" }] },
+        { featureType: "road", elementType: "labels.text.stroke", stylers: [{ color: "#fffdf4" }] },
+        { featureType: "transit.line", elementType: "geometry", stylers: [{ color: "#c7a3d8" }] },
+        { featureType: "water", elementType: "geometry.fill", stylers: [{ color: "#8dd5eb" }] },
+        { featureType: "water", elementType: "geometry.stroke", stylers: [{ color: "#60aecf" }, { weight: 1 }] },
+        { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#277ba6" }] }
     ] }
 ];
 
