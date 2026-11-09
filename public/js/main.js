@@ -3766,9 +3766,9 @@ class ShareManager {
                     <i class="material-icons">link</i>
                     <span>v.gd</span>
                 </button>
-                <button class="shortener-btn" data-service="cuttly">
+                <button class="shortener-btn" data-service="auto">
                     <i class="material-icons">content_cut</i>
-                    <span>Shrtco.de</span>
+                    <span>تلقائي</span>
                 </button>
             </div>
             <div class="short-url-result" id="short-url-result" style="display: none;">
@@ -3973,31 +3973,35 @@ class ShareManager {
             });
         });
         
-        // خدمات تقصير الروابط
+        // Shortener actions: keep button contents intact and prevent duplicate requests.
         dialog.querySelectorAll('.shortener-btn').forEach(btn => {
+            const originalHTML = btn.innerHTML;
             btn.addEventListener('click', async () => {
+                if (btn.disabled) return;
                 const service = btn.dataset.service;
+                const currentLongUrl = fullLinkInput.value.trim();
+                if (!currentLongUrl) {
+                    bus.emit('toast', 'لا يوجد رابط لتقصيره');
+                    return;
+                }
                 btn.disabled = true;
                 btn.innerHTML = '<i class="material-icons">hourglass_empty</i><span>جاري التقصير...</span>';
-                
                 try {
-                    const currentLongUrl = fullLinkInput.value;
-                    let shortUrl = await this.shortenUrl(currentLongUrl, service);
-                    // لا تعرض رابطًا مختصرًا قديمًا إن تغيّر الخيار أثناء انتظار الخدمة.
-                    if (currentLongUrl !== fullLinkInput.value) return;
-                    if (shortUrl) {
+                    const shortUrl = await this.shortenUrl(currentLongUrl, service);
+                    if (currentLongUrl === fullLinkInput.value.trim()) {
                         this.showShortUrl(shortUrl);
+                        bus.emit('toast', 'تم تقصير الرابط بنجاح');
                     }
                 } catch (error) {
-                    console.error('Error shortening URL:', error);
-                    bus.emit("toast", "فشل تقصير الرابط. الرجاء استخدام الرابط الكامل");
+                    console.error('URL shortening failed:', service, error);
+                    bus.emit('toast', 'تعذر تقصير الرابط عبر هذه الخدمة؛ جرّب خدمة أخرى أو انسخ الرابط الكامل');
                 } finally {
                     btn.disabled = false;
-                    btn.innerHTML = `<i class="material-icons">${btn.querySelector('i').textContent}</i><span>${btn.querySelector('span').textContent}</span>`;
+                    btn.innerHTML = originalHTML;
                 }
             });
         });
-        
+
         // المشاركة الاجتماعية
         dialog.querySelectorAll('.social-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -4029,60 +4033,52 @@ class ShareManager {
     }
 
     async shortenUrl(longUrl, service) {
-        const services = {
-            tinyurl: {
-                url: `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            },
-            isgd: {
-                url: `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            },
-            vgd: {
-                url: `https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            },
-            cuttly: {
-                url: `https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            }
+        // These are third-party public APIs. Their browser CORS policies and
+        // rate limits are outside this application's control.
+        const endpoints = {
+            tinyurl: `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`,
+            isgd: `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
+            vgd: `https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`
         };
-        
-        const serviceConfig = services[service];
-        if (!serviceConfig) return longUrl;
-        
-        try {
-            const response = await fetch(serviceConfig.url, {
-                method: serviceConfig.method,
-                headers: {
-                    'Accept': 'application/json, text/plain'
+        const choices = service === 'auto' ? ['isgd', 'vgd', 'tinyurl'] : [service];
+        let lastError = new Error('خدمة غير معروفة');
+        for (const choice of choices) {
+            if (!endpoints[choice]) continue;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 12000);
+            try {
+                const response = await fetch(endpoints[choice], {
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: controller.signal,
+                    headers: { Accept: choice === 'tinyurl' ? 'text/plain' : 'application/json' }
+                });
+                if (!response.ok) throw new Error(`${choice}: HTTP ${response.status}`);
+                const body = await response.text();
+                let candidate;
+                if (choice === 'tinyurl') {
+                    candidate = body.trim();
+                } else {
+                    const parsed = JSON.parse(body);
+                    if (parsed.errorcode || parsed.errormessage) {
+                        throw new Error(parsed.errormessage || `Error ${parsed.errorcode}`);
+                    }
+                    candidate = parsed.shorturl;
                 }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const parsedUrl = new URL(candidate);
+                if (parsedUrl.protocol !== 'https:' || !parsedUrl.hostname ||
+                    !['tinyurl.com', 'is.gd', 'v.gd'].includes(parsedUrl.hostname.toLowerCase())) {
+                    throw new Error(`${choice}: invalid short URL response`);
+                }
+                return parsedUrl.href;
+            } catch (error) {
+                lastError = error;
+                console.warn('Shortening service unavailable:', choice, error);
+            } finally {
+                clearTimeout(timer);
             }
-            
-            const data = await response.text();
-            
-            // معالجة الاستجابة حسب الخدمة
-            switch(service) {
-                case 'tinyurl':
-                    return data.trim(); // TinyURL يرجع الرابط المختصر كنص عادي
-                case 'isgd':
-                case 'vgd':
-                    const gdData = JSON.parse(data);
-                    return gdData.shorturl || data;
-                case 'cuttly':
-                    const jsonData = JSON.parse(data);
-                    return jsonData.result?.full_short_link || data;
-                default:
-                    return data;
-            }
-        } catch (error) {
-            console.error(`Error shortening URL with ${service}:`, error);
-            throw error;
         }
+        throw lastError;
     }
 
     showShortUrl(shortUrl) {
