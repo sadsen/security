@@ -3754,21 +3754,9 @@ class ShareManager {
         shortUrlSection.innerHTML = `
             <h4>تقصير الرابط:</h4>
             <div class="shortener-options">
-                <button class="shortener-btn" data-service="tinyurl">
-                    <i class="material-icons">link</i>
-                    <span>TinyURL</span>
-                </button>
                 <button class="shortener-btn" data-service="isgd">
                     <i class="material-icons">link</i>
-                    <span>is.gd</span>
-                </button>
-                <button class="shortener-btn" data-service="vgd">
-                    <i class="material-icons">link</i>
-                    <span>v.gd</span>
-                </button>
-                <button class="shortener-btn" data-service="auto">
-                    <i class="material-icons">content_cut</i>
-                    <span>تلقائي</span>
+                    <span>تقصير الرابط عبر is.gd</span>
                 </button>
             </div>
             <div class="short-url-result" id="short-url-result" style="display: none;">
@@ -3994,7 +3982,7 @@ class ShareManager {
                     }
                 } catch (error) {
                     console.error('URL shortening failed:', service, error);
-                    bus.emit('toast', 'تعذر تقصير الرابط عبر هذه الخدمة؛ جرّب خدمة أخرى أو انسخ الرابط الكامل');
+                    bus.emit('toast', 'تعذر تقصير الرابط عبر is.gd؛ يمكنك نسخ الرابط الكامل');
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = originalHTML;
@@ -4032,53 +4020,30 @@ class ShareManager {
         });
     }
 
-    async shortenUrl(longUrl, service) {
-        // These are third-party public APIs. Their browser CORS policies and
-        // rate limits are outside this application's control.
-        const endpoints = {
-            tinyurl: `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`,
-            isgd: `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
-            vgd: `https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`
-        };
-        const choices = service === 'auto' ? ['isgd', 'vgd', 'tinyurl'] : [service];
-        let lastError = new Error('خدمة غير معروفة');
-        for (const choice of choices) {
-            if (!endpoints[choice]) continue;
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 12000);
-            try {
-                const response = await fetch(endpoints[choice], {
-                    method: 'GET',
-                    mode: 'cors',
-                    signal: controller.signal,
-                    headers: { Accept: choice === 'tinyurl' ? 'text/plain' : 'application/json' }
-                });
-                if (!response.ok) throw new Error(`${choice}: HTTP ${response.status}`);
-                const body = await response.text();
-                let candidate;
-                if (choice === 'tinyurl') {
-                    candidate = body.trim();
-                } else {
-                    const parsed = JSON.parse(body);
-                    if (parsed.errorcode || parsed.errormessage) {
-                        throw new Error(parsed.errormessage || `Error ${parsed.errorcode}`);
-                    }
-                    candidate = parsed.shorturl;
-                }
-                const parsedUrl = new URL(candidate);
-                if (parsedUrl.protocol !== 'https:' || !parsedUrl.hostname ||
-                    !['tinyurl.com', 'is.gd', 'v.gd'].includes(parsedUrl.hostname.toLowerCase())) {
-                    throw new Error(`${choice}: invalid short URL response`);
-                }
-                return parsedUrl.href;
-            } catch (error) {
-                lastError = error;
-                console.warn('Shortening service unavailable:', choice, error);
-            } finally {
-                clearTimeout(timer);
+    async shortenUrl(longUrl, service = 'isgd') {
+        // is.gd is the only supported shortening provider.
+        if (service !== 'isgd') throw new Error('خدمة تقصير غير مدعومة');
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12000);
+        try {
+            const endpoint = `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`;
+            const response = await fetch(endpoint, {
+                method: 'GET', mode: 'cors', signal: controller.signal,
+                headers: { Accept: 'application/json' }
+            });
+            if (!response.ok) throw new Error(`is.gd: HTTP ${response.status}`);
+            const data = await response.json();
+            if (data.errorcode || data.errormessage) {
+                throw new Error(data.errormessage || `is.gd: ${data.errorcode}`);
             }
+            const url = new URL(data.shorturl);
+            if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== 'is.gd') {
+                throw new Error('استجابة رابط مختصر غير صالحة');
+            }
+            return url.href;
+        } finally {
+            clearTimeout(timer);
         }
-        throw lastError;
     }
 
     showShortUrl(shortUrl) {
