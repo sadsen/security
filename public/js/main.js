@@ -3373,17 +3373,30 @@ class StateManager {
         `;
         document.head.appendChild(style);
         this.updateHistoryButtons();
-        document.addEventListener('keydown', (event) => {
-            if (this.shareMode || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+        // Capture shortcuts before Google Maps or toolbar handlers can consume them.
+        // event.code supports Arabic keyboard layouts (KeyZ / KeyY).
+        // Keep native undo inside actual text editors, not ordinary toolbar controls.
+        const handleHistoryShortcut = (event) => {
+            if (MAP.shareMode || !MAP.editMode || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+            const active = document.activeElement;
             const target = event.target;
-            if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName || '')) return;
-            const key = event.key.toLowerCase();
-            const undo = key === 'z' && !event.shiftKey;
-            const redo = key === 'y' || (key === 'z' && event.shiftKey);
+            const editor = (target?.closest?.('input, textarea, [contenteditable="true"], [role="textbox"]') ||
+                active?.closest?.('input, textarea, [contenteditable="true"], [role="textbox"]'));
+            if (editor && (editor.matches('textarea, [contenteditable="true"], [role="textbox"]') ||
+                (editor.matches('input') && !['button','submit','reset','checkbox','radio','range','color'].includes(editor.type)))) return;
+            const key = (event.key || '').toLowerCase();
+            const code = event.code || '';
+            const isZ = key === 'z' || code === 'KeyZ';
+            const isY = key === 'y' || code === 'KeyY';
+            const undo = isZ && !event.shiftKey;
+            const redo = isY || (isZ && event.shiftKey);
             if (!undo && !redo) return;
             event.preventDefault();
+            event.stopImmediatePropagation();
             this.travelHistory(undo ? -1 : 1);
-        });
+        };
+        window.addEventListener('keydown', handleHistoryShortcut, true);
+
     }
 
     buildState() {
