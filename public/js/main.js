@@ -2153,7 +2153,7 @@ class RouteManager {
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
             checkbox.value = String(index);
-            label.append(checkbox, document.createTextNode(`نقطة ${index + 1}`));
+            label.append(checkbox, document.createTextNode(`نقطة ${this.getStopLabel(route, index)}`));
             options.appendChild(label);
         });
         const actions = document.createElement("div");
@@ -2229,6 +2229,7 @@ class RouteManager {
         rt.points.push(latLng);
         const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1);
         rt.stops.push(stop);
+        this.refreshGlobalPointNumbers();
         if (rt.points.length >= 2) this.requestRoute(routeIndex);
         else bus.emit("persist");
     }
@@ -2268,9 +2269,11 @@ class RouteManager {
             this.requestRoute(routeIndex); 
             bus.emit("persist"); 
         });
-        marker.addListener("contextmenu", () => { 
-            if (this.shareMode) return; 
-            this.removePoint(routeIndex, idx); 
+        marker.addListener("contextmenu", (event) => {
+            if (MAP.shareMode || !MAP.editMode) return;
+            const currentIndex = this.routes.indexOf(rt);
+            if (currentIndex < 0) return;
+            this.showRouteContextMenu(currentIndex, idx, event?.domEvent || event);
         });
         return marker;
     }
@@ -2290,6 +2293,7 @@ class RouteManager {
             return;
         }
         rt.stops = rt.points.map((point, i) => this.createStopMarker(point, routeIndex, i));
+        this.refreshGlobalPointNumbers();
         if (rt.points.length >= 2) this.requestRoute(routeIndex);
         else this.clearRoute(routeIndex);
         bus.emit("persist");
@@ -2327,6 +2331,7 @@ class RouteManager {
         });
         
         this.activeRouteIndex = -1;
+        this.refreshGlobalPointNumbers();
         UI.forceCloseSharedInfoCard();
         bus.emit("persist");
     }
@@ -2409,7 +2414,12 @@ class RouteManager {
             if (!UI.infoWindowPinned) this.openRouteCard(routeIndex, true, e.latLng);
         });
         rt.poly.addListener("mouseout", () => { UI.closeSharedInfoCard();});
-        rt.poly.addListener("click", (e) => this.openRouteCard(routeIndex, false, e.latLng));
+        rt.poly.addListener("click", (e) => this.openRouteCard(this.routes.indexOf(rt), false, e.latLng));
+        rt.poly.addListener("contextmenu", (e) => {
+            if (MAP.shareMode || !MAP.editMode) return;
+            const currentIndex = this.routes.indexOf(rt);
+            if (currentIndex >= 0) this.showRouteContextMenu(currentIndex, null, e.domEvent || e);
+        });
     }
 
     openRouteCard(routeIndex, hoverOnly = false, position = null) {
@@ -2602,11 +2612,74 @@ class RouteManager {
             });
             if (newRoute.mode === "manual" || newRoute.overview) this.renderRoute(this.routes.length - 1);
         });
+        this.refreshGlobalPointNumbers();
     }
 
     // النص المستخدم عند عرض أرقام النقاط: المحافظة على طريقة الترقيم الحالية.
     getStopLabel(route, index) {
-        return this.shareMode ? `${index + 1}` : `${route.routeNumber}.${index + 1}`;
+        let number = 1;
+        for (const rt of this.routes) {
+            if (rt === route) return String(number + index);
+            number += rt.points.length;
+        }
+        return String(index + 1);
+    }
+
+    // أرقام موحّدة لجميع نقاط المسارات، سواء في التحرير أو رابط المشاركة.
+    refreshGlobalPointNumbers() {
+        let next = 1;
+        this.routes.forEach(route => {
+            route.stops.forEach(stop => {
+                if (stop?.content) stop.content.textContent = String(next);
+                next++;
+            });
+        });
+    }
+
+    // قائمة زر الماوس الأيمن للمسار أو لنقطة معينة.
+    showRouteContextMenu(routeIndex, pointIndex = null, event = null) {
+        if (MAP.shareMode || !MAP.editMode) return;
+        const route = this.routes[routeIndex];
+        if (!route) return;
+        if (event?.preventDefault) event.preventDefault();
+        document.getElementById('security-route-context-menu')?.remove();
+        const menu = document.createElement('div');
+        menu.id = 'security-route-context-menu';
+        menu.style.cssText = 'position:fixed;z-index:999999;background:white;color:#222;border:1px solid #ddd;border-radius:12px;box-shadow:0 10px 30px #0003;padding:7px;min-width:210px;direction:rtl;font-family:Tajawal,Cairo,sans-serif';
+        const add = (label, action, danger = false) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+            button.style.cssText = `display:block;width:100%;padding:11px;text-align:right;background:transparent;border:0;border-radius:7px;cursor:pointer;font:inherit;color:${danger ? '#b91c1c' : '#222'}`;
+            button.addEventListener('click', () => { menu.remove(); action(); });
+            menu.appendChild(button);
+        };
+        const routeId = route.id;
+        const current = () => this.routes.findIndex(r => r.id === routeId);
+        if (pointIndex !== null && pointIndex >= 0 && pointIndex < route.points.length) {
+            add(`حذف النقطة رقم ${this.getStopLabel(route, pointIndex)}`, () => {
+                const i = current();
+                if (i >= 0 && confirm('هل تريد حذف هذه النقطة؟')) this.removePoint(i, pointIndex);
+            }, true);
+        }
+        add('اختيار نقاط محددة للحذف', () => this.showDeletePointsDialog(routeId));
+        add('حذف المسار المحدد', () => {
+            const i = current();
+            if (i >= 0 && confirm('هل تريد حذف هذا المسار بالكامل؟')) this.removeRoute(i);
+        }, true);
+        add('حذف جميع المسارات', () => {
+            if (!confirm('هل تريد حذف جميع المسارات المرسومة؟')) return;
+            while (this.routes.length) this.removeRoute(this.routes.length - 1);
+        }, true);
+        document.body.appendChild(menu);
+        const x = event?.clientX ?? event?.domEvent?.clientX ?? window.innerWidth / 2;
+        const y = event?.clientY ?? event?.domEvent?.clientY ?? window.innerHeight / 2;
+        menu.style.left = Math.max(8, Math.min(x, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+        menu.style.top = Math.max(8, Math.min(y, window.innerHeight - menu.offsetHeight - 8)) + 'px';
+        const dismiss = e => {
+            if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('pointerdown', dismiss, true); }
+        };
+        setTimeout(() => document.addEventListener('pointerdown', dismiss, true), 0);
     }
 
     // إخفاء/إظهار علامـات الترقيم في الرابط، دون حذف النقاط أو خطوط المسارات.
