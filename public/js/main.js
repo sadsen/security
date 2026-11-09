@@ -3270,6 +3270,7 @@ class StateManager {
                     this.recordHistory(state);
                 });
                 this.installUndoRedo();
+                this.installProjectControls();
             }
         });
     }
@@ -3399,6 +3400,98 @@ class StateManager {
 
     }
 
+    // Local project files are editable snapshots; shared URLs remain read-only.
+    installProjectControls() {
+        if (this.shareMode || document.getElementById('securitymap-project-control')) return;
+        const wrapper = document.createElement('div');
+        wrapper.id = 'securitymap-project-control';
+        wrapper.style.cssText = 'position:relative;display:inline-flex;align-items:center;flex:0 0 auto;margin-inline:3px;';
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.textContent = '▣';
+        trigger.title = 'المشاريع: حفظ، فتح، مشروع جديد';
+        trigger.setAttribute('aria-label', 'إدارة المشاريع');
+        trigger.style.cssText = 'width:32px;height:32px;min-width:32px;padding:0;border:0;border-radius:6px;background:transparent;color:inherit;font-size:21px;cursor:pointer;';
+        const menu = document.createElement('div');
+        menu.hidden = true;
+        menu.dir = 'rtl';
+        menu.style.cssText = 'position:absolute;top:calc(100% + 8px);right:0;z-index:10020;width:210px;padding:7px;border-radius:10px;background:white;color:#222;box-shadow:0 5px 22px #0003;font:14px Tajawal,Cairo,Arial,sans-serif;';
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = '.json,application/json'; input.hidden = true;
+        const action = (label, callback) => {
+            const button = document.createElement('button');
+            button.type = 'button'; button.textContent = label;
+            button.style.cssText = 'display:block;width:100%;padding:10px;text-align:right;background:transparent;color:#222;border:0;border-radius:6px;cursor:pointer;font:inherit;';
+            button.addEventListener('mouseenter', () => button.style.background = '#f1f5f9');
+            button.addEventListener('mouseleave', () => button.style.background = 'transparent');
+            button.addEventListener('click', () => { menu.hidden = true; callback(); });
+            menu.appendChild(button);
+        };
+        action('حفظ المشروع (.json)', () => this.downloadProject());
+        action('فتح مشروع (.json)', () => { input.value = ''; input.click(); });
+        action('مشروع جديد', () => this.createNewProject());
+        trigger.addEventListener('click', event => { event.stopPropagation(); menu.hidden = !menu.hidden; });
+        menu.addEventListener('click', event => event.stopPropagation());
+        document.addEventListener('click', () => { menu.hidden = true; });
+        input.addEventListener('change', async () => {
+            const file = input.files?.[0]; if (!file) return;
+            if (file.size > 15 * 1024 * 1024) { bus.emit('toast', 'ملف المشروع كبير جدًا'); return; }
+            try {
+                const documentData = JSON.parse(await file.text());
+                const state = documentData?.format === 'SecurityMapProject' ? documentData.state : documentData;
+                if (!this.validProjectState(state)) throw new Error('Invalid project structure');
+                if (!confirm('فتح المشروع سيستبدل الخريطة الحالية. احفظها أولًا إذا أردت الاحتفاظ بها. هل تريد المتابعة؟')) return;
+                this.restoreProject(state);
+                bus.emit('toast', 'تم فتح المشروع بنجاح');
+            } catch (error) { console.error('Project import failed', error); bus.emit('toast', 'تعذر فتح الملف: مشروع غير صالح'); }
+        });
+        wrapper.append(trigger, menu, input);
+        (document.getElementById('toolbar') || document.body).appendChild(wrapper);
+    }
+
+    validProjectState(state) {
+        return !!state && typeof state === 'object' && !Array.isArray(state) &&
+            Array.isArray(state.routes) && Array.isArray(state.locations) &&
+            Array.isArray(state.polygons) && Array.isArray(state.freeDraw) &&
+            (!state.map || (Array.isArray(state.map.c) && state.map.c.length === 2 &&
+                state.map.c.every(Number.isFinite) && Number.isFinite(state.map.z)));
+    }
+
+    downloadProject() {
+        const state = this.buildState();
+        if (!this.validProjectState(state)) { bus.emit('toast', 'تعذر تجهيز المشروع'); return; }
+        const name = prompt('اسم المشروع:', 'مشروع جديد');
+        if (name === null) return;
+        const safeName = (name.trim() || 'Project').replace(/[\\/:*?"<>|\x00-\x1f]/g, '-').replace(/\s+/g, '-').slice(0, 90);
+        const content = JSON.stringify({ format: 'SecurityMapProject', version: 1, savedAt: new Date().toISOString(), state }, null, 2);
+        const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url; link.download = `SecurityMap-${safeName}.json`;
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        bus.emit('toast', 'تم تجهيز ملف المشروع للتنزيل');
+    }
+
+    restoreProject(state) {
+        if (this.shareMode || !this.validProjectState(state)) return;
+        this.restoringHistory = true;
+        try {
+            this.applyState(state);
+            this.saveDraft(this.buildState());
+            this.history = []; this.historyIndex = -1;
+        } finally { this.restoringHistory = false; }
+        this.recordHistory();
+    }
+
+    createNewProject() {
+        if (!confirm('إنشاء مشروع جديد سيزيل العناصر الحالية من الخريطة. احفظ المشروع الحالي أولًا إذا أردت الاحتفاظ به. متابعة؟')) return;
+        const state = this.buildState();
+        state.routes = []; state.locations = []; state.polygons = []; state.freeDraw = [];
+        this.restoreProject(state);
+        bus.emit('toast', 'تم إنشاء مشروع جديد');
+    }
+
     buildState() {
         if (!this.map) return null;
 
@@ -3435,6 +3528,7 @@ class StateManager {
         if (this.shareMode || !state) return;
         try {
             sessionStorage.setItem(this.draftKey, JSON.stringify(state));
+            localStorage.setItem(this.draftKey, JSON.stringify(state));
         } catch (error) {
             console.warn("Unable to save the map draft", error);
         }
@@ -3442,7 +3536,7 @@ class StateManager {
 
     readDraft() {
         try {
-            const draft = JSON.parse(sessionStorage.getItem(this.draftKey));
+            const draft = JSON.parse(sessionStorage.getItem(this.draftKey) || localStorage.getItem(this.draftKey));
             if (Array.isArray(draft?.locations)) {
                 const locations = LOCATIONS.removeLegacyDefaultLocations(draft.locations);
                 if (locations.length !== draft.locations.length) {
