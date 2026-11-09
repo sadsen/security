@@ -1999,6 +1999,8 @@ class RouteManager {
         this.directionsService = null;
         this.activeRouteIndex = -1;
         this.showNumbers = true; // التحكم في عرض أرقام المسارات
+        this.drawingMode = "auto";
+        this.routeRequestSerial = 0;
 
         bus.on("map:ready", map => {
             this.map = map;
@@ -2020,18 +2022,58 @@ class RouteManager {
         });
     }
 
-    startNewRouteSequence() { 
-        this.activeRouteIndex = -1; 
+    startNewRouteSequence(mode = "auto") {
+        this.activeRouteIndex = -1;
+        this.drawingMode = mode === "manual" ? "manual" : "auto";
         MAP.modeRouteAdd = true;
+    }
+
+    chooseDrawingMode() {
+        if (MAP.shareMode || !MAP.editMode) return;
+        const existing = document.getElementById("route-mode-dialog");
+        if (existing) existing.remove();
+        const overlay = document.createElement("div");
+        overlay.id = "route-mode-dialog";
+        overlay.style.cssText = "position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl;font-family:Tajawal,Cairo,sans-serif";
+        const card = document.createElement("div");
+        card.style.cssText = "background:#fff;color:#222;border-radius:16px;padding:24px;width:min(420px,100%);box-shadow:0 12px 32px #0003";
+        const heading = document.createElement("h3");
+        heading.textContent = "اختر طريقة رسم المسار";
+        heading.style.margin = "0 0 16px";
+        card.appendChild(heading);
+        for (const [mode, title, detail] of [
+            ["auto", "مسار تلقائي عبر الطرق", "يتبع الشوارع باستخدام خدمة التوجيه؛ لا يرسم خطًا عشوائيًا عند الفشل."],
+            ["manual", "مسار يدوي (رسم حر)", "يصل النقاط التي تحددها دون تغيير مسارها."]
+        ]) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.style.cssText = "display:block;width:100%;text-align:right;border:1px solid #d8dce4;background:#f8fafc;border-radius:10px;padding:12px;margin:10px 0;cursor:pointer;font:inherit";
+            const strong = document.createElement("strong"); strong.textContent = title;
+            const small = document.createElement("div"); small.textContent = detail; small.style.cssText = "font-size:13px;color:#555;margin-top:5px";
+            btn.append(strong, small);
+            btn.addEventListener("click", () => {
+                overlay.remove();
+                UI.setActiveMode("route");
+                this.drawingMode = mode;
+                bus.emit("toast", mode === "manual" ? "الرسم اليدوي: اضغط لتحديد نقاط المسار" : "المسار التلقائي: حدد نقطتين أو أكثر على الطرق");
+            });
+            card.appendChild(btn);
+        }
+        const cancel = document.createElement("button"); cancel.textContent = "إلغاء";
+        cancel.style.cssText = "border:0;background:transparent;padding:10px;cursor:pointer;font:inherit";
+        cancel.addEventListener("click", () => overlay.remove()); card.appendChild(cancel);
+        overlay.appendChild(card);
+        overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+        document.body.appendChild(overlay);
     }
     
     finishCurrentRoute() {
         if (this.activeRouteIndex === -1) return;
         const rt = this.routes[this.activeRouteIndex];
-        if (rt.poly) rt.poly.setMap(null);
         rt.stops.forEach(s => s.map = null);
         if (rt.points.length >= 2) {
-            this.renderRoute(this.activeRouteIndex);
+            if (rt.mode === "manual" || rt.overview) this.renderRoute(this.activeRouteIndex);
+            else bus.emit("toast", "جاري انتظار حساب الطريق؛ إذا فشل الحساب لن يظهر خط مستقيم.");
             bus.emit("persist");
         } else {
             this.routes.pop();
@@ -2054,7 +2096,9 @@ class RouteManager {
             poly: null, 
             stops: [], 
             notes: "",
-            routeNumber: this.routes.length + 1 // إضافة رقم المسار
+            routeNumber: this.routes.length + 1, // إضافة رقم المسار
+            mode: this.drawingMode,
+            requestVersion: 0
         };
         this.routes.push(route);
         this.activeRouteIndex = this.routes.length - 1;
@@ -2100,8 +2144,8 @@ class RouteManager {
             content: el, 
             gmpDraggable: !this.shareMode 
         });
-        marker.addListener("dragend", () => { 
-            rt.points[idx] = marker.position; 
+        marker.addListener("dragend", () => {
+            rt.points[idx] = marker.position;
             this.requestRoute(routeIndex); 
             bus.emit("persist"); 
         });
@@ -2169,16 +2213,53 @@ class RouteManager {
     }
 
     requestRoute(routeIndex) {
+        const rt = this.routes[routeIndex];
+        if (!rt || rt.points.length < 2) return;
+        const version = rt.requestVersion = (rt.requestVersion || 0) + 1;
+        // Manual paths must never be snapped to roads.
+        if (rt.mode === "manual") {
+            rt.overview = null;
+            rt.duration = 0;
+            rt.distance = 0;
+            for (let i = 1; i < rt.points.length; i++) {
+                rt.distance += google.maps.geometry.spherical.computeDistanceBetween(
+                    new google.maps.LatLng(rt.points[i - 1]),
+                    new google.maps.LatLng(rt.points[i])
+                );
+            }
+            this.renderRoute(routeIndex);
+            bus.emit("persist");
+            return;
+        }
+        // Hide stale geometry while the directions service is working.
+        rt.overview = null;
+        rt.distance = 0;
+        rt.duration = 0;
+        if (rt.poly) { rt.poly.setMap(null); rt.poly = null; }
         if (!this.directionsService) this.directionsService = new google.maps.DirectionsService();
-        const rt = this.routes[routeIndex]; const pts = rt.points;
-        if (pts.length < 2) return;
-        const req = { origin: pts[0], destination: pts[pts.length - 1], travelMode: google.maps.TravelMode.DRIVING };
-        if (pts.length > 2) req.waypoints = pts.slice(1, -1).map(p => ({ location: p, stopover: true }));
+        const pts = rt.points;
+        const req = {
+            origin: pts[0], destination: pts[pts.length - 1],
+            travelMode: google.maps.TravelMode.DRIVING,
+            ...(pts.length > 2 ? { waypoints: pts.slice(1, -1).map(p => ({ location: p, stopover: true })) } : {})
+        };
         this.directionsService.route(req, (res, status) => {
-            if (status !== "OK") { bus.emit("toast", "تعذر حساب المسار"); return; }
-            const r = res.routes[0]; rt.overview = r.overview_polyline;
-            rt.distance = r.legs.reduce((s, l) => s + l.distance.value, 0);
-            rt.duration = r.legs.reduce((s, l) => s + l.duration.value, 0);
+            if (!this.routes.includes(rt) || rt.requestVersion !== version) return;
+            if (status !== "OK" || !res?.routes?.[0]) {
+                bus.emit("toast", "تعذر حساب المسار عبر الطرق (" + status + "). تحقق من تفعيل Directions API أو استخدم الرسم اليدوي.");
+                return;
+            }
+            const r = res.routes[0];
+            // Save the actual returned road geometry, not a straight line between stops.
+            const encoded = typeof r.overview_polyline === "string"
+                ? r.overview_polyline : r.overview_polyline?.points;
+            if (!encoded && !r.overview_path?.length) {
+                bus.emit("toast", "لم تصل بيانات الطريق من خدمة التوجيه.");
+                return;
+            }
+            rt.overview = encoded || google.maps.geometry.encoding.encodePath(r.overview_path);
+            rt.distance = r.legs.reduce((sum, leg) => sum + (leg.distance?.value || 0), 0);
+            rt.duration = r.legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0);
             this.renderRoute(routeIndex);
             bus.emit("persist");
         });
@@ -2187,7 +2268,8 @@ class RouteManager {
     renderRoute(routeIndex) {
         const rt = this.routes[routeIndex];
         if (rt.poly) rt.poly.setMap(null);
-        const path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points;
+        if (rt.mode !== "manual" && !rt.overview) return;
+        const path = rt.mode === "manual" ? rt.points : google.maps.geometry.encoding.decodePath(rt.overview);
         rt.poly = new google.maps.Polyline({ 
             map: this.map, 
             path, 
@@ -2353,7 +2435,8 @@ class RouteManager {
             opacity: rt.opacity, 
             distance: rt.distance, 
             duration: rt.duration, 
-            overview: rt.overview, 
+            overview: rt.overview,
+            mode: rt.mode || "auto",
             notes: rt.notes,
             points: rt.points.map(p => ({ 
                 lat: typeof p.lat === 'function' ? p.lat() : p.lat, 
@@ -2378,7 +2461,9 @@ class RouteManager {
                 opacity: rt.opacity, 
                 distance: rt.distance, 
                 duration: rt.duration, 
-                overview: rt.overview, 
+                overview: rt.overview,
+                mode: rt.mode || "auto",
+                requestVersion: 0,
                 notes: rt.notes || "", 
                 points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)), 
                 poly: null, 
@@ -2389,7 +2474,7 @@ class RouteManager {
                 const stop = this.createStopMarker(pt, this.routes.length - 1, i); 
                 newRoute.stops.push(stop); 
             });
-            this.renderRoute(this.routes.length - 1);
+            if (newRoute.mode === "manual" || newRoute.overview) this.renderRoute(this.routes.length - 1);
         });
     }
 
@@ -3983,7 +4068,7 @@ class UIManager {
         if (this.btnRoute) {
             this.btnRoute.addEventListener("click", () => {
                 if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("route");
+                ROUTES.chooseDrawingMode();
             });
         }
 
