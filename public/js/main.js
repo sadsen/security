@@ -3259,8 +3259,90 @@ class StateManager {
 
             if (!this.shareMode) {
                 console.log("Enabling auto-persist for edit mode.");
-                bus.on("persist", () => this.saveDraft(this.buildState()));
+                this.history = [];
+                this.historyIndex = -1;
+                this.restoringHistory = false;
+                this.recordHistory(); // baseline (including a restored draft)
+                bus.on("persist", () => {
+                    if (this.restoringHistory) return;
+                    const state = this.buildState();
+                    this.saveDraft(state);
+                    this.recordHistory(state);
+                });
+                this.installUndoRedo();
             }
+        });
+    }
+
+    // Undo/redo snapshots are kept in memory for the current tab only.
+    // Draft persistence continues to use sessionStorage as before.
+    recordHistory(state = this.buildState()) {
+        if (this.shareMode || this.restoringHistory || !state) return;
+        const snapshot = JSON.stringify(state);
+        if (this.history[this.historyIndex] === snapshot) return;
+        this.history.splice(this.historyIndex + 1);
+        this.history.push(snapshot);
+        if (this.history.length > 60) this.history.shift();
+        this.historyIndex = this.history.length - 1;
+        this.updateHistoryButtons();
+    }
+
+    travelHistory(direction) {
+        if (this.shareMode || this.restoringHistory) return;
+        const next = this.historyIndex + direction;
+        if (next < 0 || next >= this.history.length) return;
+        this.restoringHistory = true;
+        try {
+            this.applyState(JSON.parse(this.history[next]));
+            this.historyIndex = next;
+            this.saveDraft(this.buildState());
+        } catch (error) {
+            console.error('Undo/redo failed:', error);
+            bus.emit('toast', 'تعذر استعادة الإجراء');
+        } finally {
+            this.restoringHistory = false;
+            this.updateHistoryButtons();
+        }
+    }
+
+    updateHistoryButtons() {
+        if (this.undoButton) this.undoButton.disabled = this.historyIndex <= 0;
+        if (this.redoButton) this.redoButton.disabled = this.historyIndex >= this.history.length - 1;
+    }
+
+    installUndoRedo() {
+        const panel = document.createElement('div');
+        panel.id = 'securitymap-history-controls';
+        panel.setAttribute('dir', 'rtl');
+        panel.style.cssText = 'position:fixed;bottom:85px;left:16px;z-index:9000;display:flex;gap:6px;background:rgba(45,45,45,.88);padding:6px;border-radius:12px;box-shadow:0 3px 12px #0003';
+        const makeButton = (label, title, direction) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+            button.title = title;
+            button.setAttribute('aria-label', title);
+            button.style.cssText = 'font:600 14px Tajawal,Arial,sans-serif;border:0;border-radius:8px;padding:9px 13px;background:#fff;color:#222;cursor:pointer';
+            button.addEventListener('click', () => this.travelHistory(direction));
+            return button;
+        };
+        this.undoButton = makeButton('↶ تراجع', 'تراجع Ctrl+Z', -1);
+        this.redoButton = makeButton('↷ تقدم', 'تقدم Ctrl+Y أو Ctrl+Shift+Z', 1);
+        panel.append(this.undoButton, this.redoButton);
+        document.body.appendChild(panel);
+        const style = document.createElement('style');
+        style.textContent = '#securitymap-history-controls button:disabled{opacity:.4;cursor:not-allowed!important}';
+        document.head.appendChild(style);
+        this.updateHistoryButtons();
+        document.addEventListener('keydown', (event) => {
+            if (this.shareMode || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+            const target = event.target;
+            if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName || '')) return;
+            const key = event.key.toLowerCase();
+            const undo = key === 'z' && !event.shiftKey;
+            const redo = key === 'y' || (key === 'z' && event.shiftKey);
+            if (!undo && !redo) return;
+            event.preventDefault();
+            this.travelHistory(undo ? -1 : 1);
         });
     }
 
