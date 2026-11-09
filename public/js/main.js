@@ -161,10 +161,27 @@ const Utils = {
         }
     },
     
+    // الاحتفاظ بالمسودة في التبويب الحالي عند إعادة التحميل فقط.
+    // بعض المتصفحات تنسخ sessionStorage عند فتح تبويب من تبويب آخر؛
+    // لذلك نمسح المسودة عند أي دخول جديد لا يُعد إعادة تحميل.
+    prepareTabSession() {
+        try {
+            const nav = performance.getEntriesByType('navigation')[0];
+            const isReload = nav ? nav.type === 'reload' :
+                (performance.navigation && performance.navigation.type === 1);
+            if (!isReload) {
+                sessionStorage.removeItem('securitymap:draft:' + location.pathname);
+                sessionStorage.removeItem('mapEditMode');
+            }
+        } catch (e) {
+            console.warn('Unable to prepare tab session', e);
+        }
+    },
+
     // حفظ واسترجاع حالة التحرير
     saveEditMode(isEditMode) {
         try {
-            localStorage.setItem('mapEditMode', isEditMode ? 'edit' : 'view');
+            sessionStorage.setItem('mapEditMode', isEditMode ? 'edit' : 'view');
         } catch (e) {
             console.error("Failed to save edit mode:", e);
         }
@@ -172,7 +189,7 @@ const Utils = {
     
     getEditMode() {
         try {
-            return localStorage.getItem('mapEditMode') === 'edit';
+            return sessionStorage.getItem('mapEditMode') === 'edit';
         } catch (e) {
             console.error("Failed to get edit mode:", e);
             return true; // الافتراضي هو وضع التحرير
@@ -280,6 +297,7 @@ class MapController {
         /* --------------------------------------------------
            1) تحديد وضع المشاركة مبكراً (قبل أي UI أو state)
         -------------------------------------------------- */
+        Utils.prepareTabSession();
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
 
@@ -3057,7 +3075,7 @@ class StateManager {
     saveDraft(state) {
         if (this.shareMode || !state) return;
         try {
-            localStorage.setItem(this.draftKey, JSON.stringify(state));
+            sessionStorage.setItem(this.draftKey, JSON.stringify(state));
         } catch (error) {
             console.warn("Unable to save the map draft", error);
         }
@@ -3065,7 +3083,7 @@ class StateManager {
 
     readDraft() {
         try {
-            const draft = JSON.parse(localStorage.getItem(this.draftKey));
+            const draft = JSON.parse(sessionStorage.getItem(this.draftKey));
             if (Array.isArray(draft?.locations)) {
                 const locations = LOCATIONS.removeLegacyDefaultLocations(draft.locations);
                 if (locations.length !== draft.locations.length) {
