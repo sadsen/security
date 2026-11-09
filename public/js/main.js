@@ -381,33 +381,9 @@ class MapController {
 
         this.map.mapTypes.set("dark", new google.maps.StyledMapType(darkModeStyle, { name: "الوضع الليلي" }));
         this.map.mapTypes.set("silver", new google.maps.StyledMapType(silverStyle, { name: "فضي" }));
-        this.map.mapTypes.set("arcgis-imagery", {
-            name: "قمر صناعي",
-            tileSize: new google.maps.Size(256, 256),
-            maxZoom: 22,
-            getTile: (coord, zoom, ownerDocument) => {
-                const tile = ownerDocument.createElement("div");
-                tile.style.cssText = "width:256px;height:256px;overflow:hidden;background-repeat:no-repeat";
-                const size = 2 ** zoom;
-                if (coord.y < 0 || coord.y >= size) return tile;
-                const x = ((coord.x % size) + size) % size;
-                const sourceZoom = Math.min(zoom, 18);
-                const scale = 2 ** (zoom - sourceZoom);
-                const sourceX = Math.floor(x / scale), sourceY = Math.floor(coord.y / scale);
-                tile.style.backgroundImage = 'url("/api/imagery/' + sourceZoom + '/' + sourceY + '/' + sourceX + '")';
-                tile.style.backgroundSize = (256 * scale) + 'px ' + (256 * scale) + 'px';
-                tile.style.backgroundPosition = (-256 * (x % scale)) + 'px ' + (-256 * (coord.y % scale)) + 'px';
-                return tile;
-            },
-            releaseTile: () => {}
-        });
-        const imageryCredit = document.createElement("div");
-        imageryCredit.textContent = "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
-        imageryCredit.style.cssText = "display:none;background:rgba(255,255,255,.9);color:#333;font:10px Arial,sans-serif;padding:3px 6px;direction:ltr";
-        this.map.controls[google.maps.ControlPosition.BOTTOM_LEFT].push(imageryCredit);
-        this.map.addListener("maptypeid_changed", () => {
-            imageryCredit.style.display = this.map.getMapTypeId() === "arcgis-imagery" ? "block" : "none";
-        });
+        // Use Google's native satellite imagery. The previous Esri tile proxy
+        // (/api/imagery/...) is not provided by this Cloudflare Pages deployment.
+        // Google's required attribution is managed by the Maps API.
 
         for (const { id, name, styles } of EXTRA_BASE_MAPS) {
             this.map.mapTypes.set(id, new google.maps.StyledMapType(styles, { name }));
@@ -444,7 +420,7 @@ class MapController {
     }
 
     setRoadmap() { this.map.setMapTypeId("roadmap"); }
-    setSatellite() { this.map.setMapTypeId("arcgis-imagery"); }
+    setSatellite() { this.map.setMapTypeId("satellite"); }
     setTerrain() { this.map.setMapTypeId("terrain"); }
     setDarkMode() { this.map.setMapTypeId("dark"); }
     setSilverMode() { this.map.setMapTypeId("silver"); }
@@ -3336,7 +3312,7 @@ class StateManager {
                 this.map.setZoom(mapState.z);
             }
             if (mapState.t) {
-                this.map.setMapTypeId(mapState.t === "satellite" || mapState.t === "hybrid" ? "arcgis-imagery" : mapState.t);
+                this.map.setMapTypeId(mapState.t === "arcgis-imagery" ? "satellite" : mapState.t);
             }
             if (mapState.traffic) {
                 MAP.trafficLayer.setMap(this.map);
@@ -3479,7 +3455,6 @@ class MapExportManager {
             const r = el.getBoundingClientRect();
             return r.width && r.height && r.right > rect.left && r.left < rect.right && r.bottom > rect.top && r.top < rect.bottom;
         }).flatMap(el => [...el.style.backgroundImage.matchAll(/url\(["']?([^"')]+)["']?\)/g)].map(match => new URL(match[1], location.href).href));
-        if (MAP.map.getMapTypeId() === 'arcgis-imagery' && !backgrounds.length) throw new Error('الخريطة ما زالت قيد التحميل. انتظر لحظة ثم اضغط معاينة الصورة.');
         sources.push(...backgrounds.filter(src => !sources.includes(src)));
         await Promise.all(sources.map(src => new Promise((resolve, reject) => {
             const image = new Image();
@@ -4346,7 +4321,7 @@ class UIManager {
 
     toggleLayersPanel() {
         if (!this.layersPanel) return;
-        const currentType = MAP.map.getMapTypeId() === "arcgis-imagery" ? "satellite" : MAP.map.getMapTypeId();
+        const currentType = MAP.map.getMapTypeId();
         this.layersPanel.querySelectorAll('input[name="base-map"]').forEach(input => { input.checked = input.value === currentType; });
         this.layersPanel.classList.toggle("show");
         const isOpen = this.layersPanel.classList.contains("show");
