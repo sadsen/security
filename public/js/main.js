@@ -2021,6 +2021,7 @@ class RouteManager {
         this.showNumbers = true; // التحكم في عرض أرقام المسارات
         this.drawingMode = "auto";
         this.routeRequestSerial = 0;
+        this.allStopMarkers = new Set();
 
         bus.on("map:ready", map => {
             this.map = map;
@@ -2195,7 +2196,9 @@ class RouteManager {
             else bus.emit("toast", "جاري انتظار حساب الطريق؛ إذا فشل الحساب لن يظهر خط مستقيم.");
             bus.emit("persist");
         } else {
+            rt.stops.forEach(stop => this.disposeStopMarker(stop));
             this.routes.pop();
+            this.refreshGlobalPointNumbers();
         }
         this.activeRouteIndex = -1;
         MAP.modeRouteAdd = false;
@@ -2264,16 +2267,20 @@ class RouteManager {
             content: el, 
             gmpDraggable: !this.shareMode 
         });
+        this.allStopMarkers.add(marker);
         marker.addListener("dragend", () => {
-            rt.points[idx] = marker.position;
-            this.requestRoute(routeIndex); 
+            const currentIndex = this.routes.indexOf(rt);
+            if (currentIndex < 0 || !rt.stops.includes(marker)) return;
+            const currentPointIndex = rt.stops.indexOf(marker);
+            rt.points[currentPointIndex] = marker.position;
+            this.requestRoute(currentIndex); 
             bus.emit("persist"); 
         });
         marker.addListener("contextmenu", (event) => {
             if (MAP.shareMode || !MAP.editMode) return;
             const currentIndex = this.routes.indexOf(rt);
-            if (currentIndex < 0) return;
-            this.showRouteContextMenu(currentIndex, idx, event?.domEvent || event);
+            if (currentIndex < 0 || !rt.stops.includes(marker)) return;
+            this.showRouteContextMenu(currentIndex, rt.stops.indexOf(marker), event?.domEvent || event);
         });
         return marker;
     }
@@ -2285,7 +2292,7 @@ class RouteManager {
         // إزالة جميع علامات النقاط وإعادة إنشائها حتى تشير أحداث السحب والحذف
         // إلى الفهارس الصحيحة بعد تغيير ترقيم النقاط.
         rt.requestVersion = (rt.requestVersion || 0) + 1;
-        rt.stops.forEach(stop => { stop.map = null; });
+        rt.stops.forEach(stop => this.disposeStopMarker(stop));
         rt.stops = [];
         rt.points.splice(idx, 1);
         if (rt.points.length === 0) {
@@ -2316,9 +2323,13 @@ class RouteManager {
     }
 
     removeRoute(routeIndex) {
+        if (MAP.shareMode || !MAP.editMode) return;
         const rt = this.routes[routeIndex];
+        if (!rt) return;
+        rt.requestVersion = (rt.requestVersion || 0) + 1;
         if (rt.poly) rt.poly.setMap(null);
-        rt.stops.forEach(s => s.map = null);
+        rt.stops.forEach(s => this.disposeStopMarker(s));
+        rt.stops = [];
         this.routes.splice(routeIndex, 1);
         
         // إعادة ترقيم المسارات المتبقية
@@ -2331,6 +2342,7 @@ class RouteManager {
         });
         
         this.activeRouteIndex = -1;
+        this.cleanupOrphanStopMarkers();
         this.refreshGlobalPointNumbers();
         UI.forceCloseSharedInfoCard();
         bus.emit("persist");
@@ -2585,9 +2597,10 @@ class RouteManager {
         if (!state || !state.routes) return;
         this.routes.forEach(rt => { 
             if (rt.poly) rt.poly.setMap(null); 
-            rt.stops.forEach(s => s.map = null); 
+            rt.stops.forEach(s => this.disposeStopMarker(s)); 
         });
         this.routes = [];
+        this.cleanupOrphanStopMarkers();
         state.routes.forEach(rt => {
             const newRoute = { 
                 id: rt.id, 
@@ -2613,6 +2626,22 @@ class RouteManager {
             if (newRoute.mode === "manual" || newRoute.overview) this.renderRoute(this.routes.length - 1);
         });
         this.refreshGlobalPointNumbers();
+    }
+
+    // إزالة علامة النقطة من الخريطة ومن سجل العلامات مع تعطيل أحداثها.
+    disposeStopMarker(marker) {
+        if (!marker) return;
+        try { google.maps.event.clearInstanceListeners(marker); } catch (_) {}
+        marker.map = null;
+        this.allStopMarkers.delete(marker);
+    }
+
+    // إزالة أي رقم متبقٍ لا يرتبط بنقطة موجودة فعليًا.
+    cleanupOrphanStopMarkers() {
+        const active = new Set(this.routes.flatMap(route => route.stops));
+        for (const marker of this.allStopMarkers) {
+            if (!active.has(marker)) this.disposeStopMarker(marker);
+        }
     }
 
     // النص المستخدم عند عرض أرقام النقاط: المحافظة على طريقة الترقيم الحالية.
