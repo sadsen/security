@@ -1063,7 +1063,7 @@ class FreeLayerManager {
         // FIX: Add a direct click listener to marker content for reliable editing
         iconElement.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent map click
-            this.openEditCard(item);
+            if (!MAP.shareMode && MAP.editMode) this.openEditCard(item);
         });
         
         if (this.editMode && !this.shareMode) {
@@ -1097,7 +1097,7 @@ class FreeLayerManager {
         this.items.push(item);
         
         // Open edit dialog immediately for new text
-        this.openEditCard(item);
+        if (!MAP.shareMode && MAP.editMode) this.openEditCard(item);
         
         bus.emit("persist");
         bus.emit("toast", "تمت إضافة نص");
@@ -1127,7 +1127,7 @@ class FreeLayerManager {
         // FIX: Add a direct click listener to marker content for reliable editing
         textElement.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent map click
-            this.openEditCard(item);
+            if (!MAP.shareMode && MAP.editMode) this.openEditCard(item);
         });
         
         if (this.editMode && !this.shareMode) {
@@ -1197,6 +1197,7 @@ class FreeLayerManager {
     }
     
     openEditCard(item) {
+        if (MAP.shareMode || !MAP.editMode) return;
         this.activeItem = item;
         
         const cardStyle = `
@@ -1336,7 +1337,7 @@ class FreeLayerManager {
         if (deleteBtn) {
             deleteBtn.addEventListener("click", () => {
                 if (confirm("هل أنت متأكد من حذف هذا العنصر؟")) {
-                    this.deleteItem(item);
+                    if (!MAP.shareMode && MAP.editMode) this.deleteItem(item);
                     UI.forceCloseSharedInfoCard();
                 }
             });
@@ -1382,7 +1383,7 @@ class FreeLayerManager {
                         bus.emit("toast", "تم تغيير موقع الأيقونة");
                         
                         // Reopen edit card
-                        this.openEditCard(item);
+                        if (!MAP.shareMode && MAP.editMode) this.openEditCard(item);
                     });
                 });
             }
@@ -1452,7 +1453,7 @@ class FreeLayerManager {
                         bus.emit("toast", "تم تغيير موقع النص");
                         
                         // Reopen edit card
-                        this.openEditCard(item);
+                        if (!MAP.shareMode && MAP.editMode) this.openEditCard(item);
                     });
                 });
             }
@@ -1492,6 +1493,7 @@ class FreeLayerManager {
     }
     
     deleteItem(item) {
+        if (MAP.shareMode || !MAP.editMode) return;
         item.marker.map = null;
         this.items = this.items.filter(i => i.id !== item.id);
         bus.emit("persist");
