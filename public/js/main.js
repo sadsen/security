@@ -2079,6 +2079,50 @@ class RouteManager {
             });
             card.appendChild(btn);
         }
+        // إدارة المسارات داخل نافذة «مسار» فقط، وتظهر عند وجود مسار مرسوم.
+        if (this.routes.length > 0) {
+            const separator = document.createElement("hr");
+            separator.style.cssText = "border:0;border-top:1px solid #e5e7eb;margin:18px 0";
+            card.appendChild(separator);
+            const manageTitle = document.createElement("h4");
+            manageTitle.textContent = "إدارة المسارات المرسومة";
+            manageTitle.style.cssText = "margin:0 0 10px;font-size:15px";
+            card.appendChild(manageTitle);
+            this.routes.forEach((route) => {
+                const row = document.createElement("div");
+                row.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;flex-wrap:wrap";
+                const label = document.createElement("span");
+                label.textContent = `المسار ${route.routeNumber} (${route.points.length} نقاط)`;
+                label.style.cssText = "font-size:13px;font-weight:bold";
+                const actions = document.createElement("div");
+                actions.style.cssText = "display:flex;gap:6px;flex-wrap:wrap";
+                const pointsButton = document.createElement("button");
+                pointsButton.type = "button";
+                pointsButton.textContent = "حذف نقاط";
+                pointsButton.disabled = route.points.length === 0;
+                pointsButton.style.cssText = "border:1px solid #d1d5db;background:#fff;border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit;font-size:12px";
+                pointsButton.addEventListener("click", () => {
+                    overlay.remove();
+                    this.showDeletePointsDialog(route.id);
+                });
+                const deleteButton = document.createElement("button");
+                deleteButton.type = "button";
+                deleteButton.textContent = "حذف المسار كاملًا";
+                deleteButton.style.cssText = "border:1px solid #fecaca;background:#fff1f2;color:#b91c1c;border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit;font-size:12px";
+                deleteButton.addEventListener("click", () => {
+                    if (!confirm(`حذف المسار ${route.routeNumber} بالكامل؟`)) return;
+                    const index = this.routes.findIndex(r => r.id === route.id);
+                    if (index < 0) return;
+                    this.removeRoute(index);
+                    overlay.remove();
+                    bus.emit("toast", "تم حذف المسار بالكامل");
+                    if (this.routes.length) this.chooseDrawingMode();
+                });
+                actions.append(pointsButton, deleteButton);
+                row.append(label, actions);
+                card.appendChild(row);
+            });
+        }
         const cancel = document.createElement("button"); cancel.textContent = "إلغاء";
         cancel.style.cssText = "border:0;background:transparent;padding:10px;cursor:pointer;font:inherit";
         cancel.addEventListener("click", () => overlay.remove()); card.appendChild(cancel);
@@ -2087,6 +2131,61 @@ class RouteManager {
         document.body.appendChild(overlay);
     }
     
+    showDeletePointsDialog(routeId) {
+        if (MAP.shareMode || !MAP.editMode) return;
+        const route = this.routes.find(r => r.id === routeId);
+        if (!route) return;
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;z-index:20001;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl;font-family:Tajawal,Cairo,sans-serif";
+        const card = document.createElement("div");
+        card.style.cssText = "background:white;color:#222;border-radius:16px;padding:22px;width:min(420px,100%);max-height:80vh;overflow:auto;box-shadow:0 12px 32px #0003";
+        const title = document.createElement("h3");
+        title.textContent = `حذف نقاط المسار ${route.routeNumber}`;
+        title.style.margin = "0 0 8px";
+        const hint = document.createElement("p");
+        hint.textContent = "اختر النقاط المراد حذفها حسب أرقامها، ثم اضغط حذف المحدد.";
+        hint.style.cssText = "font-size:13px;color:#555";
+        const options = document.createElement("div");
+        options.style.cssText = "display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0";
+        route.points.forEach((_, index) => {
+            const label = document.createElement("label");
+            label.style.cssText = "display:flex;align-items:center;gap:6px;border:1px solid #ddd;border-radius:8px;padding:9px;cursor:pointer";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = String(index);
+            label.append(checkbox, document.createTextNode(`نقطة ${index + 1}`));
+            options.appendChild(label);
+        });
+        const actions = document.createElement("div");
+        actions.style.cssText = "display:flex;gap:10px;justify-content:flex-end";
+        const cancel = document.createElement("button");
+        cancel.textContent = "إلغاء";
+        const submit = document.createElement("button");
+        submit.textContent = "حذف المحدد";
+        submit.style.cssText = "background:#b91c1c;color:white;border:0;border-radius:8px;padding:10px 14px;cursor:pointer";
+        cancel.style.cssText = "background:#f3f4f6;border:0;border-radius:8px;padding:10px 14px;cursor:pointer";
+        cancel.addEventListener("click", () => { overlay.remove(); this.chooseDrawingMode(); });
+        submit.addEventListener("click", () => {
+            const indices = Array.from(options.querySelectorAll('input:checked')).map(input => Number(input.value)).sort((a,b) => b-a);
+            if (!indices.length) { bus.emit("toast", "اختر نقطة واحدة على الأقل"); return; }
+            if (indices.length === route.points.length && !confirm("سيؤدي هذا إلى حذف المسار بالكامل. متابعة؟")) return;
+            const currentIndex = this.routes.findIndex(r => r.id === routeId);
+            if (currentIndex < 0) { overlay.remove(); return; }
+            indices.forEach(i => {
+                const updatedIndex = this.routes.findIndex(r => r.id === routeId);
+                if (updatedIndex >= 0) this.removePoint(updatedIndex, i);
+            });
+            overlay.remove();
+            bus.emit("toast", "تم حذف النقاط المحددة وإعادة ترقيم الباقي");
+            if (this.routes.length) this.chooseDrawingMode();
+        });
+        actions.append(cancel, submit);
+        card.append(title, hint, options, actions);
+        overlay.appendChild(card);
+        overlay.addEventListener("click", e => { if (e.target === overlay) { overlay.remove(); this.chooseDrawingMode(); } });
+        document.body.appendChild(overlay);
+    }
+
     finishCurrentRoute() {
         if (this.activeRouteIndex === -1) return;
         const rt = this.routes[this.activeRouteIndex];
@@ -2177,13 +2276,20 @@ class RouteManager {
     }
 
     removePoint(routeIndex, idx) {
+        if (MAP.shareMode || !MAP.editMode) return;
         const rt = this.routes[routeIndex];
-        if (rt.stops[idx]) rt.stops[idx].map = null;
-        rt.points.splice(idx, 1); 
-        rt.stops.splice(idx, 1);
-        rt.stops.forEach((m, i) => { 
-            m.content.textContent = this.getStopLabel(rt, i);
-        });
+        if (!rt || idx < 0 || idx >= rt.points.length) return;
+        // إزالة جميع علامات النقاط وإعادة إنشائها حتى تشير أحداث السحب والحذف
+        // إلى الفهارس الصحيحة بعد تغيير ترقيم النقاط.
+        rt.requestVersion = (rt.requestVersion || 0) + 1;
+        rt.stops.forEach(stop => { stop.map = null; });
+        rt.stops = [];
+        rt.points.splice(idx, 1);
+        if (rt.points.length === 0) {
+            this.removeRoute(routeIndex);
+            return;
+        }
+        rt.stops = rt.points.map((point, i) => this.createStopMarker(point, routeIndex, i));
         if (rt.points.length >= 2) this.requestRoute(routeIndex);
         else this.clearRoute(routeIndex);
         bus.emit("persist");
@@ -2280,7 +2386,7 @@ class RouteManager {
             rt.overview = encoded || google.maps.geometry.encoding.encodePath(r.overview_path);
             rt.distance = r.legs.reduce((sum, leg) => sum + (leg.distance?.value || 0), 0);
             rt.duration = r.legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0);
-            this.renderRoute(routeIndex);
+            this.renderRoute(this.routes.indexOf(rt));
             bus.emit("persist");
         });
     }
@@ -3978,6 +4084,8 @@ class UIManager {
         this._initialized = true;
 
         console.log("UI: initializeUI() called.");
+        // حذف المسار أصبح ضمن نافذة «مسار»؛ لا نعرض الزر العام.
+        if (this.btnRouteClear) this.btnRouteClear.style.setProperty("display", "none", "important");
 
         /* ---------- CSS Injection (مرة واحدة) ---------- */
         if (!document.getElementById("ui-infowindow-style")) {
