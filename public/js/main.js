@@ -3329,14 +3329,15 @@ class StateManager {
         const makeButton = (symbol, title, direction) => {
             const button = document.createElement('button');
             button.type = 'button';
-            button.textContent = symbol;
+            button.innerHTML = `<span class="material-icons" aria-hidden="true">${direction < 0 ? 'undo' : 'redo'}</span>`;
+            button.className = 'securitymap-top-icon-button';
             button.title = title;
             button.setAttribute('aria-label', title);
             button.addEventListener('click', () => this.travelHistory(direction));
             return button;
         };
-        this.undoButton = makeButton('↶', 'تراجع (Ctrl+Z)', -1);
-        this.redoButton = makeButton('↷', 'تقدم (Ctrl+Y أو Ctrl+Shift+Z)', 1);
+        this.undoButton = makeButton('undo', 'تراجع (Ctrl+Z)', -1);
+        this.redoButton = makeButton('redo', 'تقدم (Ctrl+Y أو Ctrl+Shift+Z)', 1);
         panel.append(this.undoButton, this.redoButton);
 
         // Keep the controls within the existing top toolbar, not floating over the map.
@@ -3350,26 +3351,51 @@ class StateManager {
         }
         const style = document.createElement('style');
         style.textContent = `
-            #securitymap-history-controls {
-                display:inline-flex;align-items:center;justify-content:center;gap:2px;
-                flex:0 0 auto;width:auto;max-width:80px;margin-inline:4px;
-                padding:2px;border-radius:8px;background:rgba(255,255,255,.10);
-                vertical-align:middle;box-sizing:border-box;
-            }
-            #securitymap-history-controls button {
+            /* Compact, consistent controls matching the main top toolbar. */
+            #securitymap-history-controls,
+            #securitymap-project-control {
                 display:inline-flex;align-items:center;justify-content:center;
-                width:32px;height:32px;min-width:32px;padding:0;margin:0;
-                border:0;border-radius:6px;background:transparent;color:inherit;
-                font:600 24px/1 Arial,sans-serif;cursor:pointer;
+                flex:0 0 auto;gap:4px;margin-inline:3px;
+                padding:0;background:transparent;box-sizing:border-box;
+                vertical-align:middle;
             }
-            #securitymap-history-controls button:hover:not(:disabled),
-            #securitymap-history-controls button:focus-visible {
-                background:rgba(128,128,128,.22);outline-offset:1px;
+            #securitymap-history-controls .securitymap-top-icon-button,
+            #securitymap-project-control .securitymap-top-icon-button {
+                display:inline-flex;align-items:center;justify-content:center;
+                width:38px;height:38px;min-width:38px;flex:0 0 38px;
+                padding:0;margin:0;box-sizing:border-box;
+                border:1px solid rgba(255,255,255,.16);
+                border-radius:12px;background:rgba(255,255,255,.09);
+                color:#fff;cursor:pointer;
+                transition:background .16s ease,border-color .16s ease,opacity .16s ease;
             }
-            #securitymap-history-controls button:disabled {opacity:.35;cursor:not-allowed;}
+            #securitymap-history-controls .securitymap-top-icon-button .material-icons,
+            #securitymap-project-control .securitymap-top-icon-button .material-icons {
+                font-size:21px;line-height:1;pointer-events:none;
+            }
+            #securitymap-history-controls .securitymap-top-icon-button:hover:not(:disabled),
+            #securitymap-project-control .securitymap-top-icon-button:hover:not(:disabled) {
+                background:rgba(255,255,255,.20);border-color:rgba(255,255,255,.30);
+            }
+            #securitymap-history-controls .securitymap-top-icon-button:focus-visible,
+            #securitymap-project-control .securitymap-top-icon-button:focus-visible {
+                outline:2px solid #93c5fd;outline-offset:2px;
+            }
+            #securitymap-history-controls .securitymap-top-icon-button:disabled {
+                opacity:.38;cursor:not-allowed;
+            }
             #securitymap-history-controls.securitymap-history-fallback {
                 position:fixed;top:12px;left:12px;z-index:9000;
-                background:#fff;color:#222;box-shadow:0 2px 8px #0002;
+                background:#555;padding:4px;border-radius:12px;box-shadow:0 2px 8px #0002;
+            }
+            @media(max-width:600px) {
+                #securitymap-history-controls .securitymap-top-icon-button,
+                #securitymap-project-control .securitymap-top-icon-button {
+                    width:34px;height:34px;min-width:34px;flex-basis:34px;border-radius:10px;
+                }
+                #securitymap-history-controls .securitymap-top-icon-button .material-icons,
+                #securitymap-project-control .securitymap-top-icon-button .material-icons {font-size:19px;}
+                #securitymap-history-controls,#securitymap-project-control {gap:3px;margin-inline:2px;}
             }
         `;
         document.head.appendChild(style);
@@ -3408,10 +3434,11 @@ class StateManager {
         wrapper.style.cssText = 'position:relative;display:inline-flex;align-items:center;flex:0 0 auto;margin-inline:3px;';
         const trigger = document.createElement('button');
         trigger.type = 'button';
-        trigger.textContent = '▣';
+        trigger.innerHTML = '<span class="material-icons" aria-hidden="true">save</span>';
+        trigger.className = 'securitymap-top-icon-button';
         trigger.title = 'المشاريع: حفظ، فتح، مشروع جديد';
         trigger.setAttribute('aria-label', 'إدارة المشاريع');
-        trigger.style.cssText = 'width:32px;height:32px;min-width:32px;padding:0;border:0;border-radius:6px;background:transparent;color:inherit;font-size:21px;cursor:pointer;';
+        // Button appearance is shared with undo/redo in the toolbar stylesheet.
         const menu = document.createElement('div');
         menu.hidden = true;
         menu.dir = 'rtl';
