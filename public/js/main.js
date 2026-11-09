@@ -3278,7 +3278,14 @@ class StateManager {
     // Draft persistence continues to use sessionStorage as before.
     recordHistory(state = this.buildState()) {
         if (this.shareMode || this.restoringHistory || !state) return;
-        const snapshot = JSON.stringify(state);
+        // History tracks editable objects only, never viewport movement or map layers.
+        // Draft/share state still retains the full map state.
+        const snapshot = JSON.stringify({
+            routes: state.routes,
+            locations: state.locations,
+            polygons: state.polygons,
+            freeDraw: state.freeDraw
+        });
         if (this.history[this.historyIndex] === snapshot) return;
         this.history.splice(this.historyIndex + 1);
         this.history.push(snapshot);
@@ -3293,7 +3300,9 @@ class StateManager {
         if (next < 0 || next >= this.history.length) return;
         this.restoringHistory = true;
         try {
-            this.applyState(JSON.parse(this.history[next]));
+            // Preserve current camera, zoom and base layer while restoring edits.
+            const edits = JSON.parse(this.history[next]);
+            this.applyState(edits);
             this.historyIndex = next;
             this.saveDraft(this.buildState());
         } catch (error) {
@@ -3314,23 +3323,54 @@ class StateManager {
         const panel = document.createElement('div');
         panel.id = 'securitymap-history-controls';
         panel.setAttribute('dir', 'rtl');
-        panel.style.cssText = 'position:fixed;bottom:85px;left:16px;z-index:9000;display:flex;gap:6px;background:rgba(45,45,45,.88);padding:6px;border-radius:12px;box-shadow:0 3px 12px #0003';
-        const makeButton = (label, title, direction) => {
+        panel.setAttribute('role', 'group');
+        panel.setAttribute('aria-label', 'التراجع والتقدم');
+        const makeButton = (symbol, title, direction) => {
             const button = document.createElement('button');
             button.type = 'button';
-            button.textContent = label;
+            button.textContent = symbol;
             button.title = title;
             button.setAttribute('aria-label', title);
-            button.style.cssText = 'font:600 14px Tajawal,Arial,sans-serif;border:0;border-radius:8px;padding:9px 13px;background:#fff;color:#222;cursor:pointer';
             button.addEventListener('click', () => this.travelHistory(direction));
             return button;
         };
-        this.undoButton = makeButton('↶ تراجع', 'تراجع Ctrl+Z', -1);
-        this.redoButton = makeButton('↷ تقدم', 'تقدم Ctrl+Y أو Ctrl+Shift+Z', 1);
+        this.undoButton = makeButton('↶', 'تراجع (Ctrl+Z)', -1);
+        this.redoButton = makeButton('↷', 'تقدم (Ctrl+Y أو Ctrl+Shift+Z)', 1);
         panel.append(this.undoButton, this.redoButton);
-        document.body.appendChild(panel);
+
+        // Keep the controls within the existing top toolbar, not floating over the map.
+        const toolbar = document.getElementById('toolbar');
+        if (toolbar) {
+            toolbar.appendChild(panel);
+        } else {
+            // Safe fallback if a different HTML layout omits the toolbar.
+            panel.classList.add('securitymap-history-fallback');
+            document.body.appendChild(panel);
+        }
         const style = document.createElement('style');
-        style.textContent = '#securitymap-history-controls button:disabled{opacity:.4;cursor:not-allowed!important}';
+        style.textContent = `
+            #securitymap-history-controls {
+                display:inline-flex;align-items:center;justify-content:center;gap:2px;
+                flex:0 0 auto;width:auto;max-width:80px;margin-inline:4px;
+                padding:2px;border-radius:8px;background:rgba(255,255,255,.10);
+                vertical-align:middle;box-sizing:border-box;
+            }
+            #securitymap-history-controls button {
+                display:inline-flex;align-items:center;justify-content:center;
+                width:32px;height:32px;min-width:32px;padding:0;margin:0;
+                border:0;border-radius:6px;background:transparent;color:inherit;
+                font:600 24px/1 Arial,sans-serif;cursor:pointer;
+            }
+            #securitymap-history-controls button:hover:not(:disabled),
+            #securitymap-history-controls button:focus-visible {
+                background:rgba(128,128,128,.22);outline-offset:1px;
+            }
+            #securitymap-history-controls button:disabled {opacity:.35;cursor:not-allowed;}
+            #securitymap-history-controls.securitymap-history-fallback {
+                position:fixed;top:12px;left:12px;z-index:9000;
+                background:#fff;color:#222;box-shadow:0 2px 8px #0002;
+            }
+        `;
         document.head.appendChild(style);
         this.updateHistoryButtons();
         document.addEventListener('keydown', (event) => {
