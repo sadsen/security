@@ -2856,14 +2856,52 @@ class PolygonManager {
             marker.addListener("drag", (e) => { poly.points[i] = e.latLng; poly.polygon.setPaths(poly.points); this.updateOutsideShade(); });
             marker.addListener("dragend", () => { bus.emit("persist"); });
             
-            marker.addEventListener("gmp-click", () => {
+            // Show explicit vertex actions on click, without disabling direct drag.
+            const vertexContent = marker.content;
+            vertexContent.style.cursor = "grab";
+            vertexContent.style.touchAction = "none";
+            vertexContent.setAttribute("role", "button");
+            vertexContent.setAttribute("tabindex", "0");
+            vertexContent.setAttribute("aria-label", `خيارات النقطة ${i + 1}`);
+            const openVertexActions = (event) => {
+                if (event) event.stopPropagation();
+                if (MAP.shareMode || !MAP.editMode || !this.isEditing || this.editingPolygonIndex !== index) return;
                 this.vertexInfo?.close();
-                const button = document.createElement("button");
-                button.type = "button";
-                button.textContent = "حذف النقطة";
-                button.addEventListener("click", () => this.deleteVertex(poly, index, i));
-                this.vertexInfo = new google.maps.InfoWindow({ content: button });
+                const wrapper = document.createElement("div");
+                wrapper.dir = "rtl";
+                wrapper.style.cssText = "display:flex;flex-direction:column;gap:8px;min-width:175px;font-family:inherit;padding:5px";
+                const heading = document.createElement("strong");
+                heading.textContent = `النقطة ${i + 1}`;
+                const moveButton = document.createElement("button");
+                moveButton.type = "button";
+                moveButton.textContent = "تعديل موقع النقطة";
+                moveButton.style.cssText = "padding:9px;border:0;border-radius:7px;background:#2563eb;color:white;cursor:pointer";
+                moveButton.addEventListener("click", () => {
+                    marker.gmpDraggable = true;
+                    vertexContent.style.cursor = "grab";
+                    vertexContent.style.width = "18px";
+                    vertexContent.style.height = "18px";
+                    this.vertexInfo?.close();
+                    bus.emit("toast", "اسحب النقطة إلى الموقع الجديد لتوسيع المضلع أو تضييقه");
+                });
+                const deleteButton = document.createElement("button");
+                deleteButton.type = "button";
+                deleteButton.textContent = "حذف النقطة";
+                deleteButton.style.cssText = "padding:9px;border:1px solid #ddd;border-radius:7px;background:white;color:#b91c1c;cursor:pointer";
+                deleteButton.addEventListener("click", () => {
+                    this.vertexInfo?.close();
+                    this.deleteVertex(poly, index, i);
+                });
+                wrapper.append(heading, moveButton, deleteButton);
+                this.vertexInfo = new google.maps.InfoWindow({ content: wrapper });
                 this.vertexInfo.open({ map: this.map, anchor: marker });
+            };
+            vertexContent.addEventListener("click", openVertexActions);
+            vertexContent.addEventListener("keydown", event => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openVertexActions(event);
+                }
             });
         });
         
