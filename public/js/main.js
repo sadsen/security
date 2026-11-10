@@ -203,7 +203,27 @@ const Utils = {
 — وحدة إدارة الخريطة (مع دعم الطبقات المتقدمة)
 ============================================================
 */
+// Monochrome technical drawing inspired by pencil-plotted site plans.
+// It uses available Google Maps geometry, not architectural CAD data.
+const PENCIL_MAP_STYLES = [
+    { elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+    { elementType: 'geometry.stroke', stylers: [{ color: '#b4b4b4' }, { weight: 0.75 }] },
+    { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#fafafa' }] },
+    { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
+    { featureType: 'road', elementType: 'geometry.fill', stylers: [{ color: '#ffffff' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#a3a3a3' }, { weight: 0.85 }] },
+    { featureType: 'road.highway', elementType: 'geometry.fill', stylers: [{ color: '#ededed' }] },
+    { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#777777' }, { weight: 1.1 }] },
+    { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#f2f2f2' }] },
+    { featureType: 'water', elementType: 'geometry.stroke', stylers: [{ color: '#a9a9a9' }] },
+    { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#eeeeee' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#555555' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }, { weight: 2 }] },
+    { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] }
+];
+
 const EXTRA_BASE_MAPS = [
+    { id: "pencil-plan", name: "رسم هندسي بالقلم الرصاص", styles: PENCIL_MAP_STYLES },
     { id: "minimal-ivory", name: "عاجي بلا تسميات", styles: [
         { elementType: "geometry", stylers: [{ color: "#faf6ed" }] },
         { elementType: "labels", stylers: [{ visibility: "off" }] },
@@ -279,6 +299,9 @@ class MapController {
 
         this.editMode = true;
         this.shareMode = false;
+        this.labelsVisible = true;
+        this.selectedBaseMap = "roadmap";
+        this.baseMapStyles = {};
 
         this.centerDefault = { lat: 24.7399, lng: 46.5731 };
         this.zoomDefault = 15;
@@ -385,9 +408,16 @@ class MapController {
         // (/api/imagery/...) is not provided by this Cloudflare Pages deployment.
         // Google's required attribution is managed by the Maps API.
 
+        this.baseMapStyles = { dark: darkModeStyle, silver: silverStyle };
         for (const { id, name, styles } of EXTRA_BASE_MAPS) {
+            this.baseMapStyles[id] = styles;
             this.map.mapTypes.set(id, new google.maps.StyledMapType(styles, { name }));
         }
+        this.map.addListener('maptypeid_changed', () => {
+            const actual = this.map.getMapTypeId();
+            if (actual === 'hybrid' || actual === 'satellite') this.selectedBaseMap = 'satellite';
+            else if (actual && !String(actual).endsWith('-labels-off')) this.selectedBaseMap = actual;
+        });
 
         this.map.addListener("zoom_changed", () => {
             bus.emit("map:zoom", this.map.getZoom());
@@ -419,11 +449,48 @@ class MapController {
         }
     }
 
-    setRoadmap() { this.map.setMapTypeId("roadmap"); }
-    setSatellite() { this.map.setMapTypeId("satellite"); }
-    setTerrain() { this.map.setMapTypeId("terrain"); }
-    setDarkMode() { this.map.setMapTypeId("dark"); }
-    setSilverMode() { this.map.setMapTypeId("silver"); }
+    setBaseMapWithLabels(type) {
+        this.selectedBaseMap = type === 'hybrid' ? 'satellite' : type;
+        if (type === 'satellite') {
+            this.map.setMapTypeId(this.labelsVisible ? 'hybrid' : 'satellite');
+            return;
+        }
+        const style = this.baseMapStyles[type];
+        if (style) {
+            if (!this.labelsVisible) {
+                const key = type + '-labels-off';
+                this.map.mapTypes.set(key, new google.maps.StyledMapType(
+                    [...style, { elementType: 'labels', stylers: [{ visibility: 'off' }] }],
+                    { name: type }
+                ));
+                this.map.setMapTypeId(key);
+            } else this.map.setMapTypeId(type);
+            return;
+        }
+        // The native roadmap/terrain map types do not support runtime label styles.
+        // Recreate them as styled roadmap maps when labels are hidden.
+        if (!this.labelsVisible) {
+            const key = type + '-labels-off';
+            this.map.mapTypes.set(key, new google.maps.StyledMapType(
+                [
+                    ...(type === 'terrain' ? [{ featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#e7eddf' }] }] : []),
+                    { elementType: 'labels', stylers: [{ visibility: 'off' }] }
+                ], { name: type }
+            ));
+            this.map.setMapTypeId(key);
+        } else this.map.setMapTypeId(type);
+    }
+
+    setLabelsVisible(visible) {
+        this.labelsVisible = !!visible;
+        this.setBaseMapWithLabels(this.selectedBaseMap);
+    }
+
+    setRoadmap() { this.setBaseMapWithLabels('roadmap'); }
+    setSatellite() { this.setBaseMapWithLabels('satellite'); }
+    setTerrain() { this.setBaseMapWithLabels('terrain'); }
+    setDarkMode() { this.setBaseMapWithLabels('dark'); }
+    setSilverMode() { this.setBaseMapWithLabels('silver'); }
 
     toggleTraffic() { this.trafficLayer.setMap(this.trafficLayer.getMap() ? null : this.map); }
     toggleBicycling() { this.bicyclingLayer.setMap(this.bicyclingLayer.getMap() ? null : this.map); }
@@ -3529,6 +3596,8 @@ class StateManager {
                 c: [center.lat(), center.lng()],
                 z: this.map.getZoom(),
                 t: this.map.getMapTypeId(),
+                bt: MAP.selectedBaseMap,
+                lv: MAP.labelsVisible,
                 traffic: MAP.trafficLayer?.getMap() ? 1 : 0
             },
             routes: ROUTES.exportState(),
@@ -3606,7 +3675,8 @@ class StateManager {
                 this.map.setZoom(mapState.z);
             }
             if (mapState.t) {
-                this.map.setMapTypeId(mapState.t === "arcgis-imagery" ? "satellite" : mapState.t);
+                MAP.labelsVisible = mapState.lv !== false;
+                MAP.setBaseMapWithLabels(mapState.bt || (mapState.t === 'arcgis-imagery' ? 'satellite' : mapState.t).replace(/-labels-off$/, ''));
             }
             if (mapState.traffic) {
                 MAP.trafficLayer.setMap(this.map);
@@ -4480,6 +4550,18 @@ class UIManager {
                 label.append(radio, " " + name);
                 baseMapGroup.append(label);
             }
+            // Independent toggle for base-map labels. User annotations remain visible.
+            if (!this.layersPanel.querySelector('#securitymap-show-labels')) {
+                const labelRow = document.createElement('label');
+                labelRow.style.cssText = 'display:flex;align-items:center;gap:9px;padding:11px 12px;margin:9px 0;border:1px solid rgba(128,128,128,.25);border-radius:9px;cursor:pointer;direction:rtl;font-size:14px;';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = 'securitymap-show-labels';
+                checkbox.checked = MAP.labelsVisible;
+                checkbox.addEventListener('change', () => MAP.setLabelsVisible(checkbox.checked));
+                labelRow.append(checkbox, document.createTextNode('إظهار تسميات الخريطة'));
+                baseMapGroup.appendChild(labelRow);
+            }
             this.layersPanel.querySelector(".panel-content").style.maxHeight = "min(65vh, 34rem)";
             this.layersPanel.querySelector(".panel-content").style.overflowY = "auto";
 
@@ -4576,7 +4658,9 @@ class UIManager {
 
     toggleLayersPanel() {
         if (!this.layersPanel) return;
-        const currentType = MAP.map.getMapTypeId();
+        const currentType = MAP.selectedBaseMap;
+        const labelsCheckbox = this.layersPanel.querySelector('#securitymap-show-labels');
+        if (labelsCheckbox) labelsCheckbox.checked = MAP.labelsVisible;
         this.layersPanel.querySelectorAll('input[name="base-map"]').forEach(input => { input.checked = input.value === currentType; });
         this.layersPanel.classList.toggle("show");
         const isOpen = this.layersPanel.classList.contains("show");
@@ -4593,7 +4677,7 @@ class UIManager {
             case "dark": MAP.setDarkMode(); break;
             case "silver": MAP.setSilverMode(); break;
             default:
-                if (EXTRA_BASE_MAPS.some(({ id }) => id === mapTypeId)) MAP.map.setMapTypeId(mapTypeId);
+                if (EXTRA_BASE_MAPS.some(({ id }) => id === mapTypeId)) MAP.setBaseMapWithLabels(mapTypeId);
         }
     }
 
