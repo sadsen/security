@@ -369,8 +369,8 @@ class MapController {
             mapId: "b76177e462344e3ee4d9178b",
             streetViewControl: false,
             mapTypeControl: false,
-            fullscreenControl: true,
-            zoomControl: true,
+            fullscreenControl: !this.shareMode,
+            zoomControl: !this.shareMode,
             gestureHandling: 'greedy',
             clickableIcons: false
         });
@@ -4694,6 +4694,24 @@ class UIManager {
     }
 
     applyShareMode() {
+        // Shared links are a clean, read-only map: no application toolbar or map controls.
+        if (!document.getElementById('securitymap-clean-share-style')) {
+            const style = document.createElement('style');
+            style.id = 'securitymap-clean-share-style';
+            style.textContent = `
+                #toolbar, #mode-badge, #btn-share, .layers-panel,
+                #securitymap-project-control, #securitymap-undo-redo,
+                .gm-bundled-control, .gm-fullscreen-control, .gm-svpc,
+                .gm-style-mtc {
+                    display: none !important;
+                }
+                #map { inset: 0 !important; width: 100% !important; height: 100% !important; }
+            `;
+            document.head.appendChild(style);
+        }
+        const toolbar = document.getElementById('toolbar');
+        if (toolbar) toolbar.style.setProperty('display', 'none', 'important');
+        MAP.map.setOptions({ zoomControl: false, fullscreenControl: false, mapTypeControl: false, streetViewControl: false });
         [
             this.btnAdd,
             this.btnRoute,
