@@ -2,7 +2,7 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.8 (Fixed Route Deletion & Share Mode)
+   Seen | Operational Maps – v25.8 (Fixed Route Deletion & Share Mode)
    • إصلاح مشكلة حذف المسار
    • إصلاح عرض دوائر الأرقام في وضع المشاركة
    • تحسين واجهة المشاركة
@@ -1946,7 +1946,7 @@ class LocationManager {
         <div style="${cardStyle}" class="glass-card-content">
             <div style="${headerStyle}">
                 <div style="display:flex; align-items:center; gap: 8px;">
-                    <img src="img/logo.png" style="width: 32px; height: 32px; border-radius: 50%;">
+                    <img src="/img/seen-logo.png" style="width: 32px; height: 32px; border-radius: 50%;">
                     <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700;">${name}</h3>
                 </div>
             </div>
@@ -2510,7 +2510,7 @@ class RouteManager {
         <div style="${cardStyle}" class="glass-card-content">
             <div style="${headerStyle}">
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <img src="img/logo.png" style="width: 30px; height: 30px; border-radius: 6px;">
+                    <img src="/img/seen-logo.png" style="width: 30px; height: 30px; border-radius: 6px;">
                     <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;">مسار رقم ${rt.routeNumber}</h3>
                 </div>
             </div>
@@ -3125,7 +3125,7 @@ class PolygonManager {
         <div style="${cardStyle}" class="glass-card-content">
             <div style="${headerStyle}">
                 <div style="display:flex;align-items:center;gap:8px;">
-                     <img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;">
+                     <img src="/img/seen-logo.png" style="width: 36px; height: 36px; border-radius: 8px;">
                      <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: 700;">${Utils.escapeHTML(poly.name)}</h3>
                 </div>
                 ${this.shareMode && !hoverOnly ? `<button id="poly-share-close" type="button" aria-label="إغلاق بطاقة المضلع" title="إغلاق" style="width:40px;height:40px;border:1px solid #ddd;border-radius:10px;background:white;color:#333;font-size:26px;line-height:1;cursor:pointer;">×</button>` : ""}
@@ -4186,7 +4186,7 @@ class ShareManager {
             btn.addEventListener('click', () => {
                 const platform = btn.dataset.platform;
                 const url = fullLinkInput.value;
-                const text = "شاهد خريطة الدرعية الأمنية";
+                const text = "شاهد سين | الخرائط التشغيلية";
                 
                 let shareUrl = '';
                 switch(platform) {
@@ -4455,7 +4455,7 @@ const MEASURE = new MeasureManager();
 class UIManager {
 
     constructor() {
-        this.logo = "/img/logo.png";
+        this.logo = "//img/seen-logo.png";
         this.sharedInfoWindow = null;
         this.infoWindowPinned = false;
         this._initialized = false;
@@ -4902,7 +4902,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v25.8 - Fixed Route Deletion & Share Mode");
+        console.log("Seen | Operational Maps v25.8 - Fixed Route Deletion & Share Mode");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
