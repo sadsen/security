@@ -95,14 +95,11 @@
     document.documentElement.dir = I18n.dir;
     function init() {
         const toolbar = document.getElementById('toolbar');
-        if (toolbar && !document.getElementById('seen-language-toggle')) {
+        if (toolbar && !new URLSearchParams(location.search).has('x') && !document.getElementById('seen-language-toggle')) {
             const button = document.createElement('button');
             button.id = 'seen-language-toggle'; button.type = 'button'; button.className = 'btn';
             button.addEventListener('click', () => setLanguage(language === 'ar' ? 'en' : 'ar'));
-            if (new URLSearchParams(location.search).has('x')) {
-                button.classList.add('seen-language-shared');
-                document.body.appendChild(button);
-            } else toolbar.appendChild(button);
+            toolbar.appendChild(button);
         }
         setLanguage(language);
         const loader = document.querySelector('script[data-map-src]');
