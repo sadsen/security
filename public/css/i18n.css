@@ -1,0 +1,16 @@
+/* Language-specific UI only: geographic shapes, bearings and map imagery are not mirrored. */
+#toolbar, .layers-panel, .share-dialog-overlay, .icon-picker-modal,
+.free-draw-edit-card, .glass-card-content, #securitymap-project-control { direction: inherit; }
+[dir="ltr"] .glass-card-content, [dir="ltr"] .free-draw-edit-card,
+[dir="ltr"] .share-dialog-content, [dir="ltr"] .layers-panel { text-align: left; }
+[dir="rtl"] .glass-card-content, [dir="rtl"] .free-draw-edit-card,
+[dir="rtl"] .share-dialog-content, [dir="rtl"] .layers-panel { text-align: right; }
+[dir="ltr"] #toolbar {left:14px;right:auto;}
+[dir="ltr"] #layers-panel {left:14px;right:auto;}
+[dir="ltr"] #securitymap-project-control > div {left:0;right:auto;}
+[dir="ltr"] #securitymap-project-control > div button {text-align:left!important;}
+.url-input, input[type="number"], input[type="tel"], input[type="url"] {direction:ltr;unicode-bidi:isolate;}
+input[type="text"]:not(.url-input),textarea {unicode-bidi:plaintext;}
+#seen-language-toggle {white-space:nowrap;}
+@media(max-width:768px){[dir="ltr"] #toolbar {left:14px;right:14px;}}
+.seen-language-shared {position:fixed;inset-block-start:14px;inset-inline-end:14px;z-index:99999;background:rgba(22,22,24,.8);}

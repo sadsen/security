@@ -2,7 +2,7 @@
 
 /*
 ============================================================
-   Diriyah Security Map – v25.8 (Fixed Route Deletion & Share Mode)
+   Seen | Operational Maps – v25.8 (Fixed Route Deletion & Share Mode)
    • إصلاح مشكلة حذف المسار
    • إصلاح عرض دوائر الأرقام في وضع المشاركة
    • تحسين واجهة المشاركة
@@ -103,26 +103,26 @@ const Utils = {
     },
 
     formatDistance(m) {
-        if (!m) return "0 م";
-        if (m < 1000) return m.toFixed(0) + " م";
-        return (m / 1000).toFixed(2) + " كم";
+        if (!m) return I18n.live(()=>(I18n.msg("ui_8fc2d88288",null,"","")));
+        if (m < 1000) return I18n.live(()=>(m.toFixed(0) + I18n.msg("ui_d8fe6f076d",null," ","")));
+        return I18n.live(()=>((m / 1000).toFixed(2) + I18n.msg("ui_0ae4e0e9bb",null," ","")));
     },
 
     formatDuration(sec) {
-        if (!sec) return "0 دقيقة";
+        if (!sec) return I18n.live(()=>(I18n.msg("ui_24618b64ff",null,"","")));
         const m = Math.round(sec / 60);
-        if (m < 60) return m + " دقيقة";
+        if (m < 60) return I18n.live(()=>(m + I18n.msg("ui_b030187c8a",null," ","")));
         const h = Math.floor(m / 60);
         const r = m % 60;
-        return `${h} ساعة ${r} دقيقة`;
+        return I18n.live(()=>(I18n.msg("ui_7a33047519",()=>({p0:(h),p1:(r)}))));
     },
 
     formatArea(meters) {
-        if (!meters) return "0 م²";
+        if (!meters) return I18n.live(()=>(I18n.msg("ui_45ebf7bbb8",null,"","")));
         if (meters >= 1000000) {
-            return (meters / 1000000).toFixed(2) + " كم²";
+            return I18n.live(()=>((meters / 1000000).toFixed(2) + I18n.msg("ui_7d54ed3303",null," ","")));
         }
-        return Math.round(meters).toLocaleString('ar-SA') + " م²";
+        return I18n.live(()=>(Math.round(meters).toLocaleString('en-US') + I18n.msg("ui_32fae0bedb",null," ","")));
     },
 
     // دالة للتحقق مما إذا كان الرابط طويلاً جداً
@@ -161,10 +161,27 @@ const Utils = {
         }
     },
     
+    // الاحتفاظ بالمسودة في التبويب الحالي عند إعادة التحميل فقط.
+    // بعض المتصفحات تنسخ sessionStorage عند فتح تبويب من تبويب آخر؛
+    // لذلك نمسح المسودة عند أي دخول جديد لا يُعد إعادة تحميل.
+    prepareTabSession() {
+        try {
+            const nav = performance.getEntriesByType('navigation')[0];
+            const isReload = nav ? nav.type === 'reload' :
+                (performance.navigation && performance.navigation.type === 1);
+            if (!isReload) {
+                sessionStorage.removeItem('securitymap:draft:' + location.pathname);
+                sessionStorage.removeItem('mapEditMode');
+            }
+        } catch (e) {
+            console.warn('Unable to prepare tab session', e);
+        }
+    },
+
     // حفظ واسترجاع حالة التحرير
     saveEditMode(isEditMode) {
         try {
-            localStorage.setItem('mapEditMode', isEditMode ? 'edit' : 'view');
+            sessionStorage.setItem('mapEditMode', isEditMode ? 'edit' : 'view');
         } catch (e) {
             console.error("Failed to save edit mode:", e);
         }
@@ -172,7 +189,7 @@ const Utils = {
     
     getEditMode() {
         try {
-            return localStorage.getItem('mapEditMode') === 'edit';
+            return sessionStorage.getItem('mapEditMode') === 'edit';
         } catch (e) {
             console.error("Failed to get edit mode:", e);
             return true; // الافتراضي هو وضع التحرير
@@ -186,15 +203,35 @@ const Utils = {
 — وحدة إدارة الخريطة (مع دعم الطبقات المتقدمة)
 ============================================================
 */
+// Monochrome technical drawing inspired by pencil-plotted site plans.
+// It uses available Google Maps geometry, not architectural CAD data.
+const PENCIL_MAP_STYLES = [
+    { elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+    { elementType: 'geometry.stroke', stylers: [{ color: '#b4b4b4' }, { weight: 0.75 }] },
+    { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#fafafa' }] },
+    { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
+    { featureType: 'road', elementType: 'geometry.fill', stylers: [{ color: '#ffffff' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#a3a3a3' }, { weight: 0.85 }] },
+    { featureType: 'road.highway', elementType: 'geometry.fill', stylers: [{ color: '#ededed' }] },
+    { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#777777' }, { weight: 1.1 }] },
+    { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#f2f2f2' }] },
+    { featureType: 'water', elementType: 'geometry.stroke', stylers: [{ color: '#a9a9a9' }] },
+    { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#eeeeee' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#555555' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }, { weight: 2 }] },
+    { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] }
+];
+
 const EXTRA_BASE_MAPS = [
-    { id: "minimal-ivory", name: "عاجي بلا تسميات", styles: [
+    { id: "pencil-plan", name: I18n.msg("ui_11bf49a9b1",null,"",""), styles: PENCIL_MAP_STYLES },
+    { id: "minimal-ivory", name: I18n.msg("ui_47224a8171",null,"",""), styles: [
         { elementType: "geometry", stylers: [{ color: "#faf6ed" }] },
         { elementType: "labels", stylers: [{ visibility: "off" }] },
         { featureType: "poi", stylers: [{ visibility: "off" }] },
         { featureType: "road", elementType: "geometry", stylers: [{ color: "#e6e0d5" }] },
         { featureType: "water", elementType: "geometry", stylers: [{ color: "#d5e4df" }] }
     ] },
-    { id: "main-roads", name: "الطرق الرئيسية", styles: [
+    { id: "main-roads", name: I18n.msg("ui_6f106b02f2",null,"",""), styles: [
         { elementType: "geometry", stylers: [{ color: "#eef2f6" }] },
         { featureType: "poi", stylers: [{ visibility: "off" }] },
         { featureType: "road.local", stylers: [{ visibility: "off" }] },
@@ -202,7 +239,7 @@ const EXTRA_BASE_MAPS = [
         { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#6797be" }] },
         { featureType: "water", elementType: "geometry.fill", stylers: [{ color: "#ccdce8" }] }
     ] },
-    { id: "detailed-landmarks", name: "المعالم والخدمات", styles: [
+    { id: "detailed-landmarks", name: I18n.msg("ui_858e192108",null,"",""), styles: [
         { elementType: "geometry", stylers: [{ color: "#f7f3e9" }] },
         { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#ffffff" }] },
         { featureType: "poi", elementType: "labels", stylers: [{ visibility: "on" }] },
@@ -210,7 +247,7 @@ const EXTRA_BASE_MAPS = [
         { featureType: "poi.attraction", elementType: "labels.text.fill", stylers: [{ color: "#754492" }] },
         { featureType: "water", elementType: "geometry.fill", stylers: [{ color: "#acd9e6" }] }
     ] },
-    { id: "desert-sand", name: "رملي دافئ", styles: [
+    { id: "desert-sand", name: I18n.msg("ui_ad8a6b8b64",null,"",""), styles: [
         { elementType: "geometry", stylers: [{ color: "#efdfc0" }] },
         { elementType: "labels.text.fill", stylers: [{ color: "#65482e" }] },
         { elementType: "labels.text.stroke", stylers: [{ color: "#fff5df" }] },
@@ -221,7 +258,7 @@ const EXTRA_BASE_MAPS = [
     // كرتوني ملون: تخصيص مرئي ثنائي الأبعاد. المباني ثلاثية الأبعاد الفعلية
     // تتطلب إعداد نمط Vector/3D منفصلًا عبر Google Cloud ولا تنتج من StyledMapType.
     // تُضاف هذه الطبقة تلقائيًا إلى القائمة عبر EXTRA_BASE_MAPS دون تغيير منطق بقية الأدوات.
-    { id: "cartoon-color", name: "كرتوني ملون", styles: [
+    { id: "cartoon-color", name: I18n.msg("ui_23113e4c88",null,"",""), styles: [
         { elementType: "geometry", stylers: [{ color: "#fff0d9" }] },
         { elementType: "labels.text.fill", stylers: [{ color: "#59466b" }] },
         { elementType: "labels.text.stroke", stylers: [{ color: "#fffdf3" }] },
@@ -262,6 +299,9 @@ class MapController {
 
         this.editMode = true;
         this.shareMode = false;
+        this.labelsVisible = true;
+        this.selectedBaseMap = "roadmap";
+        this.baseMapStyles = {};
 
         this.centerDefault = { lat: 24.7399, lng: 46.5731 };
         this.zoomDefault = 15;
@@ -280,6 +320,7 @@ class MapController {
         /* --------------------------------------------------
            1) تحديد وضع المشاركة مبكراً (قبل أي UI أو state)
         -------------------------------------------------- */
+        Utils.prepareTabSession();
         const params = new URLSearchParams(location.search);
         this.shareMode = params.has("x");
 
@@ -351,8 +392,8 @@ class MapController {
             mapId: "b76177e462344e3ee4d9178b",
             streetViewControl: false,
             mapTypeControl: false,
-            fullscreenControl: true,
-            zoomControl: true,
+            fullscreenControl: !this.shareMode,
+            zoomControl: !this.shareMode,
             gestureHandling: 'greedy',
             clickableIcons: false
         });
@@ -361,39 +402,22 @@ class MapController {
         this.bicyclingLayer = new google.maps.BicyclingLayer();
         this.transitLayer = new google.maps.TransitLayer();
 
-        this.map.mapTypes.set("dark", new google.maps.StyledMapType(darkModeStyle, { name: "الوضع الليلي" }));
-        this.map.mapTypes.set("silver", new google.maps.StyledMapType(silverStyle, { name: "فضي" }));
-        this.map.mapTypes.set("arcgis-imagery", {
-            name: "قمر صناعي",
-            tileSize: new google.maps.Size(256, 256),
-            maxZoom: 22,
-            getTile: (coord, zoom, ownerDocument) => {
-                const tile = ownerDocument.createElement("div");
-                tile.style.cssText = "width:256px;height:256px;overflow:hidden;background-repeat:no-repeat";
-                const size = 2 ** zoom;
-                if (coord.y < 0 || coord.y >= size) return tile;
-                const x = ((coord.x % size) + size) % size;
-                const sourceZoom = Math.min(zoom, 18);
-                const scale = 2 ** (zoom - sourceZoom);
-                const sourceX = Math.floor(x / scale), sourceY = Math.floor(coord.y / scale);
-                tile.style.backgroundImage = 'url("/api/imagery/' + sourceZoom + '/' + sourceY + '/' + sourceX + '")';
-                tile.style.backgroundSize = (256 * scale) + 'px ' + (256 * scale) + 'px';
-                tile.style.backgroundPosition = (-256 * (x % scale)) + 'px ' + (-256 * (coord.y % scale)) + 'px';
-                return tile;
-            },
-            releaseTile: () => {}
-        });
-        const imageryCredit = document.createElement("div");
-        imageryCredit.textContent = "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
-        imageryCredit.style.cssText = "display:none;background:rgba(255,255,255,.9);color:#333;font:10px Arial,sans-serif;padding:3px 6px;direction:ltr";
-        this.map.controls[google.maps.ControlPosition.BOTTOM_LEFT].push(imageryCredit);
-        this.map.addListener("maptypeid_changed", () => {
-            imageryCredit.style.display = this.map.getMapTypeId() === "arcgis-imagery" ? "block" : "none";
-        });
+        this.map.mapTypes.set("dark", new google.maps.StyledMapType(darkModeStyle, { name: String(I18n.msg("ui_178a969516",null,"","")) }));
+        this.map.mapTypes.set("silver", new google.maps.StyledMapType(silverStyle, { name: String(I18n.msg("ui_1485ba4f8c",null,"","")) }));
+        // Use Google's native satellite imagery. The previous Esri tile proxy
+        // (/api/imagery/...) is not provided by this Cloudflare Pages deployment.
+        // Google's required attribution is managed by the Maps API.
 
+        this.baseMapStyles = { dark: darkModeStyle, silver: silverStyle };
         for (const { id, name, styles } of EXTRA_BASE_MAPS) {
-            this.map.mapTypes.set(id, new google.maps.StyledMapType(styles, { name }));
+            this.baseMapStyles[id] = styles;
+            this.map.mapTypes.set(id, new google.maps.StyledMapType(styles, { name: String(name) }));
         }
+        this.map.addListener('maptypeid_changed', () => {
+            const actual = this.map.getMapTypeId();
+            if (actual === 'hybrid' || actual === 'satellite') this.selectedBaseMap = 'satellite';
+            else if (actual && !String(actual).endsWith('-labels-off')) this.selectedBaseMap = actual;
+        });
 
         this.map.addListener("zoom_changed", () => {
             bus.emit("map:zoom", this.map.getZoom());
@@ -425,11 +449,48 @@ class MapController {
         }
     }
 
-    setRoadmap() { this.map.setMapTypeId("roadmap"); }
-    setSatellite() { this.map.setMapTypeId("arcgis-imagery"); }
-    setTerrain() { this.map.setMapTypeId("terrain"); }
-    setDarkMode() { this.map.setMapTypeId("dark"); }
-    setSilverMode() { this.map.setMapTypeId("silver"); }
+    setBaseMapWithLabels(type) {
+        this.selectedBaseMap = type === 'hybrid' ? 'satellite' : type;
+        if (type === 'satellite') {
+            this.map.setMapTypeId(this.labelsVisible ? 'hybrid' : 'satellite');
+            return;
+        }
+        const style = this.baseMapStyles[type];
+        if (style) {
+            if (!this.labelsVisible) {
+                const key = type + '-labels-off';
+                this.map.mapTypes.set(key, new google.maps.StyledMapType(
+                    [...style, { elementType: 'labels', stylers: [{ visibility: 'off' }] }],
+                    { name: type }
+                ));
+                this.map.setMapTypeId(key);
+            } else this.map.setMapTypeId(type);
+            return;
+        }
+        // The native roadmap/terrain map types do not support runtime label styles.
+        // Recreate them as styled roadmap maps when labels are hidden.
+        if (!this.labelsVisible) {
+            const key = type + '-labels-off';
+            this.map.mapTypes.set(key, new google.maps.StyledMapType(
+                [
+                    ...(type === 'terrain' ? [{ featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#e7eddf' }] }] : []),
+                    { elementType: 'labels', stylers: [{ visibility: 'off' }] }
+                ], { name: type }
+            ));
+            this.map.setMapTypeId(key);
+        } else this.map.setMapTypeId(type);
+    }
+
+    setLabelsVisible(visible) {
+        this.labelsVisible = !!visible;
+        this.setBaseMapWithLabels(this.selectedBaseMap);
+    }
+
+    setRoadmap() { this.setBaseMapWithLabels('roadmap'); }
+    setSatellite() { this.setBaseMapWithLabels('satellite'); }
+    setTerrain() { this.setBaseMapWithLabels('terrain'); }
+    setDarkMode() { this.setBaseMapWithLabels('dark'); }
+    setSilverMode() { this.setBaseMapWithLabels('silver'); }
 
     toggleTraffic() { this.trafficLayer.setMap(this.trafficLayer.getMap() ? null : this.map); }
     toggleBicycling() { this.bicyclingLayer.setMap(this.bicyclingLayer.getMap() ? null : this.map); }
@@ -506,11 +567,11 @@ class IconPickerModal {
         
         this.searchInput = document.createElement('input');
         this.searchInput.type = 'text';
-        this.searchInput.placeholder = 'بحث عن أيقونة...';
+        I18n.attr(this.searchInput,"placeholder",()=>(I18n.msg("ui_57d50ca49a",null,"","")));
         this.searchInput.className = 'icon-picker-search';
         
         const closeButton = document.createElement('button');
-        closeButton.innerHTML = '<i class="material-icons">close</i>';
+        I18n.render(closeButton,'<i class="material-icons">close</i>');
         closeButton.className = 'icon-picker-close';
         closeButton.addEventListener('click', () => this.hide());
         
@@ -524,7 +585,7 @@ class IconPickerModal {
         // Add "All" category button
         const allButton = document.createElement('button');
         allButton.className = 'icon-picker-category active';
-        allButton.textContent = 'الكل';
+        I18n.text(allButton,()=>(I18n.msg("ui_11fdef2dc5",null,"","")));
         allButton.dataset.category = 'all';
         allButton.addEventListener('click', () => this.setCategory('all'));
         categories.appendChild(allButton);
@@ -538,23 +599,23 @@ class IconPickerModal {
             
             // Set category label in Arabic
             const categoryLabels = {
-                shapes: 'الأشكال',
-                places: 'الأماكن',
-                transport: 'النقل',
-                crisis: 'الطوارئ',
-                signs: 'اللافتات',
-                security: 'الأمن',
-                traffic: 'المرور',
-                roads: 'الطرق',
-                police: 'الشرطة',
-                patrol: 'الدوريات',
-                traffic_signs: 'إشارات المرور',
-                traffic_control: 'قمع المرور',
-                security_vehicles: 'المركبات الأمنية',
-                security_equipment: 'المعدات الأمنية'
+                shapes: I18n.msg("ui_e272f1446d",null,"",""),
+                places: I18n.msg("ui_04cbc62e45",null,"",""),
+                transport: I18n.msg("ui_1a336ff645",null,"",""),
+                crisis: I18n.msg("ui_2db7b18e56",null,"",""),
+                signs: I18n.msg("ui_39fe68da13",null,"",""),
+                security: I18n.msg("ui_9d18b73811",null,"",""),
+                traffic: I18n.msg("ui_cfebbd5708",null,"",""),
+                roads: I18n.msg("ui_e2c53dbe57",null,"",""),
+                police: I18n.msg("ui_c15a5552ca",null,"",""),
+                patrol: I18n.msg("ui_d3df421797",null,"",""),
+                traffic_signs: I18n.msg("ui_6f27418184",null,"",""),
+                traffic_control: I18n.msg("ui_e8dad21891",null,"",""),
+                security_vehicles: I18n.msg("ui_c016fec543",null,"",""),
+                security_equipment: I18n.msg("ui_64c0191fa7",null,"","")
             };
             
-            button.textContent = categoryLabels[category];
+            I18n.text(button,()=>(categoryLabels[category]));
             button.addEventListener('click', () => this.setCategory(category));
             categories.appendChild(button);
             this.categoryButtons.push(button);
@@ -569,12 +630,12 @@ class IconPickerModal {
         footer.className = 'icon-picker-footer';
         
         const cancelButton = document.createElement('button');
-        cancelButton.textContent = 'إلغاء';
+        I18n.text(cancelButton,()=>(I18n.msg("ui_e776b0209b",null,"","")));
         cancelButton.className = 'icon-picker-btn icon-picker-cancel';
         cancelButton.addEventListener('click', () => this.hide());
         
         const selectButton = document.createElement('button');
-        selectButton.textContent = 'اختيار';
+        I18n.text(selectButton,()=>(I18n.msg("ui_e08ca265fd",null,"","")));
         selectButton.className = 'icon-picker-btn icon-picker-select';
         selectButton.disabled = true;
         selectButton.addEventListener('click', () => this.selectIcon());
@@ -600,7 +661,7 @@ class IconPickerModal {
     
     addStyles() {
         const style = document.createElement('style');
-        style.textContent = `
+        I18n.text(style,()=>(`
             .icon-picker-modal {
                 position: fixed;
                 top: 0;
@@ -613,7 +674,7 @@ class IconPickerModal {
                 align-items: center;
                 justify-content: center;
                 font-family: 'Tajawal', sans-serif;
-                direction: rtl;
+                direction:inherit;
             }
             
             .icon-picker-content {
@@ -760,7 +821,7 @@ class IconPickerModal {
                 background-color: #cccccc;
                 cursor: not-allowed;
             }
-        `;
+        `));
         document.head.appendChild(style);
     }
     
@@ -798,7 +859,7 @@ class IconPickerModal {
     
     renderIcons() {
         const grid = this.modal.querySelector('.icon-picker-grid');
-        grid.innerHTML = '';
+        I18n.render(grid,'');
         
         const searchTerm = this.searchInput.value.toLowerCase();
         
@@ -819,7 +880,7 @@ class IconPickerModal {
         // Filter by search term
         if (searchTerm) {
             iconsToDisplay = iconsToDisplay.filter(icon => 
-                icon.toLowerCase().includes(searchTerm)
+                (icon.toLowerCase().includes(searchTerm) || I18n.t('icon_'+icon).toLowerCase().includes(searchTerm))
             );
         }
         
@@ -830,11 +891,11 @@ class IconPickerModal {
             
             const iconElement = document.createElement('i');
             iconElement.className = 'material-icons icon-picker-icon';
-            iconElement.textContent = icon;
+            I18n.text(iconElement,()=>(icon));
             
             const nameElement = document.createElement('div');
             nameElement.className = 'icon-picker-name';
-            nameElement.textContent = icon;
+            I18n.text(nameElement,()=>I18n.t('icon_'+icon));
             
             item.appendChild(iconElement);
             item.appendChild(nameElement);
@@ -908,11 +969,11 @@ class FreeLayerManager {
         content.className = 'free-draw-options-content';
         
         const title = document.createElement('h3');
-        title.textContent = 'اختر نوع العنصر';
+        I18n.text(title,()=>(I18n.msg("ui_42fb91dacc",null,"","")));
         
         const iconButton = document.createElement('button');
         iconButton.className = 'free-draw-option-btn';
-        iconButton.innerHTML = '<i class="material-icons">place</i> أيقونة';
+        I18n.render(iconButton,("<i class=\"material-icons\">place</i> " + (I18n.mark("ui_ba531ffbaa",null))));
         iconButton.addEventListener('click', () => {
             this.addIcon(latLng);
             document.body.removeChild(optionsDialog);
@@ -920,7 +981,7 @@ class FreeLayerManager {
         
         const textButton = document.createElement('button');
         textButton.className = 'free-draw-option-btn';
-        textButton.innerHTML = '<i class="material-icons">text_fields</i> نص';
+        I18n.render(textButton,("<i class=\"material-icons\">text_fields</i> " + (I18n.mark("ui_4ddc213545",null))));
         textButton.addEventListener('click', () => {
             this.addText(latLng);
             document.body.removeChild(optionsDialog);
@@ -928,7 +989,7 @@ class FreeLayerManager {
         
         const cancelButton = document.createElement('button');
         cancelButton.className = 'free-draw-option-btn free-draw-cancel';
-        cancelButton.textContent = 'إلغاء';
+        I18n.text(cancelButton,()=>(I18n.msg("ui_e776b0209b",null,"","")));
         cancelButton.addEventListener('click', () => {
             document.body.removeChild(optionsDialog);
         });
@@ -941,7 +1002,7 @@ class FreeLayerManager {
         
         // Add styles
         const style = document.createElement('style');
-        style.textContent = `
+        I18n.text(style,()=>(`
             .free-draw-options-dialog {
                 position: fixed;
                 top: 0;
@@ -954,7 +1015,7 @@ class FreeLayerManager {
                 align-items: center;
                 justify-content: center;
                 font-family: 'Tajawal', sans-serif;
-                direction: rtl;
+                direction:inherit;
             }
             
             .free-draw-options-content {
@@ -1001,7 +1062,7 @@ class FreeLayerManager {
                 background-color: #f5f5f5;
                 color: #333;
             }
-        `;
+        `));
         document.head.appendChild(style);
         
         document.body.appendChild(optionsDialog);
@@ -1021,7 +1082,7 @@ class FreeLayerManager {
             this.createIconMarker(item);
             this.items.push(item);
             bus.emit("persist");
-            bus.emit("toast", "تمت إضافة أيقونة");
+            bus.emit('toast',I18n.live(()=>(I18n.msg("ui_82c042ce1f",null,"",""))));
             
             // إصلاح: تقفل وضع الرسم الحر بعد إضافة أيقونة
             MAP.modeFreeDraw = false;
@@ -1033,7 +1094,7 @@ class FreeLayerManager {
         const iconElement = document.createElement('div');
         iconElement.className = 'free-draw-icon';
         // تحسين جودة عرض الأيقونة
-        iconElement.innerHTML = `<i class="material-icons" style="color: ${item.color}; font-size: ${24 * item.scale}px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;">${item.iconName}</i>`;
+        I18n.render(iconElement,("<i class=\"material-icons\" style=\"color: " + ((item.color)) + "; font-size: " + ((24 * item.scale)) + "px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;\">" + (I18n.fragment(()=>(item.iconName))) + "</i>"));
         
         item.marker = new google.maps.marker.AdvancedMarkerElement({
             position: item.position,
@@ -1045,7 +1106,7 @@ class FreeLayerManager {
         // FIX: Add a direct click listener to marker content for reliable editing
         iconElement.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent map click
-            this.openEditCard(item);
+            if (!MAP.shareMode && MAP.editMode) this.openEditCard(item);
         });
         
         if (this.editMode && !this.shareMode) {
@@ -1069,7 +1130,7 @@ class FreeLayerManager {
             id: "free" + Date.now(),
             type: 'text',
             position: latLng,
-            text: 'نص جديد',
+            text: I18n.t('defaults.new_text'),
             backgroundStyle: 'white',
             textColor: '#000000',
             fontSize: 16
@@ -1079,10 +1140,10 @@ class FreeLayerManager {
         this.items.push(item);
         
         // Open edit dialog immediately for new text
-        this.openEditCard(item);
+        if (!MAP.shareMode && MAP.editMode) this.openEditCard(item);
         
         bus.emit("persist");
-        bus.emit("toast", "تمت إضافة نص");
+        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_893ed64b4d",null,"",""))));
         
         // إصلاح: تقفل وضع الرسم الحر بعد إضافة نص
         MAP.modeFreeDraw = false;
@@ -1097,7 +1158,7 @@ class FreeLayerManager {
         this.applyTextBackgroundStyle(textElement, item);
         
         // تحسين عرض النص مع دعم الأسطر المتعددة
-        textElement.innerHTML = this.formatTextDisplay(item.text);
+        I18n.render(textElement,this.formatTextDisplay(item.text));
         
         item.marker = new google.maps.marker.AdvancedMarkerElement({
             position: item.position,
@@ -1109,7 +1170,7 @@ class FreeLayerManager {
         // FIX: Add a direct click listener to marker content for reliable editing
         textElement.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent map click
-            this.openEditCard(item);
+            if (!MAP.shareMode && MAP.editMode) this.openEditCard(item);
         });
         
         if (this.editMode && !this.shareMode) {
@@ -1179,6 +1240,7 @@ class FreeLayerManager {
     }
     
     openEditCard(item) {
+        if (MAP.shareMode || !MAP.editMode) return;
         this.activeItem = item;
         
         const cardStyle = `
@@ -1191,7 +1253,7 @@ class FreeLayerManager {
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
             padding: 0;
             color: #333;
-            direction: rtl;
+            direction:inherit;
             width: 380px;
             max-width: 95vw;
             max-height: 70vh;
@@ -1221,81 +1283,12 @@ class FreeLayerManager {
         let bodyContent = '';
         
         if (item.type === 'icon') {
-            bodyContent = `
-                <div style="margin-bottom: 16px;">
-                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">الأيقونة:</label>
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <i class="material-icons" style="font-size: 28px; color: ${item.color}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;">${item.iconName}</i>
-                        <button id="change-icon-btn" style="padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px;">تغيير</button>
-                    </div>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">اللون:</label>
-                    <input id="icon-color" type="color" value="${item.color}" style="width: 100%; height: 40px; border: none; border-radius: 6px; cursor: pointer;">
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">الحجم: <span id="icon-scale-value">${item.scale}x</span></label>
-                    <input id="icon-scale" type="range" min="0.5" max="3" step="0.1" value="${item.scale}" style="width: 100%;">
-                </div>
-                <!-- إضافة خيار تغيير الموقع -->
-                <div style="margin-bottom: 16px;">
-                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">تغيير الموقع:</label>
-                    <button id="move-icon-btn" style="padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; width: 100%;">
-                        <i class="material-icons" style="vertical-align: middle; margin-left: 8px;">open_with</i>
-                        انقر هنا ثم انقر على الخريطة لتحديد الموقع الجديد
-                    </button>
-                </div>
-            `;
+            bodyContent = ("\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_63a2d5fd82",null)) + "</label>\n                    <div style=\"display: flex; align-items: center; gap: 12px;\">\n                        <i class=\"material-icons\" style=\"font-size: 28px; color: " + ((item.color)) + "; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;\">" + (I18n.fragment(()=>(item.iconName))) + "</i>\n                        <button id=\"change-icon-btn\" style=\"padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px;\">" + (I18n.mark("ui_c0d1656706",null)) + "</button>\n                    </div>\n                </div>\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_e6c89c256c",null)) + "</label>\n                    <input id=\"icon-color\" type=\"color\" value=\"" + ((item.color)) + "\" style=\"width: 100%; height: 40px; border: none; border-radius: 6px; cursor: pointer;\">\n                </div>\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_d11e9044ba",null)) + " <span id=\"icon-scale-value\">" + (I18n.fragment(()=>(item.scale))) + "x</span></label>\n                    <input id=\"icon-scale\" type=\"range\" min=\"0.5\" max=\"3\" step=\"0.1\" value=\"" + ((item.scale)) + "\" style=\"width: 100%;\">\n                </div>\n                <!-- إضافة خيار تغيير الموقع -->\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_81aeadb0b6",null)) + "</label>\n                    <button id=\"move-icon-btn\" style=\"padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; width: 100%;\">\n                        <i class=\"material-icons\" style=\"vertical-align: middle; margin-left: 8px;\">open_with</i>\n                        " + (I18n.mark("ui_a635518f00",null)) + "\n                    </button>\n                </div>\n            ");
         } else if (item.type === 'text') {
-            bodyContent = `
-                <div style="margin-bottom: 16px;">
-                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">النص:</label>
-                    <textarea id="text-content" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; min-height: 100px; font-family: 'Tajawal', sans-serif; font-size: 14px; line-height: 1.5;">${item.text}</textarea>
-                    <div style="font-size: 12px; color: #666; margin-top: 4px;">ملاحظة: اضغط Enter للانتقال لسطر جديد</div>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">نمط الخلفية:</label>
-                    <select id="text-background" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: 'Tajawal', sans-serif; font-size: 14px;">
-                        <option value="none" ${item.backgroundStyle === 'none' ? 'selected' : ''}>بدون خلفية</option>
-                        <option value="white" ${item.backgroundStyle === 'white' ? 'selected' : ''}>مربع أبيض</option>
-                        <option value="dark" ${item.backgroundStyle === 'dark' ? 'selected' : ''}>مربع داكن</option>
-                        <option value="outline" ${item.backgroundStyle === 'outline' ? 'selected' : ''}>إطار</option>
-                    </select>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">لون النص:</label>
-                    <input id="text-color" type="color" value="${item.textColor}" style="width: 100%; height: 40px; border: none; border-radius: 6px; cursor: pointer;">
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">حجم الخط: <span id="text-size-value">${item.fontSize}px</span></label>
-                    <input id="text-size" type="range" min="12" max="36" step="1" value="${item.fontSize}" style="width: 100%;">
-                </div>
-                <!-- إضافة خيار تغيير الموقع -->
-                <div style="margin-bottom: 16px;">
-                    <label style="font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;">تغيير الموقع:</label>
-                    <button id="move-text-btn" style="padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; width: 100%;">
-                        <i class="material-icons" style="vertical-align: middle; margin-left: 8px;">open_with</i>
-                        انقر هنا ثم انقر على الخريطة لتحديد الموقع الجديد
-                    </button>
-                </div>
-            `;
+            bodyContent = ("\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_24c761c38d",null)) + "</label>\n                    <textarea id=\"text-content\" style=\"width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; min-height: 100px; font-family: 'Tajawal', sans-serif; font-size: 14px; line-height: 1.5;\">" + ((item.text)) + "</textarea>\n                    <div style=\"font-size: 12px; color: #666; margin-top: 4px;\">" + (I18n.mark("ui_ad62500032",null)) + "</div>\n                </div>\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_fc43b86613",null)) + "</label>\n                    <select id=\"text-background\" style=\"width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: 'Tajawal', sans-serif; font-size: 14px;\">\n                        <option value=\"none\" " + ((item.backgroundStyle === 'none' ? 'selected' : '')) + " data-i18n=\"ui_0b201e4138\">" + (I18n.t("ui_0b201e4138",null)) + "</option>\n                        <option value=\"white\" " + ((item.backgroundStyle === 'white' ? 'selected' : '')) + " data-i18n=\"ui_14c76596aa\">" + (I18n.t("ui_14c76596aa",null)) + "</option>\n                        <option value=\"dark\" " + ((item.backgroundStyle === 'dark' ? 'selected' : '')) + " data-i18n=\"ui_91f1634c6e\">" + (I18n.t("ui_91f1634c6e",null)) + "</option>\n                        <option value=\"outline\" " + ((item.backgroundStyle === 'outline' ? 'selected' : '')) + " data-i18n=\"ui_4a59c8a557\">" + (I18n.t("ui_4a59c8a557",null)) + "</option>\n                    </select>\n                </div>\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_ca9e585038",null)) + "</label>\n                    <input id=\"text-color\" type=\"color\" value=\"" + ((item.textColor)) + "\" style=\"width: 100%; height: 40px; border: none; border-radius: 6px; cursor: pointer;\">\n                </div>\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_329bb9996c",null)) + " <span id=\"text-size-value\">" + (I18n.fragment(()=>(item.fontSize))) + "px</span></label>\n                    <input id=\"text-size\" type=\"range\" min=\"12\" max=\"36\" step=\"1\" value=\"" + ((item.fontSize)) + "\" style=\"width: 100%;\">\n                </div>\n                <!-- إضافة خيار تغيير الموقع -->\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_81aeadb0b6",null)) + "</label>\n                    <button id=\"move-text-btn\" style=\"padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; width: 100%;\">\n                        <i class=\"material-icons\" style=\"vertical-align: middle; margin-left: 8px;\">open_with</i>\n                        " + (I18n.mark("ui_a635518f00",null)) + "\n                    </button>\n                </div>\n            ");
         }
         
-        const html = `
-            <div style="${cardStyle}" class="free-draw-edit-card">
-                <div style="${headerStyle}">
-                    <h3 style="margin: 0; font-size: 18px; font-weight: 700;">${item.type === 'icon' ? 'تعديل الأيقونة' : 'تعديل النص'}</h3>
-                </div>
-                <div style="${bodyStyle}">
-                    ${bodyContent}
-                </div>
-                <div style="${footerStyle}">
-                    <button id="delete-btn" style="padding: 10px 20px; border: none; border-radius: 8px; background-color: #ea4335; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;">حذف</button>
-                    <button id="cancel-btn" style="padding: 10px 20px; border: none; border-radius: 8px; background-color: #f5f5f5; color: #333; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;">إلغاء</button>
-                    <button id="save-btn" style="padding: 10px 20px; border: none; border-radius: 8px; background-color: #4285f4; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;">حفظ</button>
-                </div>
-            </div>
-        `;
+        const html = ("\n            <div style=\"" + ((cardStyle)) + "\" class=\"free-draw-edit-card\">\n                <div style=\"" + ((headerStyle)) + "\">\n                    <h3 style=\"margin: 0; font-size: 18px; font-weight: 700;\">" + (I18n.fragment(()=>(item.type === 'icon' ? I18n.msg("ui_fdbda91b66",null,"","") : I18n.msg("ui_a1754bc45f",null,"","")))) + "</h3>\n                </div>\n                <div style=\"" + ((bodyStyle)) + "\">\n                    " + (I18n.fragment(()=>(bodyContent))) + "\n                </div>\n                <div style=\"" + ((footerStyle)) + "\">\n                    <button id=\"delete-btn\" style=\"padding: 10px 20px; border: none; border-radius: 8px; background-color: #ea4335; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;\">" + (I18n.mark("ui_2d2bbdc2d6",null)) + "</button>\n                    <button id=\"cancel-btn\" style=\"padding: 10px 20px; border: none; border-radius: 8px; background-color: #f5f5f5; color: #333; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;\">" + (I18n.mark("ui_e776b0209b",null)) + "</button>\n                    <button id=\"save-btn\" style=\"padding: 10px 20px; border: none; border-radius: 8px; background-color: #4285f4; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;\">" + (I18n.mark("ui_56ee6e0d20",null)) + "</button>\n                </div>\n            </div>\n        ");
         
         UI.openSharedInfoCard(html, item.position, true);
         
@@ -1317,8 +1310,8 @@ class FreeLayerManager {
         
         if (deleteBtn) {
             deleteBtn.addEventListener("click", () => {
-                if (confirm("هل أنت متأكد من حذف هذا العنصر؟")) {
-                    this.deleteItem(item);
+                if (confirm(I18n.msg("ui_1976909447",null,"",""))) {
+                    if (!MAP.shareMode && MAP.editMode) this.deleteItem(item);
                     UI.forceCloseSharedInfoCard();
                 }
             });
@@ -1361,10 +1354,10 @@ class FreeLayerManager {
                         bus.emit("persist");
                         
                         // Show toast
-                        bus.emit("toast", "تم تغيير موقع الأيقونة");
+                        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_d37dc73061",null,"",""))));
                         
                         // Reopen edit card
-                        this.openEditCard(item);
+                        if (!MAP.shareMode && MAP.editMode) this.openEditCard(item);
                     });
                 });
             }
@@ -1372,7 +1365,7 @@ class FreeLayerManager {
             if (scaleInput) {
                 scaleInput.addEventListener("input", () => {
                     const value = parseFloat(scaleInput.value);
-                    scaleValue.textContent = `${value}x`;
+                    I18n.text(scaleValue,()=>(`${value}x`));
                 });
             }
             
@@ -1384,7 +1377,7 @@ class FreeLayerManager {
                     this.updateIconMarker(item);
                     UI.forceCloseSharedInfoCard();
                     bus.emit("persist");
-                    bus.emit("toast", "تم حفظ التغييرات");
+                    bus.emit('toast',I18n.live(()=>(I18n.msg("ui_7d97af2f7e",null,"",""))));
                 });
             }
         } else if (item.type === 'text') {
@@ -1431,17 +1424,17 @@ class FreeLayerManager {
                         bus.emit("persist");
                         
                         // Show toast
-                        bus.emit("toast", "تم تغيير موقع النص");
+                        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_28e5e849a6",null,"",""))));
                         
                         // Reopen edit card
-                        this.openEditCard(item);
+                        if (!MAP.shareMode && MAP.editMode) this.openEditCard(item);
                     });
                 });
             }
             
             if (sizeInput) {
                 sizeInput.addEventListener("input", () => {
-                    sizeValue.textContent = `${sizeInput.value}px`;
+                    I18n.text(sizeValue,()=>(`${sizeInput.value}px`));
                 });
             }
             
@@ -1455,7 +1448,7 @@ class FreeLayerManager {
                     this.updateTextMarker(item);
                     UI.forceCloseSharedInfoCard();
                     bus.emit("persist");
-                    bus.emit("toast", "تم حفظ التغييرات");
+                    bus.emit('toast',I18n.live(()=>(I18n.msg("ui_7d97af2f7e",null,"",""))));
                 });
             }
         }
@@ -1464,20 +1457,21 @@ class FreeLayerManager {
     updateIconMarker(item) {
         const iconElement = item.marker.content;
         // تحسين جودة عرض الأيقونة عند التحديث
-        iconElement.innerHTML = `<i class="material-icons" style="color: ${item.color}; font-size: ${24 * item.scale}px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;">${item.iconName}</i>`;
+        I18n.render(iconElement,("<i class=\"material-icons\" style=\"color: " + ((item.color)) + "; font-size: " + ((24 * item.scale)) + "px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;\">" + (I18n.fragment(()=>(item.iconName))) + "</i>"));
     }
     
     updateTextMarker(item) {
         const textElement = item.marker.content;
         this.applyTextBackgroundStyle(textElement, item);
-        textElement.innerHTML = this.formatTextDisplay(item.text);
+        I18n.render(textElement,this.formatTextDisplay(item.text));
     }
     
     deleteItem(item) {
+        if (MAP.shareMode || !MAP.editMode) return;
         item.marker.map = null;
         this.items = this.items.filter(i => i.id !== item.id);
         bus.emit("persist");
-        bus.emit("toast", "تم حذف العنصر");
+        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_f93a725acb",null,"",""))));
     }
     
     exportState() {
@@ -1572,9 +1566,9 @@ class LocationManager {
         
         this.availableIcons = [
             { value: 'report_problem', label: '-' },
-            { value: 'report_problem', label: 'نقطة فرز' },
-            { value: 'report', label: 'تنظيم مروري' },
-            { value: 'gpp_good', label: 'نقطة ثابتة' }
+            { value: 'report_problem', label: I18n.msg("ui_a1a8da99dc",null,"","") },
+            { value: 'report', label: I18n.msg("ui_465d16afae",null,"","") },
+            { value: 'gpp_good', label: I18n.msg("ui_d2acf136bd",null,"","") }
         ];
 
         bus.on("map:ready", map => {
@@ -1607,13 +1601,13 @@ class LocationManager {
                 color: "#ff0000", 
                 fillOpacity: 0.3, 
                 recipients: [], 
-                name: "موقع جديد"
+                name: I18n.t('defaults.new_location')
             });
 
             MAP.modeAdd = false;
             UI.showDefaultUI();
             bus.emit("persist"); 
-            bus.emit("toast", "تمت إضافة موقع جديد");
+            bus.emit('toast',I18n.live(()=>(I18n.msg("ui_365b5e9171",null,"",""))));
         });
     }
 
@@ -1670,7 +1664,7 @@ class LocationManager {
 
         const item = {
             id: data.id,
-            name: data.name || "نقطة",
+            name: data.name || I18n.t('defaults.point'),
             color: data.color,
             radius: data.radius,
             recipients: data.recipients,
@@ -1692,7 +1686,7 @@ class LocationManager {
         if (data.usePin) {
             const iconEl = document.createElement("i");
             iconEl.className = 'material-icons';
-            iconEl.textContent = this.availableIcons.find(icon => icon.value === data.iconType)?.label.split(' ')[0] || 'place';
+            I18n.text(iconEl,()=>data.iconType || 'place');
             // تحسين جودة عرض الأيقونة
             iconEl.style.color = 'white';
             iconEl.style.fontSize = '20px';
@@ -1762,7 +1756,7 @@ class LocationManager {
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
             padding: 0;
             color: #333;
-            direction: rtl;
+            direction:inherit;
             width: 340px;
             max-width: 95vw;
             max-height: 70vh;
@@ -1811,88 +1805,23 @@ class LocationManager {
         const labelStyle = `font-size:11px; display:block; margin-bottom:4px; font-weight: 700; color: #444;`;
 
         const optionsHtml = this.availableIcons.map(icon => 
-            `<option value="${icon.value}" ${item.iconType === icon.value ? 'selected' : ''}>${icon.label}</option>`
+            ("<option value=\"" + ((icon.value)) + "\" " + ((item.iconType === icon.value ? 'selected' : '')) + " data-i18n-fragment=\"" + (I18n.capture(()=>(icon.label))) + "\">" + ((icon.label)) + "</option>")
         ).join('');
 
         let bodyContent = '';
         if (isEditable) {
-            bodyContent = `
-                <div style="margin-bottom:12px;">
-                    <label style="${labelStyle}">نوع الموقع:</label>
-                    <select id="loc-icon-type" style="${inputStyle}">
-                        ${optionsHtml}
-                    </select>
-                </div>
-                <div style="margin-bottom:12px;">
-                    <label style="${labelStyle}">الاسم:</label>
-                    <input id="loc-name" type="text" value="${name}" style="${inputStyle}">
-                </div>
-                <div style="margin-bottom:12px;">
-                    <label style="${labelStyle}">تفاصيل:</label>
-                    <textarea id="loc-rec" style="${inputStyle} min-height:60px; resize:vertical;">${item.recipients.join('\n')}</textarea>
-                </div>
-            `;
+            bodyContent = ("\n                <div style=\"margin-bottom:12px;\">\n                    <label style=\"" + ((labelStyle)) + "\">" + (I18n.mark("ui_5b5f691002",null)) + "</label>\n                    <select id=\"loc-icon-type\" style=\"" + ((inputStyle)) + "\">\n                        " + (I18n.fragment(()=>(optionsHtml))) + "\n                    </select>\n                </div>\n                <div style=\"margin-bottom:12px;\">\n                    <label style=\"" + ((labelStyle)) + "\">" + (I18n.mark("ui_9d8caec5db",null)) + "</label>\n                    <input id=\"loc-name\" type=\"text\" value=\"" + ((name)) + "\" style=\"" + ((inputStyle)) + "\">\n                </div>\n                <div style=\"margin-bottom:12px;\">\n                    <label style=\"" + ((labelStyle)) + "\">" + (I18n.mark("ui_74e45a5179",null)) + "</label>\n                    <textarea id=\"loc-rec\" style=\"" + ((inputStyle)) + " min-height:60px; resize:vertical;\">" + ((item.recipients.join('\n'))) + "</textarea>\n                </div>\n            ");
         } else {
-            const selectedLabel = this.availableIcons.find(icon => icon.value === item.iconType)?.label || 'مكان عام';
-            bodyContent = `
-                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-                    <div style="flex:1;">
-                           <label style="${labelStyle}">نوع الموقع:</label>
-                           <div style="background: rgba(255,255,255,0.5); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight:600;">
-                           ${selectedLabel}
-                           </div>
-                    </div>
-                </div>
-                <div>
-                    <label style="${labelStyle}">تفاصيل:</label>
-                    <div style="background: rgba(255,255,255,0.3); padding: 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; min-height: 40px; border: 1px solid rgba(255,255,255,0.2);">
-                        ${recipientsHtml || '<span style="color: #666; font-style: italic;">لا توجد تفاصيل إضافية</span>'}
-                    </div>
-                </div>
-            `;
+            const selectedLabel = this.availableIcons.find(icon => icon.value === item.iconType)?.label || I18n.msg("ui_1f3cd157c9",null,"","");
+            bodyContent = ("\n                <div style=\"display: flex; gap: 10px; margin-bottom: 12px;\">\n                    <div style=\"flex:1;\">\n                           <label style=\"" + ((labelStyle)) + "\">" + (I18n.mark("ui_5b5f691002",null)) + "</label>\n                           <div style=\"background: rgba(255,255,255,0.5); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight:600;\">\n                           " + (I18n.fragment(()=>(selectedLabel))) + "\n                           </div>\n                    </div>\n                </div>\n                <div>\n                    <label style=\"" + ((labelStyle)) + "\">" + (I18n.mark("ui_74e45a5179",null)) + "</label>\n                    <div style=\"background: rgba(255,255,255,0.3); padding: 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; min-height: 40px; border: 1px solid rgba(255,255,255,0.2);\">\n                        " + (I18n.fragment(()=>(recipientsHtml || ("<span style=\"color: #666; font-style: italic;\">" + (I18n.mark("ui_d80607f06b",null)) + "</span>")))) + "\n                    </div>\n                </div>\n            ");
         }
 
         let footerContent = '';
         if (isEditable) {
-            footerContent = `
-                <div style="${footerStyle}">
-                    <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 100px;">
-                            <label style="${labelStyle}">اللون:</label>
-                            <input id="loc-color" type="color" value="${item.color}" style="width:100%; height:36px; border:none; background:none; cursor:pointer;">
-                        </div>
-                        <div style="flex:1; min-width: 100px;">
-                            <label style="${labelStyle}">الحجم (متر):</label>
-                            <input id="loc-radius" type="number" value="${item.radius}" min="5" max="5000" step="5" style="${inputStyle}">
-                        </div>
-                    </div>
-                    <div style="margin-bottom:20px;">
-                        <label style="${labelStyle}">الشفافية: <span id="loc-opacity-val">${Math.round(item.fillOpacity * 100)}%</span></label>
-                        <input id="loc-opacity" type="range" min="0" max="100" value="${Math.round(item.fillOpacity * 100)}" style="width:100%; accent-color: #4285f4;">
-                    </div>
-                    <div style="display:flex; gap:10px;">
-                        <button id="loc-save" style="flex:2; background: linear-gradient(135deg, #4285f4, #3b71ca); color:white; border:none; border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif; box-shadow: 0 4px 10px rgba(66, 133, 244, 0.3);">حفظ</button>
-                        <button id="loc-delete" style="flex:1; background: rgba(233, 66, 53, 0.1); color:#d93025; border:1px solid rgba(233, 66, 53, 0.3); border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">حذف</button>
-                        <button id="loc-close" style="flex:1; background: rgba(0,0,0,0.05); color:#444; border:1px solid rgba(0,0,0,0.1); border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;">إغلاق</button>
-                    </div>
-                </div>
-            `;
+            footerContent = ("\n                <div style=\"" + ((footerStyle)) + "\">\n                    <div style=\"display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap: wrap;\">\n                        <div style=\"flex:1; min-width: 100px;\">\n                            <label style=\"" + ((labelStyle)) + "\">" + (I18n.mark("ui_e6c89c256c",null)) + "</label>\n                            <input id=\"loc-color\" type=\"color\" value=\"" + ((item.color)) + "\" style=\"width:100%; height:36px; border:none; background:none; cursor:pointer;\">\n                        </div>\n                        <div style=\"flex:1; min-width: 100px;\">\n                            <label style=\"" + ((labelStyle)) + "\">" + (I18n.mark("ui_170ff230ab",null)) + "</label>\n                            <input id=\"loc-radius\" type=\"number\" value=\"" + ((item.radius)) + "\" min=\"5\" max=\"5000\" step=\"5\" style=\"" + ((inputStyle)) + "\">\n                        </div>\n                    </div>\n                    <div style=\"margin-bottom:20px;\">\n                        <label style=\"" + ((labelStyle)) + "\">" + (I18n.mark("ui_365db58ac0",null)) + " <span id=\"loc-opacity-val\">" + (I18n.fragment(()=>(Math.round(item.fillOpacity * 100)))) + "%</span></label>\n                        <input id=\"loc-opacity\" type=\"range\" min=\"0\" max=\"100\" value=\"" + ((Math.round(item.fillOpacity * 100))) + "\" style=\"width:100%; accent-color: #4285f4;\">\n                    </div>\n                    <div style=\"display:flex; gap:10px;\">\n                        <button id=\"loc-save\" style=\"flex:2; background: linear-gradient(135deg, #4285f4, #3b71ca); color:white; border:none; border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif; box-shadow: 0 4px 10px rgba(66, 133, 244, 0.3);\">" + (I18n.mark("ui_56ee6e0d20",null)) + "</button>\n                        <button id=\"loc-delete\" style=\"flex:1; background: rgba(233, 66, 53, 0.1); color:#d93025; border:1px solid rgba(233, 66, 53, 0.3); border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_2d2bbdc2d6",null)) + "</button>\n                        <button id=\"loc-close\" style=\"flex:1; background: rgba(0,0,0,0.05); color:#444; border:1px solid rgba(0,0,0,0.1); border-radius: 12px; padding:12px; cursor:pointer; font-weight:bold; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_5bf826c5e5",null)) + "</button>\n                    </div>\n                </div>\n            ");
         }
 
-        const html = `
-        <div style="${cardStyle}" class="glass-card-content">
-            <div style="${headerStyle}">
-                <div style="display:flex; align-items:center; gap: 8px;">
-                    <img src="img/logo.png" style="width: 32px; height: 32px; border-radius: 50%;">
-                    <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700;">${name}</h3>
-                </div>
-            </div>
-            
-            <div style="${bodyStyle}">
-                ${bodyContent}
-            </div>
-            ${footerContent}
-        </div>`;
+        const html = ("\n        <div style=\"" + ((cardStyle)) + "\" class=\"glass-card-content\">\n            <div style=\"" + ((headerStyle)) + "\">\n                <div style=\"display:flex; align-items:center; gap: 8px;\">\n                    <img src=\"/img/seen-logo.png\" style=\"width: 32px; height: 32px; border-radius: 50%;\">\n                    <h3 style=\"margin:0; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700;\">" + (I18n.fragment(()=>(name))) + "</h3>\n                </div>\n            </div>\n            \n            <div style=\"" + ((bodyStyle)) + "\">\n                " + (I18n.fragment(()=>(bodyContent))) + "\n            </div>\n            " + (I18n.fragment(()=>(footerContent))) + "\n        </div>");
 
         UI.openSharedInfoCard(html, item.marker.position, !hoverOnly);
         
@@ -1916,7 +1845,7 @@ class LocationManager {
         const opValEl = document.getElementById("loc-opacity-val");
         const iconTypeEl = document.getElementById("loc-icon-type");
 
-        if (opEl) { opEl.addEventListener("input", () => { if(opValEl) opValEl.textContent = opEl.value + "%"; }); }
+        if (opEl) { opEl.addEventListener("input", () => { if(opValEl) I18n.text(opValEl,()=>(opEl.value + "%")); }); }
 
         if (saveBtn) {
             saveBtn.addEventListener("click", () => {
@@ -1938,19 +1867,19 @@ class LocationManager {
 
                 bus.emit("persist");
                 UI.forceCloseSharedInfoCard();
-                bus.emit("toast", "تم حفظ التعديلات");
+                bus.emit('toast',I18n.live(()=>(I18n.msg("ui_2d453c123c",null,"",""))));
             });
         }
 
         if (delBtn) {
             delBtn.addEventListener("click", () => {
-                if (!confirm(`حذف "${item.name}"؟`))return;
+                if (!confirm(I18n.msg("ui_524929f1b6",()=>({p0:(item.name)}))))return;
                 item.marker.map = null;
                 item.circle.setMap(null);
                 this.items = this.items.filter(x => x.id !== item.id);
                 UI.forceCloseSharedInfoCard();
                 bus.emit("persist");
-                bus.emit("toast", "تم حذف الموقع");
+                bus.emit('toast',I18n.live(()=>(I18n.msg("ui_401f707b91",null,"",""))));
             });
         }
     }
@@ -1999,6 +1928,9 @@ class RouteManager {
         this.directionsService = null;
         this.activeRouteIndex = -1;
         this.showNumbers = true; // التحكم في عرض أرقام المسارات
+        this.drawingMode = "auto";
+        this.routeRequestSerial = 0;
+        this.allStopMarkers = new Set();
 
         bus.on("map:ready", map => {
             this.map = map;
@@ -2020,21 +1952,162 @@ class RouteManager {
         });
     }
 
-    startNewRouteSequence() { 
-        this.activeRouteIndex = -1; 
+    startNewRouteSequence(mode = "auto") {
+        this.activeRouteIndex = -1;
+        this.drawingMode = mode === "manual" ? "manual" : "auto";
         MAP.modeRouteAdd = true;
     }
+
+    chooseDrawingMode() {
+        if (MAP.shareMode || !MAP.editMode) return;
+        const existing = document.getElementById("route-mode-dialog");
+        if (existing) existing.remove();
+        const overlay = document.createElement("div");
+        overlay.id = "route-mode-dialog";
+        overlay.style.cssText = "position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px;direction:inherit;font-family:Tajawal,Cairo,sans-serif";
+        const card = document.createElement("div");
+        card.style.cssText = "background:#fff;color:#222;border-radius:16px;padding:24px;width:min(420px,100%);box-shadow:0 12px 32px #0003";
+        const heading = document.createElement("h3");
+        I18n.text(heading,()=>(I18n.msg("ui_e8ddd37202",null,"","")));
+        heading.style.margin = "0 0 16px";
+        card.appendChild(heading);
+        for (const [mode, title, detail] of [
+            ["auto", I18n.msg("ui_988510c0f5",null,"",""), I18n.msg("ui_22bef00a8c",null,"","")],
+            ["manual", I18n.msg("ui_96ec266943",null,"",""), I18n.msg("ui_8fe00d32a7",null,"","")]
+        ]) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.style.cssText = "display:block;width:100%;text-align:start;border:1px solid #d8dce4;background:#f8fafc;border-radius:10px;padding:12px;margin:10px 0;cursor:pointer;font:inherit";
+            const strong = document.createElement("strong"); I18n.text(strong,()=>(title));
+            const small = document.createElement("div"); I18n.text(small,()=>(detail)); small.style.cssText = "font-size:13px;color:#555;margin-top:5px";
+            btn.append(strong, small);
+            btn.addEventListener("click", () => {
+                overlay.remove();
+                UI.setActiveMode("route");
+                this.drawingMode = mode;
+                bus.emit('toast',I18n.live(()=>(mode === "manual" ? I18n.msg("ui_646f5c0546",null,"","") : I18n.msg("ui_ddc02677ff",null,"",""))));
+            });
+            card.appendChild(btn);
+        }
+        // إدارة المسارات داخل نافذة «مسار» فقط، وتظهر عند وجود مسار مرسوم.
+        if (this.routes.length > 0) {
+            const separator = document.createElement("hr");
+            separator.style.cssText = "border:0;border-top:1px solid #e5e7eb;margin:18px 0";
+            card.appendChild(separator);
+            const manageTitle = document.createElement("h4");
+            I18n.text(manageTitle,()=>(I18n.msg("ui_af3973c82c",null,"","")));
+            manageTitle.style.cssText = "margin:0 0 10px;font-size:15px";
+            card.appendChild(manageTitle);
+            this.routes.forEach((route) => {
+                const row = document.createElement("div");
+                row.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;flex-wrap:wrap";
+                const label = document.createElement("span");
+                I18n.text(label,()=>(I18n.msg("ui_314252fb89",()=>({p0:(route.routeNumber),p1:(route.points.length)}))));
+                label.style.cssText = "font-size:13px;font-weight:bold";
+                const actions = document.createElement("div");
+                actions.style.cssText = "display:flex;gap:6px;flex-wrap:wrap";
+                const pointsButton = document.createElement("button");
+                pointsButton.type = "button";
+                I18n.text(pointsButton,()=>(I18n.msg("ui_589e4e2e6a",null,"","")));
+                pointsButton.disabled = route.points.length === 0;
+                pointsButton.style.cssText = "border:1px solid #d1d5db;background:#fff;border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit;font-size:12px";
+                pointsButton.addEventListener("click", () => {
+                    overlay.remove();
+                    this.showDeletePointsDialog(route.id);
+                });
+                const deleteButton = document.createElement("button");
+                deleteButton.type = "button";
+                I18n.text(deleteButton,()=>(I18n.msg("ui_8cb551205d",null,"","")));
+                deleteButton.style.cssText = "border:1px solid #fecaca;background:#fff1f2;color:#b91c1c;border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit;font-size:12px";
+                deleteButton.addEventListener("click", () => {
+                    if (!confirm(I18n.msg("ui_72420cd5af",()=>({p0:(route.routeNumber)})))) return;
+                    const index = this.routes.findIndex(r => r.id === route.id);
+                    if (index < 0) return;
+                    this.removeRoute(index);
+                    overlay.remove();
+                    bus.emit('toast',I18n.live(()=>(I18n.msg("ui_de188c97ed",null,"",""))));
+                    if (this.routes.length) this.chooseDrawingMode();
+                });
+                actions.append(pointsButton, deleteButton);
+                row.append(label, actions);
+                card.appendChild(row);
+            });
+        }
+        const cancel = document.createElement("button"); I18n.text(cancel,()=>(I18n.msg("ui_e776b0209b",null,"","")));
+        cancel.style.cssText = "border:0;background:transparent;padding:10px;cursor:pointer;font:inherit";
+        cancel.addEventListener("click", () => overlay.remove()); card.appendChild(cancel);
+        overlay.appendChild(card);
+        overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+        document.body.appendChild(overlay);
+    }
     
+    showDeletePointsDialog(routeId) {
+        if (MAP.shareMode || !MAP.editMode) return;
+        const route = this.routes.find(r => r.id === routeId);
+        if (!route) return;
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;z-index:20001;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px;direction:inherit;font-family:Tajawal,Cairo,sans-serif";
+        const card = document.createElement("div");
+        card.style.cssText = "background:white;color:#222;border-radius:16px;padding:22px;width:min(420px,100%);max-height:80vh;overflow:auto;box-shadow:0 12px 32px #0003";
+        const title = document.createElement("h3");
+        I18n.text(title,()=>(I18n.msg("ui_6b367e40a6",()=>({p0:(route.routeNumber)}))));
+        title.style.margin = "0 0 8px";
+        const hint = document.createElement("p");
+        I18n.text(hint,()=>(I18n.msg("ui_8907f6e373",null,"","")));
+        hint.style.cssText = "font-size:13px;color:#555";
+        const options = document.createElement("div");
+        options.style.cssText = "display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0";
+        route.points.forEach((_, index) => {
+            const label = document.createElement("label");
+            label.style.cssText = "display:flex;align-items:center;gap:6px;border:1px solid #ddd;border-radius:8px;padding:9px;cursor:pointer";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = String(index);
+            label.append(checkbox, I18n.node(() => I18n.msg("ui_800f08da4b",()=>({p0:(this.getStopLabel(route, index))}))));
+            options.appendChild(label);
+        });
+        const actions = document.createElement("div");
+        actions.style.cssText = "display:flex;gap:10px;justify-content:flex-end";
+        const cancel = document.createElement("button");
+        I18n.text(cancel,()=>(I18n.msg("ui_e776b0209b",null,"","")));
+        const submit = document.createElement("button");
+        I18n.text(submit,()=>(I18n.msg("ui_09f3647737",null,"","")));
+        submit.style.cssText = "background:#b91c1c;color:white;border:0;border-radius:8px;padding:10px 14px;cursor:pointer";
+        cancel.style.cssText = "background:#f3f4f6;border:0;border-radius:8px;padding:10px 14px;cursor:pointer";
+        cancel.addEventListener("click", () => { overlay.remove(); this.chooseDrawingMode(); });
+        submit.addEventListener("click", () => {
+            const indices = Array.from(options.querySelectorAll('input:checked')).map(input => Number(input.value)).sort((a,b) => b-a);
+            if (!indices.length) { bus.emit('toast',I18n.live(()=>(I18n.msg("ui_9bb4f9a10f",null,"","")))); return; }
+            if (indices.length === route.points.length && !confirm(I18n.msg("ui_b8d809528c",null,"",""))) return;
+            const currentIndex = this.routes.findIndex(r => r.id === routeId);
+            if (currentIndex < 0) { overlay.remove(); return; }
+            indices.forEach(i => {
+                const updatedIndex = this.routes.findIndex(r => r.id === routeId);
+                if (updatedIndex >= 0) this.removePoint(updatedIndex, i);
+            });
+            overlay.remove();
+            bus.emit('toast',I18n.live(()=>(I18n.msg("ui_39f2357baa",null,"",""))));
+            if (this.routes.length) this.chooseDrawingMode();
+        });
+        actions.append(cancel, submit);
+        card.append(title, hint, options, actions);
+        overlay.appendChild(card);
+        overlay.addEventListener("click", e => { if (e.target === overlay) { overlay.remove(); this.chooseDrawingMode(); } });
+        document.body.appendChild(overlay);
+    }
+
     finishCurrentRoute() {
         if (this.activeRouteIndex === -1) return;
         const rt = this.routes[this.activeRouteIndex];
-        if (rt.poly) rt.poly.setMap(null);
         rt.stops.forEach(s => s.map = null);
         if (rt.points.length >= 2) {
-            this.renderRoute(this.activeRouteIndex);
+            if (rt.mode === "manual" || rt.overview) this.renderRoute(this.activeRouteIndex);
+            else bus.emit('toast',I18n.live(()=>(I18n.msg("ui_738e47320a",null,"",""))));
             bus.emit("persist");
         } else {
+            rt.stops.forEach(stop => this.disposeStopMarker(stop));
             this.routes.pop();
+            this.refreshGlobalPointNumbers();
         }
         this.activeRouteIndex = -1;
         MAP.modeRouteAdd = false;
@@ -2054,7 +2127,9 @@ class RouteManager {
             poly: null, 
             stops: [], 
             notes: "",
-            routeNumber: this.routes.length + 1 // إضافة رقم المسار
+            routeNumber: this.routes.length + 1, // إضافة رقم المسار
+            mode: this.drawingMode,
+            requestVersion: 0
         };
         this.routes.push(route);
         this.activeRouteIndex = this.routes.length - 1;
@@ -2066,6 +2141,7 @@ class RouteManager {
         rt.points.push(latLng);
         const stop = this.createStopMarker(latLng, routeIndex, rt.points.length - 1);
         rt.stops.push(stop);
+        this.refreshGlobalPointNumbers();
         if (rt.points.length >= 2) this.requestRoute(routeIndex);
         else bus.emit("persist");
     }
@@ -2092,7 +2168,7 @@ class RouteManager {
             font-family: 'Tajawal', sans-serif;
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         `;
-        el.textContent = displayNumber;
+        I18n.text(el,()=>(displayNumber));
         
         const marker = new google.maps.marker.AdvancedMarkerElement({ 
             position: pos, 
@@ -2100,26 +2176,40 @@ class RouteManager {
             content: el, 
             gmpDraggable: !this.shareMode 
         });
-        marker.addListener("dragend", () => { 
-            rt.points[idx] = marker.position; 
-            this.requestRoute(routeIndex); 
+        this.allStopMarkers.add(marker);
+        marker.addListener("dragend", () => {
+            const currentIndex = this.routes.indexOf(rt);
+            if (currentIndex < 0 || !rt.stops.includes(marker)) return;
+            const currentPointIndex = rt.stops.indexOf(marker);
+            rt.points[currentPointIndex] = marker.position;
+            this.requestRoute(currentIndex); 
             bus.emit("persist"); 
         });
-        marker.addListener("contextmenu", () => { 
-            if (this.shareMode) return; 
-            this.removePoint(routeIndex, idx); 
+        marker.addListener("contextmenu", (event) => {
+            if (MAP.shareMode || !MAP.editMode) return;
+            const currentIndex = this.routes.indexOf(rt);
+            if (currentIndex < 0 || !rt.stops.includes(marker)) return;
+            this.showRouteContextMenu(currentIndex, rt.stops.indexOf(marker), event?.domEvent || event);
         });
         return marker;
     }
 
     removePoint(routeIndex, idx) {
+        if (MAP.shareMode || !MAP.editMode) return;
         const rt = this.routes[routeIndex];
-        if (rt.stops[idx]) rt.stops[idx].map = null;
-        rt.points.splice(idx, 1); 
-        rt.stops.splice(idx, 1);
-        rt.stops.forEach((m, i) => { 
-            m.content.textContent = this.getStopLabel(rt, i);
-        });
+        if (!rt || idx < 0 || idx >= rt.points.length) return;
+        // إزالة جميع علامات النقاط وإعادة إنشائها حتى تشير أحداث السحب والحذف
+        // إلى الفهارس الصحيحة بعد تغيير ترقيم النقاط.
+        rt.requestVersion = (rt.requestVersion || 0) + 1;
+        rt.stops.forEach(stop => this.disposeStopMarker(stop));
+        rt.stops = [];
+        rt.points.splice(idx, 1);
+        if (rt.points.length === 0) {
+            this.removeRoute(routeIndex);
+            return;
+        }
+        rt.stops = rt.points.map((point, i) => this.createStopMarker(point, routeIndex, i));
+        this.refreshGlobalPointNumbers();
         if (rt.points.length >= 2) this.requestRoute(routeIndex);
         else this.clearRoute(routeIndex);
         bus.emit("persist");
@@ -2130,7 +2220,7 @@ class RouteManager {
         const routeIndex = this.routes.findIndex(rt => rt.routeNumber === routeNumber);
         if (routeIndex !== -1) {
             this.removeRoute(routeIndex);
-            bus.emit("toast", `تم حذف المسار رقم ${routeNumber}`);
+            bus.emit('toast',I18n.live(()=>(I18n.msg("ui_0da65025fc",()=>({p0:(routeNumber)})))));
             return true;
         }
         return false;
@@ -2142,9 +2232,13 @@ class RouteManager {
     }
 
     removeRoute(routeIndex) {
+        if (MAP.shareMode || !MAP.editMode) return;
         const rt = this.routes[routeIndex];
+        if (!rt) return;
+        rt.requestVersion = (rt.requestVersion || 0) + 1;
         if (rt.poly) rt.poly.setMap(null);
-        rt.stops.forEach(s => s.map = null);
+        rt.stops.forEach(s => this.disposeStopMarker(s));
+        rt.stops = [];
         this.routes.splice(routeIndex, 1);
         
         // إعادة ترقيم المسارات المتبقية
@@ -2152,11 +2246,13 @@ class RouteManager {
             route.routeNumber = index + 1;
             // تحديث أرقام النقاط
             route.stops.forEach((stop, stopIndex) => {
-                stop.content.textContent = this.getStopLabel(route, stopIndex);
+                I18n.text(stop.content,()=>(this.getStopLabel(route, stopIndex)));
             });
         });
         
         this.activeRouteIndex = -1;
+        this.cleanupOrphanStopMarkers();
+        this.refreshGlobalPointNumbers();
         UI.forceCloseSharedInfoCard();
         bus.emit("persist");
     }
@@ -2169,17 +2265,54 @@ class RouteManager {
     }
 
     requestRoute(routeIndex) {
-        if (!this.directionsService) this.directionsService = new google.maps.DirectionsService();
-        const rt = this.routes[routeIndex]; const pts = rt.points;
-        if (pts.length < 2) return;
-        const req = { origin: pts[0], destination: pts[pts.length - 1], travelMode: google.maps.TravelMode.DRIVING };
-        if (pts.length > 2) req.waypoints = pts.slice(1, -1).map(p => ({ location: p, stopover: true }));
-        this.directionsService.route(req, (res, status) => {
-            if (status !== "OK") { bus.emit("toast", "تعذر حساب المسار"); return; }
-            const r = res.routes[0]; rt.overview = r.overview_polyline;
-            rt.distance = r.legs.reduce((s, l) => s + l.distance.value, 0);
-            rt.duration = r.legs.reduce((s, l) => s + l.duration.value, 0);
+        const rt = this.routes[routeIndex];
+        if (!rt || rt.points.length < 2) return;
+        const version = rt.requestVersion = (rt.requestVersion || 0) + 1;
+        // Manual paths must never be snapped to roads.
+        if (rt.mode === "manual") {
+            rt.overview = null;
+            rt.duration = 0;
+            rt.distance = 0;
+            for (let i = 1; i < rt.points.length; i++) {
+                rt.distance += google.maps.geometry.spherical.computeDistanceBetween(
+                    new google.maps.LatLng(rt.points[i - 1]),
+                    new google.maps.LatLng(rt.points[i])
+                );
+            }
             this.renderRoute(routeIndex);
+            bus.emit("persist");
+            return;
+        }
+        // Hide stale geometry while the directions service is working.
+        rt.overview = null;
+        rt.distance = 0;
+        rt.duration = 0;
+        if (rt.poly) { rt.poly.setMap(null); rt.poly = null; }
+        if (!this.directionsService) this.directionsService = new google.maps.DirectionsService();
+        const pts = rt.points;
+        const req = {
+            origin: pts[0], destination: pts[pts.length - 1],
+            travelMode: google.maps.TravelMode.DRIVING,
+            ...(pts.length > 2 ? { waypoints: pts.slice(1, -1).map(p => ({ location: p, stopover: true })) } : {})
+        };
+        this.directionsService.route(req, (res, status) => {
+            if (!this.routes.includes(rt) || rt.requestVersion !== version) return;
+            if (status !== "OK" || !res?.routes?.[0]) {
+                bus.emit('toast',I18n.live(()=>(I18n.msg("ui_4b5127750b",null,"","") + status + I18n.msg("ui_7b7d5a1882",null,"",""))));
+                return;
+            }
+            const r = res.routes[0];
+            // Save the actual returned road geometry, not a straight line between stops.
+            const encoded = typeof r.overview_polyline === "string"
+                ? r.overview_polyline : r.overview_polyline?.points;
+            if (!encoded && !r.overview_path?.length) {
+                bus.emit('toast',I18n.live(()=>(I18n.msg("ui_90187abb0a",null,"",""))));
+                return;
+            }
+            rt.overview = encoded || google.maps.geometry.encoding.encodePath(r.overview_path);
+            rt.distance = r.legs.reduce((sum, leg) => sum + (leg.distance?.value || 0), 0);
+            rt.duration = r.legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0);
+            this.renderRoute(this.routes.indexOf(rt));
             bus.emit("persist");
         });
     }
@@ -2187,7 +2320,8 @@ class RouteManager {
     renderRoute(routeIndex) {
         const rt = this.routes[routeIndex];
         if (rt.poly) rt.poly.setMap(null);
-        const path = rt.overview ? google.maps.geometry.encoding.decodePath(rt.overview) : rt.points;
+        if (rt.mode !== "manual" && !rt.overview) return;
+        const path = rt.mode === "manual" ? rt.points : google.maps.geometry.encoding.decodePath(rt.overview);
         rt.poly = new google.maps.Polyline({ 
             map: this.map, 
             path, 
@@ -2201,7 +2335,12 @@ class RouteManager {
             if (!UI.infoWindowPinned) this.openRouteCard(routeIndex, true, e.latLng);
         });
         rt.poly.addListener("mouseout", () => { UI.closeSharedInfoCard();});
-        rt.poly.addListener("click", (e) => this.openRouteCard(routeIndex, false, e.latLng));
+        rt.poly.addListener("click", (e) => this.openRouteCard(this.routes.indexOf(rt), false, e.latLng));
+        rt.poly.addListener("contextmenu", (e) => {
+            if (MAP.shareMode || !MAP.editMode) return;
+            const currentIndex = this.routes.indexOf(rt);
+            if (currentIndex >= 0) this.showRouteContextMenu(currentIndex, null, e.domEvent || e);
+        });
     }
 
     openRouteCard(routeIndex, hoverOnly = false, position = null) {
@@ -2220,7 +2359,7 @@ class RouteManager {
             border: none;
             padding: 0;
             color: #f0f0f0;
-            direction: rtl;
+            direction:inherit;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             width: 400px;
             max-width: 95vw;
@@ -2233,57 +2372,7 @@ class RouteManager {
         const bodyStyle = `padding: 16px;`;
         const footerStyle = `padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.05); position: sticky; bottom: 0;`;
 
-        const html = `
-        <div style="${cardStyle}" class="glass-card-content">
-            <div style="${headerStyle}">
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <img src="img/logo.png" style="width: 30px; height: 30px; border-radius: 6px;">
-                    <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;">مسار رقم ${rt.routeNumber}</h3>
-                </div>
-            </div>
-            <div style="${bodyStyle}">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-family: 'Tajawal', sans-serif;">
-                    <span><b>المسافة:</b> ${dist}</span>
-                    <span><b>الوقت:</b> ${dur}</span>
-                </div>
-                ${isEditable ? `
-                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">اللون:</label><input id="route-color" type="color" value="${rt.color}" style="width:100%;height:30px;border:none;border-radius:6px;cursor:pointer;"></div>
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">الحجم:</label><input id="route-weight" type="number" value="${rt.weight}" min="1" max="20" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;color:#333;"></div>
-                    </div>
-                    <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية الخط: <span id="route-opacity-val">${Math.round(rt.opacity * 100)}%</span></label>
-                        <input id="route-opacity" type="range" min="0" max="100" value="${Math.round(rt.opacity * 100)}" style="width:100%;">
-                    </div>
-                    <div style="margin-bottom:14px;">
-                        <label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">ملاحظات:</label>
-                        <textarea id="route-notes" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px; color: #333;">${notes}</textarea>
-                    </div>
-                    <div style="margin-bottom:14px; background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px;">
-                        <label style="font-size:12px; display:block; margin-bottom:8px; font-family: 'Tajawal', sans-serif; font-weight: bold;">إدارة المسارات:</label>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button id="delete-route-btn" style="padding: 6px 12px; border: none; border-radius: 6px; background: #e94235; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 13px;">
-                                <i class="material-icons" style="font-size: 16px; vertical-align: middle; margin-left: 4px;">delete</i>
-                                حذف هذا المسار
-                            </button>
-                        </div>
-                    </div>
-                ` : `
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Tajawal', sans-serif;">ملاحظات:</p>
-                    <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Tajawal', sans-serif;">
-                        ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
-                    </div>
-                `}
-            </div>
-            ${isEditable ? `
-                <div style="${footerStyle}">
-                    <div style="display:flex;gap:8px; flex-wrap: wrap;">
-                        <button id="route-save" style="flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 90px; font-size: 14px;">حفظ</button>
-                        <button id="route-close" style="flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;">إغلاق</button>
-                    </div>
-                </div>
-            ` : ''}
-        </div>`;
+        const html = ("\n        <div style=\"" + ((cardStyle)) + "\" class=\"glass-card-content\">\n            <div style=\"" + ((headerStyle)) + "\">\n                <div style=\"display:flex;align-items:center;gap:8px;\">\n                    <img src=\"/img/seen-logo.png\" style=\"width: 30px; height: 30px; border-radius: 6px;\">\n                    <h3 style=\"margin:0; font-family: 'Tajawal', sans-serif; font-size: 17px; font-weight: 700;\">" + (I18n.mark("ui_8379923dc3",()=>({p2:(rt.routeNumber)}))) + "</h3>\n                </div>\n            </div>\n            <div style=\"" + ((bodyStyle)) + "\">\n                <div style=\"display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-family: 'Tajawal', sans-serif;\">\n                    <span><b>" + (I18n.mark("ui_854ba0f587",null)) + "</b> " + (I18n.fragment(()=>(dist))) + "</span>\n                    <span><b>" + (I18n.mark("ui_e8423f3b79",null)) + "</b> " + (I18n.fragment(()=>(dur))) + "</span>\n                </div>\n                " + (I18n.fragment(()=>(isEditable ? ("\n                    <div style=\"display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;\">\n                        <div style=\"flex:1; min-width: 120px;\"><label style=\"font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_e6c89c256c",null)) + "</label><input id=\"route-color\" type=\"color\" value=\"" + ((rt.color)) + "\" style=\"width:100%;height:30px;border:none;border-radius:6px;cursor:pointer;\"></div>\n                        <div style=\"flex:1; min-width: 120px;\"><label style=\"font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_d11e9044ba",null)) + "</label><input id=\"route-weight\" type=\"number\" value=\"" + ((rt.weight)) + "\" min=\"1\" max=\"20\" style=\"width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;color:#333;\"></div>\n                    </div>\n                    <div style=\"margin-bottom:14px;\">\n                        <label style=\"font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_05d567244a",null)) + " <span id=\"route-opacity-val\">" + (I18n.fragment(()=>(Math.round(rt.opacity * 100)))) + "%</span></label>\n                        <input id=\"route-opacity\" type=\"range\" min=\"0\" max=\"100\" value=\"" + ((Math.round(rt.opacity * 100))) + "\" style=\"width:100%;\">\n                    </div>\n                    <div style=\"margin-bottom:14px;\">\n                        <label style=\"font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_69bebde44e",null)) + "</label>\n                        <textarea id=\"route-notes\" rows=\"2\" style=\"width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px; color: #333;\">" + ((notes)) + "</textarea>\n                    </div>\n                    <div style=\"margin-bottom:14px; background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px;\">\n                        <label style=\"font-size:12px; display:block; margin-bottom:8px; font-family: 'Tajawal', sans-serif; font-weight: bold;\">" + (I18n.mark("ui_a42961d5dc",null)) + "</label>\n                        <div style=\"display: flex; gap: 8px; flex-wrap: wrap;\">\n                            <button id=\"delete-route-btn\" style=\"padding: 6px 12px; border: none; border-radius: 6px; background: #e94235; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 13px;\">\n                                <i class=\"material-icons\" style=\"font-size: 16px; vertical-align: middle; margin-left: 4px;\">delete</i>\n                                " + (I18n.mark("ui_589daae0e0",null)) + "\n                            </button>\n                        </div>\n                    </div>\n                ") : ("\n                    <p style=\"margin: 0 0 8px 0; font-size: 14px; color: #ccc; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_69bebde44e",null)) + "</p>\n                    <div style=\"background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 8px; min-height: 40px; font-size: 14px; line-height: 1.5; font-family: 'Tajawal', sans-serif;\">\n                        " + (I18n.fragment(()=>(notes || ("<span style=\"color: #888;\">" + (I18n.mark("ui_6401ab66cf",null)) + "</span>")))) + "\n                    </div>\n                ")))) + "\n            </div>\n            " + (I18n.fragment(()=>(isEditable ? ("\n                <div style=\"" + ((footerStyle)) + "\">\n                    <div style=\"display:flex;gap:8px; flex-wrap: wrap;\">\n                        <button id=\"route-save\" style=\"flex:2;background:#4285f4;color:white;border:none;border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 90px; font-size: 14px;\">" + (I18n.mark("ui_56ee6e0d20",null)) + "</button>\n                        <button id=\"route-close\" style=\"flex:1;background:rgba(255,255,255,0.1);color:#f0f0f0;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 70px; font-size: 14px;\">" + (I18n.mark("ui_5bf826c5e5",null)) + "</button>\n                    </div>\n                </div>\n            ") : ''))) + "\n        </div>");
 
         const cardPosition = position || this.getRouteCenter(rt);
         UI.openSharedInfoCard(html, cardPosition, !hoverOnly);
@@ -2309,14 +2398,14 @@ class RouteManager {
         const opValEl = document.getElementById("route-opacity-val"); 
         const notesEl = document.getElementById("route-notes");
         
-        if (opEl) { opEl.addEventListener("input", () => { if (opValEl) opValEl.textContent = opEl.value + "%"; }); }
+        if (opEl) { opEl.addEventListener("input", () => { if (opValEl) I18n.text(opValEl,()=>(opEl.value + "%")); }); }
         
         if (deleteBtn) {
             deleteBtn.addEventListener("click", () => {
                 // إصلاح: عكس الشرط لحذف المسار عند تأكيد المستخدم
-                if (confirm(`هل أنت متأكد من حذف المسار رقم ${rt.routeNumber}؟`)) {
+                if (confirm(I18n.msg("ui_295e764d3d",()=>({p0:(rt.routeNumber)})))) {
                     this.removeRoute(routeIndex);
-                    bus.emit("toast", "تم حذف المسار");
+                    bus.emit('toast',I18n.live(()=>(I18n.msg("ui_062cb04cad",null,"",""))));
                 }
             });
         }
@@ -2334,7 +2423,7 @@ class RouteManager {
                 });
                 bus.emit("persist"); 
                 UI.forceCloseSharedInfoCard(); 
-                bus.emit("toast", "تم حفظ تعديلات المسار");
+                bus.emit('toast',I18n.live(()=>(I18n.msg("ui_8852cd9349",null,"",""))));
             });
         }
         if (closeBtn) { 
@@ -2353,7 +2442,8 @@ class RouteManager {
             opacity: rt.opacity, 
             distance: rt.distance, 
             duration: rt.duration, 
-            overview: rt.overview, 
+            overview: rt.overview,
+            mode: rt.mode || "auto",
             notes: rt.notes,
             points: rt.points.map(p => ({ 
                 lat: typeof p.lat === 'function' ? p.lat() : p.lat, 
@@ -2366,9 +2456,10 @@ class RouteManager {
         if (!state || !state.routes) return;
         this.routes.forEach(rt => { 
             if (rt.poly) rt.poly.setMap(null); 
-            rt.stops.forEach(s => s.map = null); 
+            rt.stops.forEach(s => this.disposeStopMarker(s)); 
         });
         this.routes = [];
+        this.cleanupOrphanStopMarkers();
         state.routes.forEach(rt => {
             const newRoute = { 
                 id: rt.id, 
@@ -2378,7 +2469,9 @@ class RouteManager {
                 opacity: rt.opacity, 
                 distance: rt.distance, 
                 duration: rt.duration, 
-                overview: rt.overview, 
+                overview: rt.overview,
+                mode: rt.mode || "auto",
+                requestVersion: 0,
                 notes: rt.notes || "", 
                 points: rt.points.map(p => new google.maps.LatLng(p.lat, p.lng)), 
                 poly: null, 
@@ -2389,13 +2482,92 @@ class RouteManager {
                 const stop = this.createStopMarker(pt, this.routes.length - 1, i); 
                 newRoute.stops.push(stop); 
             });
-            this.renderRoute(this.routes.length - 1);
+            if (newRoute.mode === "manual" || newRoute.overview) this.renderRoute(this.routes.length - 1);
         });
+        this.refreshGlobalPointNumbers();
+    }
+
+    // إزالة علامة النقطة من الخريطة ومن سجل العلامات مع تعطيل أحداثها.
+    disposeStopMarker(marker) {
+        if (!marker) return;
+        try { google.maps.event.clearInstanceListeners(marker); } catch (_) {}
+        marker.map = null;
+        this.allStopMarkers.delete(marker);
+    }
+
+    // إزالة أي رقم متبقٍ لا يرتبط بنقطة موجودة فعليًا.
+    cleanupOrphanStopMarkers() {
+        const active = new Set(this.routes.flatMap(route => route.stops));
+        for (const marker of this.allStopMarkers) {
+            if (!active.has(marker)) this.disposeStopMarker(marker);
+        }
     }
 
     // النص المستخدم عند عرض أرقام النقاط: المحافظة على طريقة الترقيم الحالية.
     getStopLabel(route, index) {
-        return this.shareMode ? `${index + 1}` : `${route.routeNumber}.${index + 1}`;
+        let number = 1;
+        for (const rt of this.routes) {
+            if (rt === route) return String(number + index);
+            number += rt.points.length;
+        }
+        return String(index + 1);
+    }
+
+    // أرقام موحّدة لجميع نقاط المسارات، سواء في التحرير أو رابط المشاركة.
+    refreshGlobalPointNumbers() {
+        let next = 1;
+        this.routes.forEach(route => {
+            route.stops.forEach(stop => {
+                if (stop?.content) I18n.text(stop.content,()=>(String(next)));
+                next++;
+            });
+        });
+    }
+
+    // قائمة زر الماوس الأيمن للمسار أو لنقطة معينة.
+    showRouteContextMenu(routeIndex, pointIndex = null, event = null) {
+        if (MAP.shareMode || !MAP.editMode) return;
+        const route = this.routes[routeIndex];
+        if (!route) return;
+        if (event?.preventDefault) event.preventDefault();
+        document.getElementById('security-route-context-menu')?.remove();
+        const menu = document.createElement('div');
+        menu.id = 'security-route-context-menu';
+        menu.style.cssText = 'position:fixed;z-index:999999;background:white;color:#222;border:1px solid #ddd;border-radius:12px;box-shadow:0 10px 30px #0003;padding:7px;min-width:210px;direction:inherit;font-family:Tajawal,Cairo,sans-serif';
+        const add = (label, action, danger = false) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            I18n.text(button,()=>(label));
+            button.style.cssText = `display:block;width:100%;padding:11px;text-align:start;background:transparent;border:0;border-radius:7px;cursor:pointer;font:inherit;color:${danger ? '#b91c1c' : '#222'}`;
+            button.addEventListener('click', () => { menu.remove(); action(); });
+            menu.appendChild(button);
+        };
+        const routeId = route.id;
+        const current = () => this.routes.findIndex(r => r.id === routeId);
+        if (pointIndex !== null && pointIndex >= 0 && pointIndex < route.points.length) {
+            add(I18n.msg("ui_3445198102",()=>({p0:(this.getStopLabel(route, pointIndex))})), () => {
+                const i = current();
+                if (i >= 0 && confirm(I18n.msg("ui_2d7d6c0d97",null,"",""))) this.removePoint(i, pointIndex);
+            }, true);
+        }
+        add(I18n.msg("ui_6ad3af9d3a",null,"",""), () => this.showDeletePointsDialog(routeId));
+        add(I18n.msg("ui_4ae02d1a4d",null,"",""), () => {
+            const i = current();
+            if (i >= 0 && confirm(I18n.msg("ui_dfc5a3d14e",null,"",""))) this.removeRoute(i);
+        }, true);
+        add(I18n.msg("ui_6158027f45",null,"",""), () => {
+            if (!confirm(I18n.msg("ui_20a82a815d",null,"",""))) return;
+            while (this.routes.length) this.removeRoute(this.routes.length - 1);
+        }, true);
+        document.body.appendChild(menu);
+        const x = event?.clientX ?? event?.domEvent?.clientX ?? window.innerWidth / 2;
+        const y = event?.clientY ?? event?.domEvent?.clientY ?? window.innerHeight / 2;
+        menu.style.left = Math.max(8, Math.min(x, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+        menu.style.top = Math.max(8, Math.min(y, window.innerHeight - menu.offsetHeight - 8)) + 'px';
+        const dismiss = e => {
+            if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('pointerdown', dismiss, true); }
+        };
+        setTimeout(() => document.addEventListener('pointerdown', dismiss, true), 0);
     }
 
     // إخفاء/إظهار علامـات الترقيم في الرابط، دون حذف النقاط أو خطوط المسارات.
@@ -2403,7 +2575,7 @@ class RouteManager {
         this.showNumbers = this.shareMode ? Boolean(visible) : true;
         this.routes.forEach(route => {
             route.stops.forEach((stop, index) => {
-                stop.content.textContent = this.getStopLabel(route, index);
+                I18n.text(stop.content,()=>(this.getStopLabel(route, index)));
                 stop.map = this.showNumbers ? this.map : null;
             });
         });
@@ -2523,7 +2695,7 @@ class PolygonManager {
     }
 
     createNewPolygon() {
-        const polygon = { id: "poly" + Date.now(), name: "مضلع جديد", notes: "", points: [], color: "#ff9800", strokeWeight: 2, strokeOpacity: 0.8, fillOpacity: 0.35, polygon: null, markers: [], activePolyline: null, vertexMarkers: [] };
+        const polygon = { id: "poly" + Date.now(), name: I18n.t('defaults.new_polygon'), notes: "", points: [], color: "#ff9800", strokeWeight: 2, strokeOpacity: 0.8, fillOpacity: 0.35, polygon: null, markers: [], activePolyline: null, vertexMarkers: [] };
         this.polygons.push(polygon);
         this.activePolygonIndex = this.polygons.length - 1;
         return polygon;
@@ -2559,22 +2731,61 @@ class PolygonManager {
                 gmpDraggable: true,
                 gmpClickable: true,
                 content: this.buildVertexMarkerContent(poly.color), 
-                title: `نقطة ${i + 1}` 
+                title: String(I18n.msg("ui_800f08da4b",()=>({p0:(i + 1)}))) 
             });
+            I18n.native(marker, "title", () => I18n.t("ui_b0579970c3", {p0:i+1}));
             poly.vertexMarkers.push(marker);
             
             // السحب لتغيير الموقع
             marker.addListener("drag", (e) => { poly.points[i] = e.latLng; poly.polygon.setPaths(poly.points); this.updateOutsideShade(); });
             marker.addListener("dragend", () => { bus.emit("persist"); });
             
-            marker.addEventListener("gmp-click", () => {
+            // Show explicit vertex actions on click, without disabling direct drag.
+            const vertexContent = marker.content;
+            vertexContent.style.cursor = "grab";
+            vertexContent.style.touchAction = "none";
+            vertexContent.setAttribute("role", "button");
+            vertexContent.setAttribute("tabindex", "0");
+            I18n.attr(vertexContent,"aria-label",()=>(I18n.msg("ui_f443872281",()=>({p0:(i + 1)}))));
+            const openVertexActions = (event) => {
+                if (event) event.stopPropagation();
+                if (MAP.shareMode || !MAP.editMode || !this.isEditing || this.editingPolygonIndex !== index) return;
                 this.vertexInfo?.close();
-                const button = document.createElement("button");
-                button.type = "button";
-                button.textContent = "حذف النقطة";
-                button.addEventListener("click", () => this.deleteVertex(poly, index, i));
-                this.vertexInfo = new google.maps.InfoWindow({ content: button });
+                const wrapper = document.createElement("div");
+                I18n.attr(wrapper,'dir',()=>I18n.dir);
+                wrapper.style.cssText = "display:flex;flex-direction:column;gap:8px;min-width:175px;font-family:inherit;padding:5px";
+                const heading = document.createElement("strong");
+                I18n.text(heading,()=>(I18n.msg("ui_b0579970c3",()=>({p0:(i + 1)}))));
+                const moveButton = document.createElement("button");
+                moveButton.type = "button";
+                I18n.text(moveButton,()=>(I18n.msg("ui_0376f2922b",null,"","")));
+                moveButton.style.cssText = "padding:9px;border:0;border-radius:7px;background:#2563eb;color:white;cursor:pointer";
+                moveButton.addEventListener("click", () => {
+                    marker.gmpDraggable = true;
+                    vertexContent.style.cursor = "grab";
+                    vertexContent.style.width = "18px";
+                    vertexContent.style.height = "18px";
+                    this.vertexInfo?.close();
+                    bus.emit('toast',I18n.live(()=>(I18n.msg("ui_7ffc3ce0b6",null,"",""))));
+                });
+                const deleteButton = document.createElement("button");
+                deleteButton.type = "button";
+                I18n.text(deleteButton,()=>(I18n.msg("ui_1efd556a4a",null,"","")));
+                deleteButton.style.cssText = "padding:9px;border:1px solid #ddd;border-radius:7px;background:white;color:#b91c1c;cursor:pointer";
+                deleteButton.addEventListener("click", () => {
+                    this.vertexInfo?.close();
+                    this.deleteVertex(poly, index, i);
+                });
+                wrapper.append(heading, moveButton, deleteButton);
+                this.vertexInfo = new google.maps.InfoWindow({ content: wrapper });
                 this.vertexInfo.open({ map: this.map, anchor: marker });
+            };
+            vertexContent.addEventListener("click", openVertexActions);
+            vertexContent.addEventListener("keydown", event => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openVertexActions(event);
+                }
             });
         });
         
@@ -2585,7 +2796,7 @@ class PolygonManager {
         addButton.className = UI.btnDrawFinish?.className || "btn";
         addButton.style.cssText = "display:inline-flex;align-items:center;padding:10px 14px;border-radius:12px;border:1px solid #fff;color:white;font-family:inherit;cursor:pointer";
         const updateButton = () => {
-            addButton.textContent = this.addingVertices ? "إيقاف إضافة النقاط" : "إضافة نقاط جديدة";
+            I18n.text(addButton,()=>(this.addingVertices ? I18n.msg("ui_957ba0bff6",null,"","") : I18n.msg("ui_cfe602537b",null,"","")));
             addButton.setAttribute("aria-pressed", String(this.addingVertices));
             addButton.style.background = this.addingVertices ? "#d97706" : "#2563eb";
             MAP.setCursor(this.addingVertices ? "crosshair" : "grab");
@@ -2594,11 +2805,11 @@ class PolygonManager {
             this.addingVertices = !this.addingVertices;
             this.vertexInfo?.close();
             updateButton();
-            bus.emit("toast", this.addingVertices ? "اضغط على الخريطة داخل المضلع أو خارجه لإضافة نقاط جديدة، ثم اضغط إنهاء." : "تم إيقاف الإضافة. يمكنك سحب النقاط لتعديل الحدود.");
+            bus.emit('toast',I18n.live(()=>(this.addingVertices ? I18n.msg("ui_afa6a4716e",null,"","") : I18n.msg("ui_1cb62b187f",null,"",""))));
         });
         UI.btnDrawFinish?.before(addButton);
         updateButton();
-        bus.emit("toast", this.addingVertices ? "اضغط على الخريطة لإضافة النقطة التالية، ثم اضغط إنهاء." : "اسحب النقاط أو اضغط إضافة نقاط جديدة لتوسعة المضلع، ثم اضغط إنهاء.");
+        bus.emit('toast',I18n.live(()=>(this.addingVertices ? I18n.msg("ui_cc74b280dd",null,"","") : I18n.msg("ui_2f0e0f105b",null,"",""))));
     }
     
     exitEditMode() {
@@ -2615,7 +2826,7 @@ class PolygonManager {
         }
         this.isEditing = false; this.editingPolygonIndex = -1;
         UI.showDefaultUI();
-        bus.emit("toast", "تم الخروج من وضع تحرير المضلع");
+        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_7d1c422fe9",null,"",""))));
     }
 
     insertVertex(poly, index, latLng) {
@@ -2642,13 +2853,13 @@ class PolygonManager {
             this.enterEditMode(index, this.addingVertices);
             
             bus.emit("persist");
-            bus.emit("toast", "تمت إضافة نقطة جديدة");
+            bus.emit('toast',I18n.live(()=>(I18n.msg("ui_f0e0985562",null,"",""))));
         }
     }
 
     deleteVertex(poly, index, vertexIndex) {
         if (poly.points.length <= 3) {
-            bus.emit("toast", "لا يمكن حذف المزيد (الحد الأدنى 3 نقاط)");
+            bus.emit('toast',I18n.live(()=>(I18n.msg("ui_35061e7090",null,"",""))));
             return;
         }
         
@@ -2660,7 +2871,7 @@ class PolygonManager {
         
         // حفظ التغييرات
         bus.emit("persist");
-        bus.emit("toast", "تم حذف النقطة");
+        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_763d54d7d4",null,"",""))));
 
         // إعادة تشغيل وضع التحرير لتحديث ترتيب النقاط ومواقعها
         this.enterEditMode(index, this.addingVertices);
@@ -2714,7 +2925,7 @@ class PolygonManager {
             border: none;
             padding: 0;
             color: #333;
-            direction: rtl;
+            direction:inherit;
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
             width: 380px;
             max-width: 95vw;
@@ -2727,58 +2938,8 @@ class PolygonManager {
         const bodyStyle = `padding: 20px;`;
         const footerStyle = `padding: 12px 20px; background: rgba(255, 255, 255, 0.6); border-top: 1px solid rgba(255, 255, 255, 0.2); position: sticky; bottom: 0;`;
 
-        const html = `
-        <div style="${cardStyle}" class="glass-card-content">
-            <div style="${headerStyle}">
-                <div style="display:flex;align-items:center;gap:8px;">
-                     <img src="img/logo.png" style="width: 36px; height: 36px; border-radius: 8px;">
-                     <h3 style="margin:0; font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: 700;">${Utils.escapeHTML(poly.name)}</h3>
-                </div>
-                ${this.shareMode && !hoverOnly ? `<button id="poly-share-close" type="button" aria-label="إغلاق بطاقة المضلع" title="إغلاق" style="width:40px;height:40px;border:1px solid #ddd;border-radius:10px;background:white;color:#333;font-size:26px;line-height:1;cursor:pointer;">×</button>` : ""}
-            </div>
-            <div style="${bodyStyle}">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px; font-family: 'Tajawal', sans-serif;">
-                    <span><b>المساحة:</b> ${areaText}</span>
-                </div>
-                ${isEditingShape ? `<p style="margin: 0; color: #555; text-align:center; font-family: 'Tajawal', sans-serif;">اسحب النقاط لتعديل الشكل. فعّل إضافة نقاط جديدة ثم اضغط داخل المضلع أو خارجه لتوسعة الحدود. اضغط على نقطة لحذفها.</p>` : 
-                (isEditable ? `
-                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">الاسم:</label><input id="poly-name" type="text" value="${Utils.escapeHTML(poly.name)}" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
-                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">اللون:</label><input id="poly-color" type="color" value="${poly.color}" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;"></div>
-                        <div style="flex:1; min-width: 120px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">سماكة الخط:</label><input id="poly-stroke" type="number" value="${poly.strokeWeight}" min="1" max="10" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;"></div>
-                    </div>
-                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية الحدود: <span id="poly-stroke-opacity-val">${Math.round(poly.strokeOpacity * 100)}%</span></label><input id="poly-stroke-opacity" type="range" min="0" max="100" value="${Math.round(poly.strokeOpacity * 100)}" style="width:100%;"></div>
-                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">شفافية التعبئة: <span id="poly-fill-opacity-val">${Math.round(poly.fillOpacity * 100)}%</span></label><input id="poly-fill-opacity" type="range" min="0" max="100" value="${Math.round(poly.fillOpacity * 100)}" style="width:100%;"></div>
-                    <fieldset style="margin:0 0 14px;padding:12px;border:1px solid #ddd;border-radius:10px;">
-<legend style="font-weight:600;">تظليل خارج المضلع</legend>
-<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input id="poly-outside-shade" type="checkbox" ${poly.outsideShade ? 'checked' : ''}> تفعيل التظليل خارج المضلع</label>
-<label for="poly-shade-color" style="display:block;margin-bottom:5px;">لون التظليل</label>
-<input id="poly-shade-color" type="color" value="${Utils.escapeHTML(poly.shadeColor || '#000000')}" style="width:100%;height:32px;border:0;cursor:pointer;">
-<label for="poly-shade-opacity" style="display:block;margin-top:10px;">مستوى التظليل: <span id="poly-shade-opacity-val">${Math.round((poly.shadeOpacity ?? 0.6) * 100)}%</span></label>
-<input id="poly-shade-opacity" type="range" min="0" max="100" value="${Math.round((poly.shadeOpacity ?? 0.6) * 100)}" style="width:100%;">
-<small style="display:block;color:#666;line-height:1.6;">0% بدون تظليل، 100% تغطية كاملة خارج المضلع. تُحفظ تلقائيًا، ويُفعّل التظليل لمضلع واحد في كل مرة.</small>
-</fieldset>
-                    <div style="margin-bottom:14px;"><label style="font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;">ملاحظات:</label><textarea id="poly-notes" rows="3" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px;">${notes}</textarea></div>
-                ` : `
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #555; font-family: 'Tajawal', sans-serif;">ملاحظات:</p>
-                    <div style="background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 10px; min-height: 40px; font-size: 14px; line-height: 1.6; font-family: 'Tajawal', sans-serif;">
-                        ${notes || '<span style="color: #888;">لا توجد ملاحظات</span>'}
-                    </div>
-                `)}
-            </div>
-            ${isEditable ? `
-                <div style="${footerStyle}">
-                    <div style="display:flex;gap:8px; flex-wrap: wrap;">
-                        <button id="poly-save-properties" style="flex:2;background:#ff9800;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 100px;">حفظ الخصائص</button>
-                        <button id="poly-edit-shape" style="flex:2;background:#34a853;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 100px;">تعديل الشكل</button>
-                        <button id="poly-shrink" type="button" class="btn">تصغير 10%</button>
-                        <button id="poly-grow" type="button" class="btn">تكبير 10%</button>
-                        <button id="poly-delete" style="flex:1;background:#e94235;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px;">حذف</button>
-                        <button id="poly-close" style="flex:1;background:rgba(0,0,0,0.05);color:#333;border:1px solid #ddd;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px;">إغلاق</button>
-                    </div>
-                </div>
-            ` : ''}
-        </div>`;
+        const html = ("\n        <div style=\"" + ((cardStyle)) + "\" class=\"glass-card-content\">\n            <div style=\"" + ((headerStyle)) + "\">\n                <div style=\"display:flex;align-items:center;gap:8px;\">\n                     <img src=\"/img/seen-logo.png\" style=\"width: 36px; height: 36px; border-radius: 8px;\">\n                     <h3 style=\"margin:0; font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: 700;\">" + (I18n.fragment(()=>(Utils.escapeHTML(poly.name)))) + "</h3>\n                </div>\n                " + (I18n.fragment(()=>(this.shareMode && !hoverOnly ? ("<button id=\"poly-share-close\" type=\"button\" data-i18n-aria-label=\"ui_1f63dedf9d\" aria-label=\"" + (I18n.t("ui_1f63dedf9d")) + "\" data-i18n-title=\"ui_5bf826c5e5\" title=\"" + (I18n.t("ui_5bf826c5e5")) + "\" style=\"width:40px;height:40px;border:1px solid #ddd;border-radius:10px;background:white;color:#333;font-size:26px;line-height:1;cursor:pointer;\">×</button>") : ""))) + "\n            </div>\n            <div style=\"" + ((bodyStyle)) + "\">\n                <div style=\"display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px; font-family: 'Tajawal', sans-serif;\">\n                    <span><b>" + (I18n.mark("ui_a31627cf1f",null)) + "</b> " + (I18n.fragment(()=>(areaText))) + "</span>\n                </div>\n                " + (I18n.fragment(()=>(isEditingShape ? ("<p style=\"margin: 0; color: #555; text-align:center; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_9d43dc5625",null)) + "</p>") : 
+                (isEditable ? ("\n                    <div style=\"margin-bottom:14px;\"><label style=\"font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_9d8caec5db",null)) + "</label><input id=\"poly-name\" type=\"text\" value=\"" + ((Utils.escapeHTML(poly.name))) + "\" style=\"width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;\"></div>\n                    <div style=\"display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap: wrap;\">\n                        <div style=\"flex:1; min-width: 120px;\"><label style=\"font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_e6c89c256c",null)) + "</label><input id=\"poly-color\" type=\"color\" value=\"" + ((poly.color)) + "\" style=\"width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;\"></div>\n                        <div style=\"flex:1; min-width: 120px;\"><label style=\"font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_656f77e76a",null)) + "</label><input id=\"poly-stroke\" type=\"number\" value=\"" + ((poly.strokeWeight)) + "\" min=\"1\" max=\"10\" style=\"width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;\"></div>\n                    </div>\n                    <div style=\"margin-bottom:14px;\"><label style=\"font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_ec8255a680",null)) + " <span id=\"poly-stroke-opacity-val\">" + (I18n.fragment(()=>(Math.round(poly.strokeOpacity * 100)))) + "%</span></label><input id=\"poly-stroke-opacity\" type=\"range\" min=\"0\" max=\"100\" value=\"" + ((Math.round(poly.strokeOpacity * 100))) + "\" style=\"width:100%;\"></div>\n                    <div style=\"margin-bottom:14px;\"><label style=\"font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_9c8d787c1a",null)) + " <span id=\"poly-fill-opacity-val\">" + (I18n.fragment(()=>(Math.round(poly.fillOpacity * 100)))) + "%</span></label><input id=\"poly-fill-opacity\" type=\"range\" min=\"0\" max=\"100\" value=\"" + ((Math.round(poly.fillOpacity * 100))) + "\" style=\"width:100%;\"></div>\n                    <fieldset style=\"margin:0 0 14px;padding:12px;border:1px solid #ddd;border-radius:10px;\">\n<legend style=\"font-weight:600;\">" + (I18n.mark("ui_7139dc4aa4",null)) + "</legend>\n<label style=\"display:flex;align-items:center;gap:8px;margin-bottom:12px;\"><input id=\"poly-outside-shade\" type=\"checkbox\" " + ((poly.outsideShade ? 'checked' : '')) + "> " + (I18n.mark("ui_440e7ef442",null)) + "</label>\n<label for=\"poly-shade-color\" style=\"display:block;margin-bottom:5px;\">" + (I18n.mark("ui_3deb156c3d",null)) + "</label>\n<input id=\"poly-shade-color\" type=\"color\" value=\"" + ((Utils.escapeHTML(poly.shadeColor || '#000000'))) + "\" style=\"width:100%;height:32px;border:0;cursor:pointer;\">\n<label for=\"poly-shade-opacity\" style=\"display:block;margin-top:10px;\">" + (I18n.mark("ui_e3b114eea5",null)) + " <span id=\"poly-shade-opacity-val\">" + (I18n.fragment(()=>(Math.round((poly.shadeOpacity ?? 0.6) * 100)))) + "%</span></label>\n<input id=\"poly-shade-opacity\" type=\"range\" min=\"0\" max=\"100\" value=\"" + ((Math.round((poly.shadeOpacity ?? 0.6) * 100))) + "\" style=\"width:100%;\">\n<small style=\"display:block;color:#666;line-height:1.6;\">" + (I18n.mark("ui_45b59f78f5",null)) + "</small>\n</fieldset>\n                    <div style=\"margin-bottom:14px;\"><label style=\"font-size:12px; display:block; margin-bottom:4px; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_69bebde44e",null)) + "</label><textarea id=\"poly-notes\" rows=\"3\" style=\"width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; resize: none; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 14px;\">" + ((notes)) + "</textarea></div>\n                ") : ("\n                    <p style=\"margin: 0 0 8px 0; font-size: 14px; color: #555; font-family: 'Tajawal', sans-serif;\">" + (I18n.mark("ui_69bebde44e",null)) + "</p>\n                    <div style=\"background: rgba(52, 168, 83, 0.1); padding: 10px; border-radius: 10px; min-height: 40px; font-size: 14px; line-height: 1.6; font-family: 'Tajawal', sans-serif;\">\n                        " + (I18n.fragment(()=>(notes || ("<span style=\"color: #888;\">" + (I18n.mark("ui_6401ab66cf",null)) + "</span>")))) + "\n                    </div>\n                "))))) + "\n            </div>\n            " + (I18n.fragment(()=>(isEditable ? ("\n                <div style=\"" + ((footerStyle)) + "\">\n                    <div style=\"display:flex;gap:8px; flex-wrap: wrap;\">\n                        <button id=\"poly-save-properties\" style=\"flex:2;background:#ff9800;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 100px;\">" + (I18n.mark("ui_d45ab6b194",null)) + "</button>\n                        <button id=\"poly-edit-shape\" style=\"flex:2;background:#34a853;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 100px;\">" + (I18n.mark("ui_47171ef592",null)) + "</button>\n                        <button id=\"poly-shrink\" type=\"button\" class=\"btn\">" + (I18n.mark("ui_2389cb4bc7",null)) + "</button>\n                        <button id=\"poly-grow\" type=\"button\" class=\"btn\">" + (I18n.mark("ui_9f14291cb7",null)) + "</button>\n                        <button id=\"poly-delete\" style=\"flex:1;background:#e94235;color:white;border:none;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px;\">" + (I18n.mark("ui_2d2bbdc2d6",null)) + "</button>\n                        <button id=\"poly-close\" style=\"flex:1;background:rgba(0,0,0,0.05);color:#333;border:1px solid #ddd;border-radius:12px;padding:10px;cursor:pointer;font-weight:600; font-family: 'Tajawal', sans-serif; min-width: 80px;\">" + (I18n.mark("ui_5bf826c5e5",null)) + "</button>\n                    </div>\n                </div>\n            ") : ''))) + "\n        </div>");
 
         UI.openSharedInfoCard(html, position || this.getPolygonCenter(poly), !hoverOnly);
         google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => this.attachCardEvents(polyIndex, hoverOnly));
@@ -2801,7 +2962,7 @@ class PolygonManager {
             else poly.outsideShade = false;
             poly.shadeColor = shadeColor.value;
             poly.shadeOpacity = Utils.clamp(Number(shadeOpacity.value), 0, 100) / 100;
-            document.getElementById("poly-shade-opacity-val").textContent = Math.round(poly.shadeOpacity * 100) + "%";
+            I18n.text(document.getElementById("poly-shade-opacity-val"),()=>(Math.round(poly.shadeOpacity * 100) + "%"));
             this.updateOutsideShade();
             bus.emit("persist");
         };
@@ -2812,14 +2973,14 @@ class PolygonManager {
         const colEl = document.getElementById("poly-color"); const strokeEl = document.getElementById("poly-stroke");
         const strokeOpEl = document.getElementById("poly-stroke-opacity"); const fillOpEl = document.getElementById("poly-fill-opacity");
         const strokeOpValEl = document.getElementById("poly-stroke-opacity-val"); const fillOpValEl = document.getElementById("poly-fill-opacity-val");
-        if (strokeOpEl) { strokeOpEl.addEventListener("input", () => { if (strokeOpValEl) strokeOpValEl.textContent = strokeOpEl.value + "%"; }); }
-        if (fillOpEl) { fillOpEl.addEventListener("input", () => { if (fillOpValEl) fillOpValEl.textContent = fillOpEl.value + "%"; }); }
+        if (strokeOpEl) { strokeOpEl.addEventListener("input", () => { if (strokeOpValEl) I18n.text(strokeOpValEl,()=>(strokeOpEl.value + "%")); }); }
+        if (fillOpEl) { fillOpEl.addEventListener("input", () => { if (fillOpValEl) I18n.text(fillOpValEl,()=>(fillOpEl.value + "%")); }); }
         if (savePropsBtn) {
             savePropsBtn.addEventListener("click", () => {
                 poly.name = nameEl.value.trim(); poly.notes = notesEl.value.trim(); poly.color = colEl.value;
                 poly.strokeWeight = Utils.clamp(+strokeEl.value, 1, 10); poly.strokeOpacity = Utils.clamp(+strokeOpEl.value, 0, 100) / 100; poly.fillOpacity = Utils.clamp(+fillOpEl.value, 0, 100) / 100;
                 poly.polygon.setOptions({ fillColor: poly.color, strokeColor: poly.color, strokeWeight: poly.strokeWeight, strokeOpacity: poly.strokeOpacity, fillOpacity: poly.fillOpacity });
-                bus.emit("persist"); UI.forceCloseSharedInfoCard(); bus.emit("toast", "تم حفظ خصائص المضلع");
+                bus.emit("persist"); UI.forceCloseSharedInfoCard(); bus.emit('toast',I18n.live(()=>(I18n.msg("ui_59aa1fe27a",null,"",""))));
             });
         }
         for (const [id, factor] of [["poly-shrink", 0.9], ["poly-grow", 1.1]]) {
@@ -2837,13 +2998,13 @@ class PolygonManager {
         if (editShapeBtn) { editShapeBtn.addEventListener("click", () => { this.enterEditMode(polyIndex); UI.forceCloseSharedInfoCard(); }); }
         if (delBtn) { 
             delBtn.addEventListener("click", () => { 
-                if (!confirm(`حذف المضلع "${poly.name}" كاملاً؟`)) return; 
+                if (!confirm(I18n.msg("ui_a440abf50a",()=>({p0:(poly.name)})))) return; 
                 poly.polygon.setMap(null); 
                 this.polygons = this.polygons.filter(p => p.id !== poly.id);
                 this.updateOutsideShade(); 
                 UI.forceCloseSharedInfoCard(); 
                 bus.emit("persist"); 
-                bus.emit("toast", "تم حذف المضلع"); 
+                bus.emit('toast',I18n.live(()=>(I18n.msg("ui_93a20176ac",null,"","")))); 
             }); 
         }
         if (closeBtn) { closeBtn.addEventListener("click", () => { UI.forceCloseSharedInfoCard(); }); }
@@ -2932,9 +3093,265 @@ class StateManager {
 
             if (!this.shareMode) {
                 console.log("Enabling auto-persist for edit mode.");
-                bus.on("persist", () => this.saveDraft(this.buildState()));
+                this.history = [];
+                this.historyIndex = -1;
+                this.restoringHistory = false;
+                this.recordHistory(); // baseline (including a restored draft)
+                bus.on("persist", () => {
+                    if (this.restoringHistory) return;
+                    const state = this.buildState();
+                    this.saveDraft(state);
+                    this.recordHistory(state);
+                });
+                this.installUndoRedo();
+                this.installProjectControls();
             }
         });
+    }
+
+    // Undo/redo snapshots are kept in memory for the current tab only.
+    // Draft persistence continues to use sessionStorage as before.
+    recordHistory(state = this.buildState()) {
+        if (this.shareMode || this.restoringHistory || !state) return;
+        // History tracks editable objects only, never viewport movement or map layers.
+        // Draft/share state still retains the full map state.
+        const snapshot = JSON.stringify({
+            routes: state.routes,
+            locations: state.locations,
+            polygons: state.polygons,
+            freeDraw: state.freeDraw
+        });
+        if (this.history[this.historyIndex] === snapshot) return;
+        this.history.splice(this.historyIndex + 1);
+        this.history.push(snapshot);
+        if (this.history.length > 60) this.history.shift();
+        this.historyIndex = this.history.length - 1;
+        this.updateHistoryButtons();
+    }
+
+    travelHistory(direction) {
+        if (this.shareMode || this.restoringHistory) return;
+        const next = this.historyIndex + direction;
+        if (next < 0 || next >= this.history.length) return;
+        this.restoringHistory = true;
+        try {
+            // Preserve current camera, zoom and base layer while restoring edits.
+            const edits = JSON.parse(this.history[next]);
+            this.applyState(edits);
+            this.historyIndex = next;
+            this.saveDraft(this.buildState());
+        } catch (error) {
+            console.error('Undo/redo failed:', error);
+            bus.emit('toast',I18n.live(()=>(I18n.msg("ui_cbcf2836ae",null,"",""))));
+        } finally {
+            this.restoringHistory = false;
+            this.updateHistoryButtons();
+        }
+    }
+
+    updateHistoryButtons() {
+        if (this.undoButton) this.undoButton.disabled = this.historyIndex <= 0;
+        if (this.redoButton) this.redoButton.disabled = this.historyIndex >= this.history.length - 1;
+    }
+
+    installUndoRedo() {
+        const panel = document.createElement('div');
+        panel.id = 'securitymap-history-controls';
+        I18n.attr(panel, 'dir', () => I18n.dir);
+        panel.setAttribute('role', 'group');
+        I18n.attr(panel,'aria-label',()=>(I18n.msg("ui_9484d3b3a9",null,"","")));
+        const makeButton = (symbol, title, direction) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            I18n.render(button,("<span class=\"material-icons\" aria-hidden=\"true\">" + (I18n.fragment(()=>(direction < 0 ? 'undo' : 'redo'))) + "</span>"));
+            button.className = 'securitymap-top-icon-button';
+            I18n.attr(button,"title",()=>(title));
+            I18n.attr(button,'aria-label',()=>(title));
+            button.addEventListener('click', () => this.travelHistory(direction));
+            return button;
+        };
+        this.undoButton = makeButton('undo', I18n.msg("ui_81e0b7a79a",null,"",""), -1);
+        this.redoButton = makeButton('redo', I18n.msg("ui_e3210eec4c",null,"",""), 1);
+        panel.append(this.undoButton, this.redoButton);
+
+        // Keep the controls within the existing top toolbar, not floating over the map.
+        const toolbar = document.getElementById('toolbar');
+        if (toolbar) {
+            toolbar.appendChild(panel);
+        } else {
+            // Safe fallback if a different HTML layout omits the toolbar.
+            panel.classList.add('securitymap-history-fallback');
+            document.body.appendChild(panel);
+        }
+        const style = document.createElement('style');
+        I18n.text(style,()=>(`
+            /* Compact, consistent controls matching the main top toolbar. */
+            #securitymap-history-controls,
+            #securitymap-project-control {
+                display:inline-flex;align-items:center;justify-content:center;
+                flex:0 0 auto;gap:4px;margin-inline:3px;
+                padding:0;background:transparent;box-sizing:border-box;
+                vertical-align:middle;
+            }
+            #securitymap-history-controls .securitymap-top-icon-button,
+            #securitymap-project-control .securitymap-top-icon-button {
+                display:inline-flex;align-items:center;justify-content:center;
+                width:38px;height:38px;min-width:38px;flex:0 0 38px;
+                padding:0;margin:0;box-sizing:border-box;
+                border:1px solid rgba(255,255,255,.16);
+                border-radius:12px;background:rgba(255,255,255,.09);
+                color:#fff;cursor:pointer;
+                transition:background .16s ease,border-color .16s ease,opacity .16s ease;
+            }
+            #securitymap-history-controls .securitymap-top-icon-button .material-icons,
+            #securitymap-project-control .securitymap-top-icon-button .material-icons {
+                font-size:21px;line-height:1;pointer-events:none;
+            }
+            #securitymap-history-controls .securitymap-top-icon-button:hover:not(:disabled),
+            #securitymap-project-control .securitymap-top-icon-button:hover:not(:disabled) {
+                background:rgba(255,255,255,.20);border-color:rgba(255,255,255,.30);
+            }
+            #securitymap-history-controls .securitymap-top-icon-button:focus-visible,
+            #securitymap-project-control .securitymap-top-icon-button:focus-visible {
+                outline:2px solid #93c5fd;outline-offset:2px;
+            }
+            #securitymap-history-controls .securitymap-top-icon-button:disabled {
+                opacity:.38;cursor:not-allowed;
+            }
+            #securitymap-history-controls.securitymap-history-fallback {
+                position:fixed;top:12px;left:12px;z-index:9000;
+                background:#555;padding:4px;border-radius:12px;box-shadow:0 2px 8px #0002;
+            }
+            @media(max-width:600px) {
+                #securitymap-history-controls .securitymap-top-icon-button,
+                #securitymap-project-control .securitymap-top-icon-button {
+                    width:34px;height:34px;min-width:34px;flex-basis:34px;border-radius:10px;
+                }
+                #securitymap-history-controls .securitymap-top-icon-button .material-icons,
+                #securitymap-project-control .securitymap-top-icon-button .material-icons {font-size:19px;}
+                #securitymap-history-controls,#securitymap-project-control {gap:3px;margin-inline:2px;}
+            }
+        `));
+        document.head.appendChild(style);
+        this.updateHistoryButtons();
+        // Capture shortcuts before Google Maps or toolbar handlers can consume them.
+        // event.code supports Arabic keyboard layouts (KeyZ / KeyY).
+        // Keep native undo inside actual text editors, not ordinary toolbar controls.
+        const handleHistoryShortcut = (event) => {
+            if (MAP.shareMode || !MAP.editMode || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+            const active = document.activeElement;
+            const target = event.target;
+            const editor = (target?.closest?.('input, textarea, [contenteditable="true"], [role="textbox"]') ||
+                active?.closest?.('input, textarea, [contenteditable="true"], [role="textbox"]'));
+            if (editor && (editor.matches('textarea, [contenteditable="true"], [role="textbox"]') ||
+                (editor.matches('input') && !['button','submit','reset','checkbox','radio','range','color'].includes(editor.type)))) return;
+            const key = (event.key || '').toLowerCase();
+            const code = event.code || '';
+            const isZ = key === 'z' || code === 'KeyZ';
+            const isY = key === 'y' || code === 'KeyY';
+            const undo = isZ && !event.shiftKey;
+            const redo = isY || (isZ && event.shiftKey);
+            if (!undo && !redo) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this.travelHistory(undo ? -1 : 1);
+        };
+        window.addEventListener('keydown', handleHistoryShortcut, true);
+
+    }
+
+    // Local project files are editable snapshots; shared URLs remain read-only.
+    installProjectControls() {
+        if (this.shareMode || document.getElementById('securitymap-project-control')) return;
+        const wrapper = document.createElement('div');
+        wrapper.id = 'securitymap-project-control';
+        wrapper.style.cssText = 'position:relative;display:inline-flex;align-items:center;flex:0 0 auto;margin-inline:3px;';
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        I18n.render(trigger,'<span class="material-icons" aria-hidden="true">save</span>');
+        trigger.className = 'securitymap-top-icon-button';
+        I18n.attr(trigger,"title",()=>(I18n.msg("ui_6ab2d332c2",null,"","")));
+        I18n.attr(trigger,'aria-label',()=>(I18n.msg("ui_0e180a07b1",null,"","")));
+        // Button appearance is shared with undo/redo in the toolbar stylesheet.
+        const menu = document.createElement('div');
+        menu.hidden = true;
+        I18n.attr(menu,'dir',()=>I18n.dir);
+        menu.style.cssText = 'position:absolute;top:calc(100% + 8px);right:0;z-index:10020;width:210px;padding:7px;border-radius:10px;background:white;color:#222;box-shadow:0 5px 22px #0003;font:14px Tajawal,Cairo,Arial,sans-serif;';
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = '.json,application/json'; input.hidden = true;
+        const action = (label, callback) => {
+            const button = document.createElement('button');
+            button.type = 'button'; I18n.text(button,()=>(label));
+            button.style.cssText = 'display:block;width:100%;padding:10px;text-align:start;background:transparent;color:#222;border:0;border-radius:6px;cursor:pointer;font:inherit;';
+            button.addEventListener('mouseenter', () => button.style.background = '#f1f5f9');
+            button.addEventListener('mouseleave', () => button.style.background = 'transparent');
+            button.addEventListener('click', () => { menu.hidden = true; callback(); });
+            menu.appendChild(button);
+        };
+        action(I18n.msg("ui_4ba1fa1517",null,"",""), () => this.downloadProject());
+        action(I18n.msg("ui_4b21213490",null,"",""), () => { input.value = ''; input.click(); });
+        action(I18n.msg("ui_af0de74dbf",null,"",""), () => this.createNewProject());
+        trigger.addEventListener('click', event => { event.stopPropagation(); menu.hidden = !menu.hidden; });
+        menu.addEventListener('click', event => event.stopPropagation());
+        document.addEventListener('click', () => { menu.hidden = true; });
+        input.addEventListener('change', async () => {
+            const file = input.files?.[0]; if (!file) return;
+            if (file.size > 15 * 1024 * 1024) { bus.emit('toast',I18n.live(()=>(I18n.msg("ui_dcd3a6c484",null,"","")))); return; }
+            try {
+                const documentData = JSON.parse(await file.text());
+                const state = documentData?.format === 'SecurityMapProject' ? documentData.state : documentData;
+                if (!this.validProjectState(state)) throw new Error('Invalid project structure');
+                if (!confirm(I18n.msg("ui_99082faca7",null,"",""))) return;
+                this.restoreProject(state);
+                bus.emit('toast',I18n.live(()=>(I18n.msg("ui_0cc2bdfa3e",null,"",""))));
+            } catch (error) { console.error('Project import failed', error); bus.emit('toast',I18n.live(()=>(I18n.msg("ui_0233a9bb60",null,"","")))); }
+        });
+        wrapper.append(trigger, menu, input);
+        (document.getElementById('toolbar') || document.body).appendChild(wrapper);
+    }
+
+    validProjectState(state) {
+        return !!state && typeof state === 'object' && !Array.isArray(state) &&
+            Array.isArray(state.routes) && Array.isArray(state.locations) &&
+            Array.isArray(state.polygons) && Array.isArray(state.freeDraw) &&
+            (!state.map || (Array.isArray(state.map.c) && state.map.c.length === 2 &&
+                state.map.c.every(Number.isFinite) && Number.isFinite(state.map.z)));
+    }
+
+    downloadProject() {
+        const state = this.buildState();
+        if (!this.validProjectState(state)) { bus.emit('toast',I18n.live(()=>(I18n.msg("ui_ec096abcdf",null,"","")))); return; }
+        const name = prompt(I18n.msg("ui_5ba8a19955",null,"",""), I18n.msg("ui_af0de74dbf",null,"",""));
+        if (name === null) return;
+        const safeName = (name.trim() || 'Project').replace(/[\\/:*?"<>|\x00-\x1f]/g, '-').replace(/\s+/g, '-').slice(0, 90);
+        const content = JSON.stringify({ format: 'SecurityMapProject', version: 1, savedAt: new Date().toISOString(), state }, null, 2);
+        const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url; link.download = `SecurityMap-${safeName}.json`;
+        if (window.SeenAndroid) { window.SeenAndroid.saveBlob(blob, link.download).catch(window.SeenAndroid.reportError); URL.revokeObjectURL(url); return; }
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_f51dfae4c2",null,"",""))));
+    }
+
+    restoreProject(state) {
+        if (this.shareMode || !this.validProjectState(state)) return;
+        this.restoringHistory = true;
+        try {
+            this.applyState(state);
+            this.saveDraft(this.buildState());
+            this.history = []; this.historyIndex = -1;
+        } finally { this.restoringHistory = false; }
+        this.recordHistory();
+    }
+
+    createNewProject() {
+        if (!confirm(I18n.msg("ui_b0689c2c7e",null,"",""))) return;
+        const state = this.buildState();
+        state.routes = []; state.locations = []; state.polygons = []; state.freeDraw = [];
+        this.restoreProject(state);
+        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_353f0200de",null,"",""))));
     }
 
     buildState() {
@@ -2947,6 +3364,8 @@ class StateManager {
                 c: [center.lat(), center.lng()],
                 z: this.map.getZoom(),
                 t: this.map.getMapTypeId(),
+                bt: MAP.selectedBaseMap,
+                lv: MAP.labelsVisible,
                 traffic: MAP.trafficLayer?.getMap() ? 1 : 0
             },
             routes: ROUTES.exportState(),
@@ -2960,7 +3379,7 @@ class StateManager {
         try {
             const json = JSON.stringify(st);
             const encoded = Utils.b64uEncode(json);
-            const base = location.origin + location.pathname;
+            const base = window.SeenAndroid?.shareBase || location.origin + location.pathname;
             const url = base + "?x=" + encoded;
             return url;
         } catch (e) {
@@ -2972,6 +3391,7 @@ class StateManager {
     saveDraft(state) {
         if (this.shareMode || !state) return;
         try {
+            sessionStorage.setItem(this.draftKey, JSON.stringify(state));
             localStorage.setItem(this.draftKey, JSON.stringify(state));
         } catch (error) {
             console.warn("Unable to save the map draft", error);
@@ -2980,7 +3400,7 @@ class StateManager {
 
     readDraft() {
         try {
-            const draft = JSON.parse(localStorage.getItem(this.draftKey));
+            const draft = JSON.parse(sessionStorage.getItem(this.draftKey) || localStorage.getItem(this.draftKey));
             if (Array.isArray(draft?.locations)) {
                 const locations = LOCATIONS.removeLegacyDefaultLocations(draft.locations);
                 if (locations.length !== draft.locations.length) {
@@ -3023,7 +3443,8 @@ class StateManager {
                 this.map.setZoom(mapState.z);
             }
             if (mapState.t) {
-                this.map.setMapTypeId(mapState.t === "satellite" || mapState.t === "hybrid" ? "arcgis-imagery" : mapState.t);
+                MAP.labelsVisible = mapState.lv !== false;
+                MAP.setBaseMapWithLabels(mapState.bt || (mapState.t === 'arcgis-imagery' ? 'satellite' : mapState.t).replace(/-labels-off$/, ''));
             }
             if (mapState.traffic) {
                 MAP.trafficLayer.setMap(this.map);
@@ -3068,10 +3489,10 @@ class MapExportManager {
         if (window[name]) return Promise.resolve(window[name]);
         if (!this.libraries[name]) this.libraries[name] = new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            const timer = setTimeout(() => { script.remove(); reject(new Error('تعذر تحميل أداة الحفظ. تحقق من الاتصال ثم حاول مجددًا.')); }, 20000);
+            const timer = setTimeout(() => { script.remove(); reject(I18n.error(I18n.msg("ui_6ecc50bd28",null,"",""))); }, 20000);
             script.src = url;
-            script.onload = () => { clearTimeout(timer); window[name] ? resolve(window[name]) : reject(new Error('تعذر تحميل أداة الحفظ')); };
-            script.onerror = () => { clearTimeout(timer); script.remove(); reject(new Error('تعذر تحميل أداة الحفظ. تحقق من الاتصال ثم حاول مجددًا.')); };
+            script.onload = () => { clearTimeout(timer); window[name] ? resolve(window[name]) : reject(I18n.error(I18n.msg("ui_1acb472adb",null,"",""))); };
+            script.onerror = () => { clearTimeout(timer); script.remove(); reject(I18n.error(I18n.msg("ui_6ecc50bd28",null,"",""))); };
             document.head.appendChild(script);
         }).catch(error => { delete this.libraries[name]; throw error; });
         return this.libraries[name];
@@ -3080,26 +3501,26 @@ class MapExportManager {
         const panel = document.createElement('section');
         panel.className = 'share-section';
         panel.style.cssText = 'padding:16px;border:1px solid #d9e3ee;border-radius:12px;background:#f6f9fc;color:#243447';
-        panel.innerHTML = '<h4 style="margin:0 0 10px">حفظ صورة الخريطة</h4>' +
-            '<p style="font-size:13px;line-height:1.7;margin:0 0 12px">حفظ الجزء الظاهر مع المواقع والمسارات والمضلعات والتظليل، دون القوائم وأزرار التحكم. تبقى حقوق مزوّد الخريطة ظاهرة.</p>' +
-            '<div style="display:flex;gap:10px;flex-wrap:wrap"><label style="flex:1">الصيغة<select id="map-export-format" style="display:block;width:100%;padding:9px;margin-top:5px"><option value="png">PNG — أعلى جودة</option><option value="jpg">JPG — حجم أصغر</option><option value="pdf">PDF — للطباعة</option><option value="webp">WebP — صورة مضغوطة</option></select></label>' +
-            '<label style="flex:1">الدقة<select id="map-export-scale" style="display:block;width:100%;padding:9px;margin-top:5px"><option value="1">عادية 1×</option><option value="2" selected>مضاعفة 2×</option></select></label></div>' +
-            '<p style="font-size:12px;color:#667;margin:8px 0">الدقة المضاعفة تكبّر أبعاد الملف؛ تفاصيل الخريطة تعتمد على مستوى التكبير الحالي.</p>' +
-            '<button type="button" id="map-export-capture" style="width:100%;padding:11px;border:0;border-radius:8px;background:#2563eb;color:white;font:inherit;cursor:pointer">معاينة الصورة</button>' +
+        I18n.render(panel,("<h4 style=\"margin:0 0 10px\">" + (I18n.mark("ui_7effb898fa",null)) + "</h4>") +
+            ("<p style=\"font-size:13px;line-height:1.7;margin:0 0 12px\">" + (I18n.mark("ui_c06f889708",null)) + "</p>") +
+            ("<div style=\"display:flex;gap:10px;flex-wrap:wrap\"><label style=\"flex:1\">" + (I18n.mark("ui_ebcde1248e",null)) + "<select id=\"map-export-format\" style=\"display:block;width:100%;padding:9px;margin-top:5px\"><option value=\"png\" data-i18n=\"ui_b33a8be082\">" + (I18n.t("ui_b33a8be082",null)) + "</option><option value=\"jpg\" data-i18n=\"ui_e9304f381c\">" + (I18n.t("ui_e9304f381c",null)) + "</option><option value=\"pdf\" data-i18n=\"ui_38eb94ef82\">" + (I18n.t("ui_38eb94ef82",null)) + "</option><option value=\"webp\" data-i18n=\"ui_bf7d918cbe\">" + (I18n.t("ui_bf7d918cbe",null)) + "</option></select></label>") +
+            ("<label style=\"flex:1\">" + (I18n.mark("ui_92b6ea6751",null)) + "<select id=\"map-export-scale\" style=\"display:block;width:100%;padding:9px;margin-top:5px\"><option value=\"1\" data-i18n=\"ui_624d0680a9\">" + (I18n.t("ui_624d0680a9",null)) + "</option><option value=\"2\" selected data-i18n=\"ui_4c274d94f3\">" + (I18n.t("ui_4c274d94f3",null)) + "</option></select></label></div>") +
+            ("<p style=\"font-size:12px;color:#667;margin:8px 0\">" + (I18n.mark("ui_935bf37c1c",null)) + "</p>") +
+            ("<button type=\"button\" id=\"map-export-capture\" style=\"width:100%;padding:11px;border:0;border-radius:8px;background:#2563eb;color:white;font:inherit;cursor:pointer\">" + (I18n.mark("ui_48c3d90f7d",null)) + "</button>") +
             '<p id="map-export-status" role="status" aria-live="polite" style="font-size:13px;line-height:1.6"></p>' +
-            '<div id="map-export-preview" hidden><img alt="معاينة الخريطة قبل الحفظ" style="display:block;width:100%;border:1px solid #ddd;border-radius:8px"><button type="button" id="map-export-download" style="width:100%;padding:11px;margin-top:10px;border:0;border-radius:8px;background:#15803d;color:white;font:inherit;cursor:pointer">تجهيز الملف للحفظ</button></div>';
+            ("<div id=\"map-export-preview\" hidden><img data-i18n-alt=\"ui_1304a4c6aa\" alt=\"" + (I18n.t("ui_1304a4c6aa")) + "\" style=\"display:block;width:100%;border:1px solid #ddd;border-radius:8px\"><button type=\"button\" id=\"map-export-download\" style=\"width:100%;padding:11px;margin-top:10px;border:0;border-radius:8px;background:#15803d;color:white;font:inherit;cursor:pointer\">" + (I18n.mark("ui_caf4214908",null)) + "</button></div>"));
         const capture = panel.querySelector('#map-export-capture');
         const download = panel.querySelector('#map-export-download');
         const status = panel.querySelector('#map-export-status');
         const preview = panel.querySelector('#map-export-preview');
         let canvas = null;
         panel.querySelector('#map-export-format').addEventListener('change', () => panel.querySelector('#map-export-save-link')?.remove());
-        panel.querySelector('#map-export-scale').addEventListener('change', () => { canvas = null; preview.hidden = true; status.textContent = 'اضغط معاينة الصورة لتطبيق الدقة الجديدة.'; });
+        panel.querySelector('#map-export-scale').addEventListener('change', () => { canvas = null; preview.hidden = true; I18n.text(status,()=>(I18n.msg("ui_a9d650ffb7",null,"",""))); });
         capture.addEventListener('click', async () => {
             if (this.busy) return;
-            if (MAP.modePolygonAdd || MAP.modeRouteAdd || POLYGONS.isEditing) { status.textContent = 'أنهِ الرسم أو تعديل الشكل أولًا، ثم احفظ الصورة.'; return; }
+            if (MAP.modePolygonAdd || MAP.modeRouteAdd || POLYGONS.isEditing) { I18n.text(status,()=>(I18n.msg("ui_b1f0ed00fc",null,"",""))); return; }
             this.busy = true; capture.disabled = true; download.disabled = true; preview.hidden = true; canvas = null; panel.querySelector('#map-export-save-link')?.remove();
-            status.textContent = 'جارٍ تجهيز الخريطة…';
+            I18n.text(status,()=>(I18n.msg("ui_b113abc578",null,"","")));
             try {
                 canvas = await this.capture(Number(panel.querySelector('#map-export-scale').value));
                 if (!panel.isConnected) return;
@@ -3107,15 +3528,15 @@ class MapExportManager {
                 this.releasePreview(); this.previewUrl = URL.createObjectURL(blob);
                 preview.querySelector('img').src = this.previewUrl;
                 preview.hidden = false;
-                status.textContent = 'المعاينة جاهزة — ' + canvas.width + ' × ' + canvas.height + ' بكسل. اختر الصيغة ثم نزّل الملف.';
-            } catch (error) { status.textContent = error.message || 'تعذر إنشاء الصورة. أعد المحاولة بعد اكتمال تحميل الخريطة.'; }
+                I18n.text(status,()=>(I18n.msg("ui_7ef9be0428",null,""," ") + canvas.width + ' × ' + canvas.height + I18n.msg("ui_5e09ed14a9",null," ","")));
+            } catch (error) { I18n.text(status,()=>(error.message || I18n.msg("ui_fbfed2e93e",null,"",""))); }
             finally { this.busy = false; capture.disabled = false; download.disabled = false; }
         });
         download.addEventListener('click', async () => {
             if (!canvas || this.busy) return;
             this.busy = true; download.disabled = true; capture.disabled = true;
             const format = panel.querySelector('#map-export-format').value;
-            status.textContent = 'جارٍ إعداد الملف…';
+            I18n.text(status,()=>(I18n.msg("ui_73fcb152ad",null,"","")));
             try {
                 let blob;
                 if (format === 'pdf') {
@@ -3129,8 +3550,9 @@ class MapExportManager {
                     blob = new Blob([await pdf.save()], { type: 'application/pdf' });
                 } else {
                     blob = await this.toBlob(canvas, format === 'jpg' ? 'image/jpeg' : 'image/' + format, 0.95);
-                    if (format === 'webp' && blob.type !== 'image/webp') throw new Error('متصفحك لا يدعم WebP. اختر PNG أو JPG.');
+                    if (format === 'webp' && blob.type !== 'image/webp') throw I18n.error(I18n.msg("ui_bb57d5613f",null,"",""));
                 }
+                if (window.SeenAndroid) { await window.SeenAndroid.saveBlob(blob, 'securitymap-' + Date.now() + '.' + format); I18n.text(status,()=>(I18n.msg("ui_d71be84161",null,"",""))); return; }
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a'); link.href = url;
                 link.download = 'securitymap-' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + format;
@@ -3138,23 +3560,23 @@ class MapExportManager {
                 if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
                 this.downloadUrl = url;
                 link.id = 'map-export-save-link';
-                link.textContent = 'حفظ الملف ' + format.toUpperCase();
+                I18n.text(link,()=>(I18n.msg("ui_0d8c9f7308",null,""," ") + format.toUpperCase()));
                 link.style.cssText = 'display:block;text-align:center;padding:12px;margin-top:10px;border-radius:8px;background:#166534;color:white;text-decoration:none;font-weight:700';
                 preview.appendChild(link);
-                status.textContent = 'الملف جاهز. اضغط حفظ الملف لإكمال التنزيل.';
-            } catch (error) { status.textContent = error.message || 'تعذر حفظ الملف. جرّب PNG.'; }
+                I18n.text(status,()=>(I18n.msg("ui_ed8d6e30d9",null,"","")));
+            } catch (error) { I18n.text(status,()=>(error.message || I18n.msg("ui_0c586a51c1",null,"",""))); }
             finally { this.busy = false; download.disabled = false; capture.disabled = false; }
         });
         return panel;
     }
     releasePreview() { if (this.previewUrl) URL.revokeObjectURL(this.previewUrl); if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl); this.previewUrl = null; this.downloadUrl = null; }
     toBlob(canvas, type, quality) {
-        return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('تعذر إنشاء الملف. جرّب الدقة العادية.')), type, quality));
+        return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(I18n.error(I18n.msg("ui_90fb50c0b4",null,"",""))), type, quality));
     }
     async capture(requestedScale) {
         const render = await this.loadLibrary('html2canvas', 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
         const map = MAP.map.getDiv();
-        if (MAP.map.getRenderingType?.() === 'VECTOR') throw new Error('التصدير غير متاح لهذا العرض. اختر طبقة الطرق أو القمر الصناعي ثم أعد المحاولة.');
+        if (MAP.map.getRenderingType?.() === 'VECTOR') throw I18n.error(I18n.msg("ui_b661db93b0",null,"",""));
         await document.fonts.ready;
         const rect = map.getBoundingClientRect();
         const scale = Math.min(requestedScale, 8192 / Math.max(rect.width, rect.height), Math.sqrt(16000000 / (rect.width * rect.height)));
@@ -3166,14 +3588,13 @@ class MapExportManager {
             const r = el.getBoundingClientRect();
             return r.width && r.height && r.right > rect.left && r.left < rect.right && r.bottom > rect.top && r.top < rect.bottom;
         }).flatMap(el => [...el.style.backgroundImage.matchAll(/url\(["']?([^"')]+)["']?\)/g)].map(match => new URL(match[1], location.href).href));
-        if (MAP.map.getMapTypeId() === 'arcgis-imagery' && !backgrounds.length) throw new Error('الخريطة ما زالت قيد التحميل. انتظر لحظة ثم اضغط معاينة الصورة.');
         sources.push(...backgrounds.filter(src => !sources.includes(src)));
         await Promise.all(sources.map(src => new Promise((resolve, reject) => {
             const image = new Image();
-            const timer = setTimeout(() => { image.src = ''; reject(new Error('لم يكتمل تحميل الخريطة. انتظر ثم أعد المحاولة.')); }, 15000);
+            const timer = setTimeout(() => { image.src = ''; reject(I18n.error(I18n.msg("ui_7660513727",null,"",""))); }, 15000);
             image.crossOrigin = 'anonymous';
             image.onload = () => { clearTimeout(timer); resolve(); };
-            image.onerror = () => { clearTimeout(timer); reject(new Error('تعذر التقاط إحدى صور الخريطة. جرّب طبقة أخرى أو أعد المحاولة.')); };
+            image.onerror = () => { clearTimeout(timer); reject(I18n.error(I18n.msg("ui_d2fc3c6e85",null,"",""))); };
             image.src = src;
         })));
         return render(map, {
@@ -3210,7 +3631,7 @@ class ShareManager {
     constructor() {
         this.exporter = new MapExportManager();
         this.btn = document.getElementById("btn-share");
-        this.btnText = this.btn ? this.btn.textContent : 'مشاركة';
+        this.btnText = this.btn ? this.btn.textContent : I18n.msg("ui_0196884ea4",null,"","");
         this.btnIcon = this.btn ? this.btn.querySelector(".material-icons") : null;
         
         if (this.btn) {
@@ -3221,7 +3642,7 @@ class ShareManager {
     async generateShareLink() {
         const st = STATE.buildState();
         if (!st) {
-            bus.emit("toast", "تعذر إنشاء رابط المشاركة");
+            bus.emit('toast',I18n.live(()=>(I18n.msg("ui_7d0a926cb1",null,"",""))));
             return;
         }
 
@@ -3251,10 +3672,7 @@ class ShareManager {
         
         const header = document.createElement('div');
         header.className = 'share-dialog-header';
-        header.innerHTML = `
-            <h3>مشاركة الخريطة</h3>
-            <button class="share-close-btn"><i class="material-icons">close</i></button>
-        `;
+        I18n.render(header,("\n            <h3>" + (I18n.mark("ui_31c3e146fa",null)) + "</h3>\n            <button class=\"share-close-btn\"><i class=\"material-icons\">close</i></button>\n        "));
         
         const body = document.createElement('div');
         body.className = 'share-dialog-body';
@@ -3263,86 +3681,22 @@ class ShareManager {
         const numbersSection = document.createElement('section');
         numbersSection.className = 'share-section';
         numbersSection.style.cssText = 'padding:14px 16px;border:1px solid #d9e3ee;border-radius:12px;background:#f6f9fc;color:#243447';
-        numbersSection.innerHTML = `
-            <label for="share-route-numbers" style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:700;font-size:14px">
-                <input id="share-route-numbers" type="checkbox" style="width:18px;height:18px;accent-color:#2563eb;cursor:pointer">
-                إظهار ترقيم نقاط المسارات في رابط المشاركة
-            </label>
-            <p style="font-size:12px;line-height:1.7;margin:8px 28px 0;color:#536273">
-                عند إلغاء التحديد ستظهر خطوط المسارات دون دوائر الأرقام. لن تتغير الأرقام في وضع التحرير.
-            </p>
-        `;
+        I18n.render(numbersSection,("\n            <label for=\"share-route-numbers\" style=\"display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:700;font-size:14px\">\n                <input id=\"share-route-numbers\" type=\"checkbox\" style=\"width:18px;height:18px;accent-color:#2563eb;cursor:pointer\">\n                " + (I18n.mark("ui_f0fd02adee",null)) + "\n            </label>\n            <p style=\"font-size:12px;line-height:1.7;margin:8px 28px 0;color:#536273\">\n                " + (I18n.mark("ui_2b61cff376",null)) + "\n            </p>\n        "));
 
         // قسم الرابط الطويل
         const longUrlSection = document.createElement('div');
         longUrlSection.className = 'share-section';
-        longUrlSection.innerHTML = `
-            <h4>الرابط الكامل:</h4>
-            <div class="url-container">
-                <input type="text" readonly value="${longUrl}" class="url-input" id="long-url">
-                <button class="copy-btn" data-target="long-url">
-                    <i class="material-icons">content_copy</i>
-                    <span>نسخ</span>
-                </button>
-            </div>
-        `;
+        I18n.render(longUrlSection,("\n            <h4>" + (I18n.mark("ui_64694bb92b",null)) + "</h4>\n            <div class=\"url-container\">\n                <input type=\"text\" readonly value=\"" + ((longUrl)) + "\" class=\"url-input\" id=\"long-url\">\n                <button class=\"copy-btn\" data-target=\"long-url\">\n                    <i class=\"material-icons\">content_copy</i>\n                    <span>" + (I18n.mark("ui_46e6841e21",null)) + "</span>\n                </button>\n            </div>\n        "));
         
         // قسم الروابط المختصرة
         const shortUrlSection = document.createElement('div');
         shortUrlSection.className = 'share-section';
-        shortUrlSection.innerHTML = `
-            <h4>تقصير الرابط:</h4>
-            <div class="shortener-options">
-                <button class="shortener-btn" data-service="tinyurl">
-                    <i class="material-icons">link</i>
-                    <span>TinyURL</span>
-                </button>
-                <button class="shortener-btn" data-service="isgd">
-                    <i class="material-icons">link</i>
-                    <span>is.gd</span>
-                </button>
-                <button class="shortener-btn" data-service="vgd">
-                    <i class="material-icons">link</i>
-                    <span>v.gd</span>
-                </button>
-                <button class="shortener-btn" data-service="cuttly">
-                    <i class="material-icons">content_cut</i>
-                    <span>Shrtco.de</span>
-                </button>
-            </div>
-            <div class="short-url-result" id="short-url-result" style="display: none;">
-                <input type="text" readonly class="url-input" id="short-url">
-                <button class="copy-btn" data-target="short-url">
-                    <i class="material-icons">content_copy</i>
-                    <span>نسخ</span>
-                </button>
-            </div>
-        `;
+        I18n.render(shortUrlSection,("\n            <h4>" + (I18n.mark("ui_0bb130c8aa",null)) + "</h4>\n            <div class=\"shortener-options\">\n                <button class=\"shortener-btn\" data-service=\"isgd\">\n                    <i class=\"material-icons\">link</i>\n                    <span>" + (I18n.mark("ui_da7475e8c5",null)) + "</span>\n                </button>\n            </div>\n            <div class=\"short-url-result\" id=\"short-url-result\" style=\"display: none;\">\n                <input type=\"text\" readonly class=\"url-input\" id=\"short-url\">\n                <button class=\"copy-btn\" data-target=\"short-url\">\n                    <i class=\"material-icons\">content_copy</i>\n                    <span>" + (I18n.mark("ui_46e6841e21",null)) + "</span>\n                </button>\n            </div>\n        "));
         
         // قسم المشاركة الاجتماعية
         const socialSection = document.createElement('div');
         socialSection.className = 'share-section';
-        socialSection.innerHTML = `
-            <h4>مشاركة على:</h4>
-            <div class="social-buttons">
-                <button class="social-btn" data-platform="whatsapp">
-                    <i class="material-icons">whatsapp</i>
-                    <span>WhatsApp</span>
-                </button>
-                <button class="social-btn" data-platform="twitter">
-                    <i class="material-icons">alternate_email</i>
-                    <span>Twitter</span>
-                </button>
-                <button class="social-btn" data-platform="facebook">
-                    <i class="material-icons">facebook</i>
-                    <span>Facebook</span>
-                </button>
-                <button class="social-btn" data-platform="telegram">
-                    <i class="material-icons">send</i>
-                    <span>Telegram</span>
-                </button>
-            </div>
-        `;
+        I18n.render(socialSection,("\n            <h4>" + (I18n.mark("ui_ee28d478e8",null)) + "</h4>\n            <div class=\"social-buttons\">\n                <button class=\"social-btn\" data-platform=\"whatsapp\">\n                    <i class=\"material-icons\">whatsapp</i>\n                    <span>WhatsApp</span>\n                </button>\n                <button class=\"social-btn\" data-platform=\"twitter\">\n                    <i class=\"material-icons\">alternate_email</i>\n                    <span>Twitter</span>\n                </button>\n                <button class=\"social-btn\" data-platform=\"facebook\">\n                    <i class=\"material-icons\">facebook</i>\n                    <span>Facebook</span>\n                </button>\n                <button class=\"social-btn\" data-platform=\"telegram\">\n                    <i class=\"material-icons\">send</i>\n                    <span>Telegram</span>\n                </button>\n            </div>\n        "));
         
         body.appendChild(this.exporter.createPanel());
         body.appendChild(numbersSection);
@@ -3379,12 +3733,12 @@ class ShareManager {
 
         const style = document.createElement('style');
         style.id = "share-style";
-        style.textContent = `
+        I18n.text(style,()=>(`
             .share-dialog-overlay {
                 position: fixed; inset: 0;
                 background: rgba(0,0,0,.6);
                 display: flex; align-items: center; justify-content: center;
-                z-index: 1000000; font-family: 'Tajawal', sans-serif; direction: rtl;
+                z-index: 1000000; font-family: 'Tajawal', sans-serif; direction:inherit;
                 animation: fadeIn 0.3s ease-out;
             }
             .share-dialog-content {
@@ -3472,7 +3826,7 @@ class ShareManager {
                     opacity: 1;
                 }
             }
-        `;
+        `));
         document.head.appendChild(style);
     }
 
@@ -3512,37 +3866,41 @@ class ShareManager {
             });
         });
         
-        // خدمات تقصير الروابط
+        // Shortener actions: keep button contents intact and prevent duplicate requests.
         dialog.querySelectorAll('.shortener-btn').forEach(btn => {
+            const originalHTML = btn.innerHTML;
             btn.addEventListener('click', async () => {
+                if (btn.disabled) return;
                 const service = btn.dataset.service;
+                const currentLongUrl = fullLinkInput.value.trim();
+                if (!currentLongUrl) {
+                    bus.emit('toast',I18n.live(()=>(I18n.msg("ui_2129a526f0",null,"",""))));
+                    return;
+                }
                 btn.disabled = true;
-                btn.innerHTML = '<i class="material-icons">hourglass_empty</i><span>جاري التقصير...</span>';
-                
+                I18n.render(btn,("<i class=\"material-icons\">hourglass_empty</i><span>" + (I18n.mark("ui_fb416397e3",null)) + "</span>"));
                 try {
-                    const currentLongUrl = fullLinkInput.value;
-                    let shortUrl = await this.shortenUrl(currentLongUrl, service);
-                    // لا تعرض رابطًا مختصرًا قديمًا إن تغيّر الخيار أثناء انتظار الخدمة.
-                    if (currentLongUrl !== fullLinkInput.value) return;
-                    if (shortUrl) {
+                    const shortUrl = await this.shortenUrl(currentLongUrl, service);
+                    if (currentLongUrl === fullLinkInput.value.trim()) {
                         this.showShortUrl(shortUrl);
+                        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_8ecfac8968",null,"",""))));
                     }
                 } catch (error) {
-                    console.error('Error shortening URL:', error);
-                    bus.emit("toast", "فشل تقصير الرابط. الرجاء استخدام الرابط الكامل");
+                    console.error('URL shortening failed:', service, error);
+                    bus.emit('toast',I18n.live(()=>(I18n.msg("ui_9afcb3e082",null,"",""))));
                 } finally {
                     btn.disabled = false;
-                    btn.innerHTML = `<i class="material-icons">${btn.querySelector('i').textContent}</i><span>${btn.querySelector('span').textContent}</span>`;
+                    I18n.render(btn,originalHTML);
                 }
             });
         });
-        
+
         // المشاركة الاجتماعية
         dialog.querySelectorAll('.social-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const platform = btn.dataset.platform;
                 const url = fullLinkInput.value;
-                const text = "شاهد خريطة الدرعية الأمنية";
+                const text = I18n.msg("ui_7f01556726",null,"","");
                 
                 let shareUrl = '';
                 switch(platform) {
@@ -3567,60 +3925,29 @@ class ShareManager {
         });
     }
 
-    async shortenUrl(longUrl, service) {
-        const services = {
-            tinyurl: {
-                url: `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            },
-            isgd: {
-                url: `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            },
-            vgd: {
-                url: `https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            },
-            cuttly: {
-                url: `https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(longUrl)}`,
-                method: 'GET'
-            }
-        };
-        
-        const serviceConfig = services[service];
-        if (!serviceConfig) return longUrl;
-        
+    async shortenUrl(longUrl, service = 'isgd') {
+        // is.gd is the only supported shortening provider.
+        if (service !== 'isgd') throw I18n.error(I18n.msg("ui_f4d0efaac5",null,"",""));
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12000);
         try {
-            const response = await fetch(serviceConfig.url, {
-                method: serviceConfig.method,
-                headers: {
-                    'Accept': 'application/json, text/plain'
-                }
+            const endpoint = `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`;
+            const response = await fetch(endpoint, {
+                method: 'GET', mode: 'cors', signal: controller.signal,
+                headers: { Accept: 'application/json' }
             });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok) throw new Error(`is.gd: HTTP ${response.status}`);
+            const data = await response.json();
+            if (data.errorcode || data.errormessage) {
+                throw new Error(data.errormessage || `is.gd: ${data.errorcode}`);
             }
-            
-            const data = await response.text();
-            
-            // معالجة الاستجابة حسب الخدمة
-            switch(service) {
-                case 'tinyurl':
-                    return data.trim(); // TinyURL يرجع الرابط المختصر كنص عادي
-                case 'isgd':
-                case 'vgd':
-                    const gdData = JSON.parse(data);
-                    return gdData.shorturl || data;
-                case 'cuttly':
-                    const jsonData = JSON.parse(data);
-                    return jsonData.result?.full_short_link || data;
-                default:
-                    return data;
+            const url = new URL(data.shorturl);
+            if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== 'is.gd') {
+                throw I18n.error(I18n.msg("ui_055d2e109d",null,"",""));
             }
-        } catch (error) {
-            console.error(`Error shortening URL with ${service}:`, error);
-            throw error;
+            return url.href;
+        } finally {
+            clearTimeout(timer);
         }
     }
 
@@ -3643,11 +3970,11 @@ class ShareManager {
 
     showCopySuccess(btn) {
         const originalContent = btn.innerHTML;
-        btn.innerHTML = '<i class="material-icons">check</i><span>تم النسخ!</span>';
+        I18n.render(btn,("<i class=\"material-icons\">check</i><span>" + (I18n.mark("ui_d57373cfc4",null)) + "</span>"));
         btn.style.backgroundColor = '#4CAF50';
         
         setTimeout(() => {
-            btn.innerHTML = originalContent;
+            I18n.render(btn,originalContent);
             btn.style.backgroundColor = '#4285f4';
         }, 2000);
     }
@@ -3717,7 +4044,7 @@ class MeasureManager {
         this.clearMeasurement();
         MAP.setCursor('crosshair');
         this.attachMapListeners();
-        bus.emit("toast", "وضع القياس مفعل. انقر لإضافة نقاط، انقر بزر الماوس الأيمن للحذف، انقر نقرًا مزدوجًا للإنهاء.");
+        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_b56e3006ff",null,"",""))));
     }
 
     deactivate() {
@@ -3796,12 +4123,12 @@ class MeasureManager {
 
         // عرض النتيجة في نافذة معلومات
         const lastPoint = this.points[this.points.length - 1];
-        let content = `<div style="direction: rtl; font-family: 'Tajawal', sans-serif;">`;
-        content += `<b>المسافة الإجمالية:</b> ${Utils.formatDistance(distance)}<br>`;
+        let content = ("<div style=\"direction:inherit; font-family: 'Tajawal', sans-serif;\">");
+        content += ("<b>" + (I18n.mark("ui_c3aa93119e",null)) + "</b> " + (I18n.fragment(()=>(Utils.formatDistance(distance)))) + "<br>");
         if (area > 0) {
-            content += `<b>المساحة الإجمالية:</b> ${Utils.formatArea(area)}`;
+            content += ("<b>" + (I18n.mark("ui_d093ca41e1",null)) + "</b> " + (I18n.fragment(()=>(Utils.formatArea(area)))));
         }
-        content += `</div>`;
+        content += ("</div>");
 
         if (!this.infoWindow) {
             this.infoWindow = new google.maps.InfoWindow({ disableAutoPan: false });
@@ -3813,7 +4140,7 @@ class MeasureManager {
 
     finishMeasurement() {
         this.deactivate();
-        bus.emit("toast", "تم الانتهاء من القياس");
+        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_aa4e0215e1",null,"",""))));
     }
 
     clearMeasurement() {
@@ -3842,7 +4169,7 @@ const MEASURE = new MeasureManager();
 class UIManager {
 
     constructor() {
-        this.logo = "/img/logo.png";
+        this.logo = "/img/seen-logo.png";
         this.sharedInfoWindow = null;
         this.infoWindowPinned = false;
         this._initialized = false;
@@ -3873,12 +4200,14 @@ class UIManager {
         this._initialized = true;
 
         console.log("UI: initializeUI() called.");
+        // حذف المسار أصبح ضمن نافذة «مسار»؛ لا نعرض الزر العام.
+        if (this.btnRouteClear) this.btnRouteClear.style.setProperty("display", "none", "important");
 
         /* ---------- CSS Injection (مرة واحدة) ---------- */
         if (!document.getElementById("ui-infowindow-style")) {
             const style = document.createElement("style");
             style.id = "ui-infowindow-style";
-            style.innerHTML = `
+            I18n.render(style,`
                 .gm-style-iw-c {
                     background: transparent !important;
                     box-shadow: none !important;
@@ -3898,7 +4227,7 @@ class UIManager {
                     opacity: 0 !important;
                     pointer-events: none !important;
                 }
-            `;
+            `);
             document.head.appendChild(style);
         }
 
@@ -3932,8 +4261,20 @@ class UIManager {
                 radio.type = "radio";
                 radio.name = "base-map";
                 radio.value = id;
-                label.append(radio, " " + name);
+                label.append(radio, I18n.node(() => " " + name));
                 baseMapGroup.append(label);
+            }
+            // Independent toggle for base-map labels. User annotations remain visible.
+            if (!this.layersPanel.querySelector('#securitymap-show-labels')) {
+                const labelRow = document.createElement('label');
+                labelRow.style.cssText = 'display:flex;align-items:center;gap:9px;padding:11px 12px;margin:9px 0;border:1px solid rgba(128,128,128,.25);border-radius:9px;cursor:pointer;direction:inherit;font-size:14px;';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = 'securitymap-show-labels';
+                checkbox.checked = MAP.labelsVisible;
+                checkbox.addEventListener('change', () => MAP.setLabelsVisible(checkbox.checked));
+                labelRow.append(checkbox, I18n.node(() => I18n.msg("ui_4af3ac9c79",null,"","")));
+                baseMapGroup.appendChild(labelRow);
             }
             this.layersPanel.querySelector(".panel-content").style.maxHeight = "min(65vh, 34rem)";
             this.layersPanel.querySelector(".panel-content").style.overflowY = "auto";
@@ -3975,35 +4316,35 @@ class UIManager {
     bindEditButtons() {
         if (this.btnAdd) {
             this.btnAdd.addEventListener("click", () => {
-                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
+                if (!MAP.editMode) return this.showToast(I18n.msg("ui_fc7389dfcc",null,"",""));
                 this.setActiveMode("add");
             });
         }
 
         if (this.btnRoute) {
             this.btnRoute.addEventListener("click", () => {
-                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
-                this.setActiveMode("route");
+                if (!MAP.editMode) return this.showToast(I18n.msg("ui_fc7389dfcc",null,"",""));
+                ROUTES.chooseDrawingMode();
             });
         }
 
         if (this.btnPolygon) {
             this.btnPolygon.addEventListener("click", () => {
-                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
+                if (!MAP.editMode) return this.showToast(I18n.msg("ui_fc7389dfcc",null,"",""));
                 this.setActiveMode("polygon");
             });
         }
 
         if (this.btnMeasure) {
             this.btnMeasure.addEventListener("click", () => {
-                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
+                if (!MAP.editMode) return this.showToast(I18n.msg("ui_fc7389dfcc",null,"",""));
                 this.setActiveMode("measure");
             });
         }
 
         if (this.btnFreeDraw) {
             this.btnFreeDraw.addEventListener("click", () => {
-                if (!MAP.editMode) return this.showToast("فعّل وضع التحرير");
+                if (!MAP.editMode) return this.showToast(I18n.msg("ui_fc7389dfcc",null,"",""));
                 this.setActiveMode("freedraw");
             });
         }
@@ -4020,18 +4361,20 @@ class UIManager {
         if (this.btnRouteClear) {
             this.btnRouteClear.addEventListener("click", () => {
                 if (ROUTES.activeRouteIndex === -1)
-                    return this.showToast("لا يوجد مسار نشط لحذفه");
-                if (!confirm("حذف المسار الحالي؟")) return;
+                    return this.showToast(I18n.msg("ui_1a1da3eb3d",null,"",""));
+                if (!confirm(I18n.msg("ui_6fe66b187d",null,"",""))) return;
                 ROUTES.removeRoute(ROUTES.activeRouteIndex);
                 this.showDefaultUI();
-                this.showToast("تم حذف المسار");
+                this.showToast(I18n.msg("ui_062cb04cad",null,"",""));
             });
         }
     }
 
     toggleLayersPanel() {
         if (!this.layersPanel) return;
-        const currentType = MAP.map.getMapTypeId() === "arcgis-imagery" ? "satellite" : MAP.map.getMapTypeId();
+        const currentType = MAP.selectedBaseMap;
+        const labelsCheckbox = this.layersPanel.querySelector('#securitymap-show-labels');
+        if (labelsCheckbox) labelsCheckbox.checked = MAP.labelsVisible;
         this.layersPanel.querySelectorAll('input[name="base-map"]').forEach(input => { input.checked = input.value === currentType; });
         this.layersPanel.classList.toggle("show");
         const isOpen = this.layersPanel.classList.contains("show");
@@ -4048,7 +4391,7 @@ class UIManager {
             case "dark": MAP.setDarkMode(); break;
             case "silver": MAP.setSilverMode(); break;
             default:
-                if (EXTRA_BASE_MAPS.some(({ id }) => id === mapTypeId)) MAP.map.setMapTypeId(mapTypeId);
+                if (EXTRA_BASE_MAPS.some(({ id }) => id === mapTypeId)) MAP.setBaseMapWithLabels(mapTypeId);
         }
     }
 
@@ -4089,7 +4432,7 @@ class UIManager {
 
     setActiveMode(mode) {
         if (POLYGONS.isEditing) {
-            this.showToast("يرجى إنهاء تحرير المضلع الحالي أولاً");
+            this.showToast(I18n.msg("ui_03749c6700",null,"",""));
             return;
         }
 
@@ -4112,7 +4455,7 @@ class UIManager {
                 MAP.modeAdd = true;
                 MAP.setCursor("crosshair");
                 this.showDefaultUI();
-                this.showToast("اضغط على الخريطة لإضافة موقع");
+                this.showToast(I18n.msg("ui_709dad3cff",null,"",""));
                 break;
 
             case "route":
@@ -4120,7 +4463,7 @@ class UIManager {
                 MAP.modeRouteAdd = true;
                 MAP.setCursor("crosshair");
                 this.showDrawFinishUI();
-                this.showToast("اضغط لإضافة نقاط المسار");
+                this.showToast(I18n.msg("ui_21c8014e1d",null,"",""));
                 break;
 
             case "polygon":
@@ -4128,7 +4471,7 @@ class UIManager {
                 MAP.modePolygonAdd = true;
                 MAP.setCursor("crosshair");
                 this.showDrawFinishUI();
-                this.showToast("اضغط لإضافة رؤوس المضلع");
+                this.showToast(I18n.msg("ui_780136c83c",null,"",""));
                 break;
 
             case "measure":
@@ -4140,7 +4483,7 @@ class UIManager {
                 MAP.modeFreeDraw = true;
                 MAP.setCursor("crosshair");
                 this.showDefaultUI();
-                this.showToast("اضغط على الخريطة لإضافة أيقونة أو نص");
+                this.showToast(I18n.msg("ui_e09aaac46d",null,"",""));
                 break;
 
             default:
@@ -4149,6 +4492,24 @@ class UIManager {
     }
 
     applyShareMode() {
+        // Shared links are a clean, read-only map: no application toolbar or map controls.
+        if (!document.getElementById('securitymap-clean-share-style')) {
+            const style = document.createElement('style');
+            style.id = 'securitymap-clean-share-style';
+            I18n.text(style,()=>(`
+                #toolbar, #mode-badge, #btn-share, .layers-panel,
+                #securitymap-project-control, #securitymap-undo-redo,
+                .gm-bundled-control, .gm-fullscreen-control, .gm-svpc,
+                .gm-style-mtc {
+                    display: none !important;
+                }
+                #map { inset: 0 !important; width: 100% !important; height: 100% !important; }
+            `));
+            document.head.appendChild(style);
+        }
+        const toolbar = document.getElementById('toolbar');
+        if (toolbar) toolbar.style.setProperty('display', 'none', 'important');
+        MAP.map.setOptions({ zoomControl: false, fullscreenControl: false, mapTypeControl: false, streetViewControl: false });
         [
             this.btnAdd,
             this.btnRoute,
@@ -4200,20 +4561,14 @@ class UIManager {
         if (!this.modeBadge) return;
         const mode = forceMode || (MAP.editMode ? "edit" : "view");
         this.modeBadge.style.display = "block";
-        this.modeBadge.textContent =
-            mode === "edit" ? "وضع التحرير" : "وضع العرض";
+        I18n.text(this.modeBadge,()=>(mode === "edit" ? I18n.msg("ui_e9f36b9666",null,"","") : I18n.msg("ui_fb6a3c1f3f",null,"","")));
         this.modeBadge.className = "";
         this.modeBadge.classList.add("badge", mode);
     }
 
     showToast(message) {
         if (!this.toastElement) return;
-        this.toastElement.innerHTML = `
-            <div style="display:flex;align-items:center;gap:8px;">
-                <img src="${this.logo}" style="width:22px;height:22px;border-radius:6px;">
-                <span style="font-family:'Tajawal',sans-serif;">${message}</span>
-            </div>
-        `;
+        I18n.render(this.toastElement,("\n            <div style=\"display:flex;align-items:center;gap:8px;\">\n                <img src=\"" + ((this.logo)) + "\" style=\"width:22px;height:22px;border-radius:6px;\">\n                <span style=\"font-family:'Tajawal',sans-serif;\">" + (I18n.fragment(()=>(message))) + "</span>\n            </div>\n        "));
         this.toastElement.classList.add("show");
         clearTimeout(this.toastTimer);
         this.toastTimer = setTimeout(() => {
@@ -4255,7 +4610,7 @@ class BootLoader {
 
     start() {
 
-        console.log("Diriyah Security Map v25.8 - Fixed Route Deletion & Share Mode");
+        console.log("Seen | Operational Maps v25.8 - Fixed Route Deletion & Share Mode");
 
         bus.on("map:zoom", z => {
             bus.emit("markers:scale", z);
@@ -4270,7 +4625,7 @@ class BootLoader {
 
     finish() {
         console.log("System initialization completed.");
-        bus.emit("toast", "تم تحميل النظام بنجاح");
+        bus.emit('toast',I18n.live(()=>(I18n.msg("ui_90b738f4b7",null,"",""))));
     }
 }
 

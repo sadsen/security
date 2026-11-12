@@ -1,8 +1,12 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" data-i18n-dir dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <title>خريطة أمن الدرعية</title>
+  <title data-i18n="ui_d9ca72ee2e">سين | الخرائط التشغيلية</title>
+  <meta name="application-name" data-i18n-content="ui_d9ca72ee2e" content="سين | الخرائط التشغيلية">
+  <meta name="apple-mobile-web-app-title" data-i18n-content="ui_d9ca72ee2e" content="سين | الخرائط التشغيلية">
+  <link rel="icon" type="image/png" href="/img/seen-logo.png">
+  <link rel="apple-touch-icon" href="/img/seen-logo.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -168,73 +172,74 @@
       border-radius: 50%;
     }
   </style>
+  <link rel="stylesheet" href="/css/i18n.css">
 </head>
 <body>
   <div id="map"></div>
 
   <div id="layers-panel" class="layers-panel">
     <div class="panel-header">
-      <h3>طبقات الخريطة</h3>
+      <h3><span data-i18n="ui_4e84b1f2ca">طبقات الخريطة</span></h3>
       <button id="btn-close-layers" class="btn-close">&times;</button>
     </div>
     <div class="panel-content">
       <div class="layer-group">
-        <h4>نوع الخريطة</h4>
-        <label><input type="radio" name="base-map" value="roadmap" checked> طرق</label>
-        <label><input type="radio" name="base-map" value="satellite"> قمر صناعي</label>
-        <label><input type="radio" name="base-map" value="terrain"> تضاريس</label>
-        <label><input type="radio" name="base-map" value="dark"> الوضع الليلي</label>
-        <label><input type="radio" name="base-map" value="silver"> فضي</label>
+        <h4><span data-i18n="ui_d107cfc812">نوع الخريطة</span></h4>
+        <label><input type="radio" name="base-map" value="roadmap" checked> <span data-i18n="ui_11a51d9661">طرق</span></label>
+        <label><input type="radio" name="base-map" value="satellite"> <span data-i18n="ui_f688b63e9c">قمر صناعي</span></label>
+        <label><input type="radio" name="base-map" value="terrain"> <span data-i18n="ui_ab8096cec8">تضاريس</span></label>
+        <label><input type="radio" name="base-map" value="dark"> <span data-i18n="ui_178a969516">الوضع الليلي</span></label>
+        <label><input type="radio" name="base-map" value="silver"> <span data-i18n="ui_1485ba4f8c">فضي</span></label>
       </div>
       <div class="layer-group">
-        <h4>طبقات إضافية</h4>
-        <label><input type="checkbox" id="layer-traffic"> حركة المرور</label>
-        <label><input type="checkbox" id="layer-bicycling"> مسارات الدراجات</label>
-        <label><input type="checkbox" id="layer-transit"> خطوط النقل العام</label>
+        <h4><span data-i18n="ui_cb9fc0e7e9">طبقات إضافية</span></h4>
+        <label><input type="checkbox" id="layer-traffic"> <span data-i18n="ui_1d3c6b66cf">حركة المرور</span></label>
+        <label><input type="checkbox" id="layer-bicycling"> <span data-i18n="ui_eb991f46e1">مسارات الدراجات</span></label>
+        <label><input type="checkbox" id="layer-transit"> <span data-i18n="ui_cc423c6817">خطوط النقل العام</span></label>
       </div>
     </div>
   </div>
 
   <div id="toolbar">
-    <button id="btn-layers" class="btn" aria-pressed="false" title="إظهار وإخفاء طبقات الخريطة">
+    <button id="btn-layers" class="btn" aria-pressed="false" data-i18n-title="ui_b218b90cbf" title="إظهار وإخفاء طبقات الخريطة">
       <i class="material-icons">layers</i>
-      طبقات
+      <span data-i18n="ui_c807bb507b">طبقات</span>
     </button>
-    <button id="btn-add" class="btn" aria-pressed="false" title="إضافة موقع جديد على الخريطة">
+    <button id="btn-add" class="btn" aria-pressed="false" data-i18n-title="ui_58127280ec" title="إضافة موقع جديد على الخريطة">
       <i class="material-icons">add_location</i>
-      إضافة موقع
+      <span data-i18n="ui_8c43ff32e8">إضافة موقع</span>
     </button>
-    <button id="btn-free-draw" class="btn" aria-pressed="false" title="رسم حر (أيقونات ونصوص)">
+    <button id="btn-free-draw" class="btn" aria-pressed="false" data-i18n-title="ui_d1e6c94db2" title="رسم حر (أيقونات ونصوص)">
       <i class="material-icons">brush</i>
-      رسم حر
+      <span data-i18n="ui_c17be9dfd0">رسم حر</span>
     </button>
-    <button id="btn-polygon" class="btn" aria-pressed="false" title="رسم مضلع على الخريطة">
+    <button id="btn-polygon" class="btn" aria-pressed="false" data-i18n-title="ui_e6220846fb" title="رسم مضلع على الخريطة">
       <i class="material-icons">polyline</i>
-      مضلع
+      <span data-i18n="ui_5d7bef9683">مضلع</span>
     </button>
-    <button id="btn-route" class="btn" aria-pressed="false" title="رسم مسار على الخريطة">
+    <button id="btn-route" class="btn" aria-pressed="false" data-i18n-title="ui_79fa07f78b" title="رسم مسار على الخريطة">
       <i class="material-icons">route</i>
-      مسار
+      <span data-i18n="ui_b21623d92f">مسار</span>
     </button>
-    <button id="btn-measure" class="btn" aria-pressed="false" title="قياس مسافة أو مساحة">
+    <button id="btn-measure" class="btn" aria-pressed="false" data-i18n-title="ui_2d0cc66b2e" title="قياس مسافة أو مساحة">
       <i class="material-icons">straighten</i>
-      قياس
+      <span data-i18n="ui_c4622d4107">قياس</span>
     </button>
-    <button id="btn-draw-finish" class="btn" style="display: none;" title="إنهاء الرسم الحالي">
+    <button id="btn-draw-finish" class="btn" style="display: none;" data-i18n-title="ui_ba78d56afc" title="إنهاء الرسم الحالي">
       <i class="material-icons">check</i>
-      إنهاء الرسم
+      <span data-i18n="ui_243165ff41">إنهاء الرسم</span>
     </button>
-    <button id="btn-route-clear" class="btn" aria-pressed="false" title="مسح المسار النشط">
+    <button id="btn-route-clear" class="btn" aria-pressed="false" data-i18n-title="ui_87c1a0abfd" title="مسح المسار النشط">
       <i class="material-icons">delete_sweep</i>
-      مسح المسار
+      <span data-i18n="ui_0286666894">مسح المسار</span>
     </button>
-    <button id="btn-edit" class="btn" aria-pressed="true" title="تبديل وضع التحرير">
+    <button id="btn-edit" class="btn" aria-pressed="true" data-i18n-title="ui_7b4128ce57" title="تبديل وضع التحرير">
       <i class="material-icons">edit</i>
-      تحرير
+      <span data-i18n="ui_3e3d8fa76f">تحرير</span>
     </button>
-    <button id="btn-share" class="btn" title="مشاركة رابط الخريطة الحالية">
+    <button id="btn-share" class="btn" data-i18n-title="ui_4e781e9189" title="مشاركة رابط الخريطة الحالية">
       <i class="material-icons">share</i>
-      <span class="label">مشاركة</span>
+      <span class="label"><span data-i18n="ui_0196884ea4">مشاركة</span></span>
     </button>
   </div>
   
@@ -242,8 +247,13 @@
   <div id="toast"></div>
   
   <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+  <script src="/js/i18n/ar.js"></script>
+  <script src="/js/i18n/en.js"></script>
+  <script src="/js/i18n.js"></script>
+  <script src="/js/android.js"></script>
   <script src="/js/main.js"></script>
+  <script src="/js/mobile.js"></script>
 
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAbyDb68H77pxFnzH0IW3O35_HxDcMQ3TQ&libraries=geometry,marker,places,drawing&callback=initMap"></script>
+  <script async data-map-src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAbyDb68H77pxFnzH0IW3O35_HxDcMQ3TQ&libraries=geometry,marker,places,drawing&callback=initMap"></script>
 </body>
 </html>
