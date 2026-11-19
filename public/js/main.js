@@ -951,6 +951,8 @@ class FreeLayerManager {
         
         bus.on("state:load", st => this.applyState(st));
         bus.on("state:save", () => this.exportState());
+        // Keep map symbols proportional to the geographical zoom level.
+        bus.on("map:zoom", () => this.refreshIconSizes());
     }
     
     onMapReady() {
@@ -1090,43 +1092,35 @@ class FreeLayerManager {
         });
     }
     
-    // Render icons into a fixed-size bitmap so map zoom and external CSS
-    // cannot enlarge the icon or expose Material Icons ligature text.
-    paintFixedIcon(item, container) {
-        const size = Math.round(24 * Math.max(0.5, Math.min(3, Number(item.scale) || 1)));
-        const ratio = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
-        let canvas = container.querySelector('canvas');
-        if (!canvas) {
-            canvas = document.createElement('canvas');
-            container.replaceChildren(canvas);
+    iconPixelSize(item) {
+        const zoom = Number(this.map?.getZoom() ?? 18);
+        const base = 24 * Math.max(0.5, Math.min(3, Number(item.scale) || 1));
+        // Icons become smaller when zooming out, rather than covering a whole district.
+        return Math.max(5, Math.min(base, base * Math.pow(2, (zoom - 18) * 0.65)));
+    }
+
+    renderIconContent(item, element) {
+        const size = this.iconPixelSize(item);
+        element.style.cssText = `display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;line-height:1;overflow:visible;`;
+        const icon = document.createElement('i');
+        icon.className = 'material-icons';
+        icon.textContent = item.iconName || 'place';
+        icon.style.cssText = `font-family:'Material Icons' !important;font-size:${size}px !important;width:${size}px;height:${size}px;line-height:1;color:${item.color || '#4285f4'};font-weight:normal;font-style:normal;white-space:nowrap;`;
+        element.replaceChildren(icon);
+    }
+
+    refreshIconSizes() {
+        for (const item of this.items) {
+            if (item.type === 'icon' && item.marker?.content) {
+                this.renderIconContent(item, item.marker.content);
+            }
         }
-        canvas.width = Math.ceil(size * ratio);
-        canvas.height = Math.ceil(size * ratio);
-        canvas.style.setProperty('width', size + 'px', 'important');
-        canvas.style.setProperty('height', size + 'px', 'important');
-        canvas.style.setProperty('display', 'block', 'important');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.scale(ratio, ratio);
-        ctx.clearRect(0, 0, size, size);
-        ctx.fillStyle = item.color || '#4285f4';
-        ctx.font = `${size}px "Material Icons"`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(item.iconName || 'place'), size / 2, size / 2, size);
     }
 
     createIconMarker(item) {
         const iconElement = document.createElement('div');
-        iconElement.className = 'seen-fixed-map-icon';
-        iconElement.style.cssText = 'display:block!important;position:relative;line-height:0!important;transform:none!important;zoom:1!important;overflow:hidden;';
-        this.paintFixedIcon(item, iconElement);
-        // Repaint after the icon font loads, including on slower devices.
-        if (document.fonts && document.fonts.load) {
-            document.fonts.load('24px "Material Icons"').then(() => {
-                if (item.marker && item.marker.map) this.paintFixedIcon(item, iconElement);
-            }).catch(() => {});
-        }
+        iconElement.className = 'free-draw-icon';
+        this.renderIconContent(item, iconElement);
 
         item.marker = new google.maps.marker.AdvancedMarkerElement({
             position: item.position,
@@ -1322,6 +1316,11 @@ class FreeLayerManager {
         
         const html = ("\n            <div style=\"" + ((cardStyle)) + "\" class=\"free-draw-edit-card\">\n                <div style=\"" + ((headerStyle)) + "\">\n                    <h3 style=\"margin: 0; font-size: 18px; font-weight: 700;\">" + (I18n.fragment(()=>(item.type === 'icon' ? I18n.msg("ui_fdbda91b66",null,"","") : I18n.msg("ui_a1754bc45f",null,"","")))) + "</h3>\n                </div>\n                <div style=\"" + ((bodyStyle)) + "\">\n                    " + (I18n.fragment(()=>(bodyContent))) + "\n                </div>\n                <div style=\"" + ((footerStyle)) + "\">\n                    <button id=\"delete-btn\" style=\"padding: 10px 20px; border: none; border-radius: 8px; background-color: #ea4335; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;\">" + (I18n.mark("ui_2d2bbdc2d6",null)) + "</button>\n                    <button id=\"cancel-btn\" style=\"padding: 10px 20px; border: none; border-radius: 8px; background-color: #f5f5f5; color: #333; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;\">" + (I18n.mark("ui_e776b0209b",null)) + "</button>\n                    <button id=\"save-btn\" style=\"padding: 10px 20px; border: none; border-radius: 8px; background-color: #4285f4; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;\">" + (I18n.mark("ui_56ee6e0d20",null)) + "</button>\n                </div>\n            </div>\n        ");
         
+        if (item.type === 'icon') {
+            const duplicateButton = '<button id="duplicate-icon-btn" type="button" style="padding:10px 14px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-family:Tajawal,sans-serif;font-size:14px">نسخ الأيقونة</button>';
+            html = html.replace('<button id="delete-btn"', duplicateButton + '<button id="delete-btn"');
+        }
+
         UI.openSharedInfoCard(html, item.position, true);
         
         google.maps.event.addListenerOnce(UI.sharedInfoWindow, "domready", () => {
@@ -1350,6 +1349,27 @@ class FreeLayerManager {
         }
         
         if (item.type === 'icon') {
+            const duplicateBtn = document.getElementById('duplicate-icon-btn');
+            duplicateBtn?.addEventListener('click', () => {
+                if (MAP.shareMode || !MAP.editMode) return;
+                UI.forceCloseSharedInfoCard();
+                MAP.setCursor('crosshair');
+                bus.emit('toast', 'اضغط على الخريطة لتحديد موقع النسخة');
+                const listener = this.map.addListener('click', event => {
+                    google.maps.event.removeListener(listener);
+                    MAP.setCursor('grab');
+                    if (MAP.shareMode || !MAP.editMode) return;
+                    const copy = {
+                        id: 'free' + Date.now() + Math.random().toString(36).slice(2, 7),
+                        type: 'icon', position: event.latLng,
+                        iconName: item.iconName, color: item.color, scale: item.scale
+                    };
+                    this.createIconMarker(copy);
+                    this.items.push(copy);
+                    bus.emit('persist');
+                    bus.emit('toast', 'تم نسخ الأيقونة بكامل تخصيصاتها');
+                });
+            });
             const changeIconBtn = document.getElementById("change-icon-btn");
             const colorInput = document.getElementById("icon-color");
             const scaleInput = document.getElementById("icon-scale");
@@ -1487,9 +1507,7 @@ class FreeLayerManager {
     }
     
     updateIconMarker(item) {
-        if (item.marker && item.marker.content) {
-            this.paintFixedIcon(item, item.marker.content);
-        }
+        if (item.marker?.content) this.renderIconContent(item, item.marker.content);
     }
 
     updateTextMarker(item) {
