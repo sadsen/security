@@ -1090,14 +1090,44 @@ class FreeLayerManager {
         });
     }
     
+    // Render icons into a fixed-size bitmap so map zoom and external CSS
+    // cannot enlarge the icon or expose Material Icons ligature text.
+    paintFixedIcon(item, container) {
+        const size = Math.round(24 * Math.max(0.5, Math.min(3, Number(item.scale) || 1)));
+        const ratio = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+        let canvas = container.querySelector('canvas');
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            container.replaceChildren(canvas);
+        }
+        canvas.width = Math.ceil(size * ratio);
+        canvas.height = Math.ceil(size * ratio);
+        canvas.style.setProperty('width', size + 'px', 'important');
+        canvas.style.setProperty('height', size + 'px', 'important');
+        canvas.style.setProperty('display', 'block', 'important');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.scale(ratio, ratio);
+        ctx.clearRect(0, 0, size, size);
+        ctx.fillStyle = item.color || '#4285f4';
+        ctx.font = `${size}px "Material Icons"`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(item.iconName || 'place'), size / 2, size / 2, size);
+    }
+
     createIconMarker(item) {
         const iconElement = document.createElement('div');
-        iconElement.className = 'free-draw-icon';
-        // Keep markers at their user-selected pixel size, independent of map zoom.
-        iconElement.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;transform:none;zoom:1;line-height:1;';
-        // تحسين جودة عرض الأيقونة
-        I18n.render(iconElement,("<i class=\"material-icons\" style=\"color: " + ((item.color)) + "; font-size: " + ((24 * item.scale)) + "px; line-height:1; display:block; width:1em; height:1em; overflow:hidden; font-weight:normal; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;\">" + (I18n.fragment(()=>(item.iconName))) + "</i>"));
-        
+        iconElement.className = 'seen-fixed-map-icon';
+        iconElement.style.cssText = 'display:block!important;position:relative;line-height:0!important;transform:none!important;zoom:1!important;overflow:hidden;';
+        this.paintFixedIcon(item, iconElement);
+        // Repaint after the icon font loads, including on slower devices.
+        if (document.fonts && document.fonts.load) {
+            document.fonts.load('24px "Material Icons"').then(() => {
+                if (item.marker && item.marker.map) this.paintFixedIcon(item, iconElement);
+            }).catch(() => {});
+        }
+
         item.marker = new google.maps.marker.AdvancedMarkerElement({
             position: item.position,
             map: this.map,
@@ -1457,11 +1487,11 @@ class FreeLayerManager {
     }
     
     updateIconMarker(item) {
-        const iconElement = item.marker.content;
-        // تحسين جودة عرض الأيقونة عند التحديث
-        I18n.render(iconElement,("<i class=\"material-icons\" style=\"color: " + ((item.color)) + "; font-size: " + ((24 * item.scale)) + "px; line-height:1; display:block; width:1em; height:1em; overflow:hidden; font-weight:normal; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;\">" + (I18n.fragment(()=>(item.iconName))) + "</i>"));
+        if (item.marker && item.marker.content) {
+            this.paintFixedIcon(item, item.marker.content);
+        }
     }
-    
+
     updateTextMarker(item) {
         const textElement = item.marker.content;
         this.applyTextBackgroundStyle(textElement, item);
