@@ -545,6 +545,12 @@ class IconPickerModal {
             security_vehicles: ['directions_car', 'local_shipping', 'local_taxi', 'airport_shuttle', 'rv_hookup', 'car_rental', 'two_wheeler', 'motorcycle', 'electric_car', 'electric_moped', 'electric_scooter'],
             // فئة جديدة للمعدات الأمنية
             security_equipment: ['videocam', 'photo_camera', 'camera', 'camera_alt', 'camera_enhance', 'camera_indoor', 'camera_outdoor', 'camera_rear', 'switch_video', 'videocam_off', 'photo_camera_back', 'photo_camera_front', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'add_photo_alternate', 'add_a_photo', 'image', 'image_search', 'image_not_supported', 'broken_image', 'filter', 'filter_b_and_w', 'filter_center_focus', 'filter_drama', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage', 'blur_circular', 'blur_linear', 'blur_on', 'blur_off', 'flare', 'flash_on', 'flash_off', 'flash_auto', 'highlight', 'gradient', 'tonality', 'texture', 'grain', 'vignette', 'center_focus_strong', 'center_focus_weak', 'center_focus', 'panorama', 'panorama_fish_eye', 'panorama_horizontal', 'panorama_vertical', 'panorama_wide_angle', 'photo', 'photo_library', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'slideshow', 'switch_camera', 'switch_video', 'timelapse', 'timer', 'timer_10', 'timer_3', 'timer_off', 'camera', 'camera_alt', 'camera_enhance', 'camera_front', 'camera_rear', 'camera_roll', 'camera_indoor', 'camera_outdoor', 'add_a_photo', 'add_photo_alternate', 'image', 'image_search', 'image_not_supported', 'broken_image', 'filter', 'filter_b_and_w', 'filter_center_focus', 'filter_drama', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage', 'blur_circular', 'blur_linear', 'blur_on', 'blur_off', 'flare', 'flash_on', 'flash_off', 'flash_auto', 'highlight', 'gradient', 'tonality', 'texture', 'grain', 'vignette', 'center_focus_strong', 'center_focus_weak', 'center_focus', 'panorama', 'panorama_fish_eye', 'panorama_horizontal', 'panorama_vertical', 'panorama_wide_angle', 'photo', 'photo_library', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'slideshow', 'switch_camera', 'switch_video', 'timelapse', 'timer', 'timer_10', 'timer_3', 'timer_off', 'camera', 'camera_alt', 'camera_enhance', 'camera_front', 'camera_rear', 'camera_roll', 'camera_indoor', 'camera_outdoor', 'add_a_photo', 'add_photo_alternate', 'image', 'image_search', 'image_not_supported', 'broken_image', 'filter', 'filter_b_and_w', 'filter_center_focus', 'filter_drama', 'filter_frames', 'filter_hdr', 'filter_none', 'filter_tilt_shift', 'filter_vintage', 'blur_circular', 'blur_linear', 'blur_on', 'blur_off', 'flare', 'flash_on', 'flash_off', 'flash_auto', 'highlight', 'gradient', 'tonality', 'texture', 'grain', 'vignette', 'center_focus_strong', 'center_focus_weak', 'center_focus', 'panorama', 'panorama_fish_eye', 'panorama_horizontal', 'panorama_vertical', 'panorama_wide_angle', 'photo', 'photo_library', 'photo_size_select_actual', 'photo_size_select_large', 'photo_size_select_small', 'slideshow', 'switch_camera', 'switch_video', 'timelapse', 'timer', 'timer_10', 'timer_3', 'timer_off']
+            ,operations: ['engineering', 'construction', 'build', 'handyman', 'plumbing', 'electrical_services', 'settings', 'settings_applications', 'inventory', 'assignment', 'assignment_turned_in', 'fact_check', 'checklist', 'event', 'schedule', 'access_time', 'today', 'calendar_today', 'work', 'work_outline', 'badge', 'groups', 'supervisor_account', 'support_agent'],
+            facilities: ['warehouse', 'factory', 'domain', 'location_city', 'storefront', 'shopping_cart', 'local_mall', 'local_gas_station', 'local_car_wash', 'local_convenience_store', 'local_pharmacy', 'local_library', 'local_post_office', 'local_atm', 'local_laundry_service', 'local_printshop', 'school', 'account_balance', 'park', 'forest', 'terrain', 'landscape'],
+            field_assets: ['radio', 'router', 'wifi', 'wifi_off', 'cell_tower', 'satellite', 'gps_fixed', 'gps_not_fixed', 'my_location', 'explore', 'map', 'layers', 'place', 'room', 'near_me', 'navigation', 'alt_route', 'route', 'device_hub', 'hub', 'sensors', 'sensors_off', 'battery_full', 'battery_alert', 'power', 'power_off', 'computer', 'desktop_windows', 'laptop', 'tablet', 'smartphone', 'headset', 'speaker', 'print', 'qr_code', 'qr_code_scanner'],
+            incidents: ['dangerous', 'error', 'error_outline', 'notification_important', 'new_releases', 'info', 'info_outline', 'help', 'help_outline', 'medical_services', 'healing', 'vaccines', 'bloodtype', 'masks', 'sanitizer', 'clean_hands', 'fire_extinguisher', 'smoke_free', 'water_drop', 'flood', 'thunderstorm', 'ac_unit', 'severe_cold', 'visibility', 'visibility_off', 'highlight_off', 'cancel', 'block', 'report', 'announcement'],
+            mobility: ['car_crash', 'car_repair', 'car_rental', 'airport_shuttle', 'commute', 'departure_board', 'local_airport', 'local_offer', 'local_see', 'local_activity', 'directions', 'directions_walk', 'directions_run', 'directions_railway', 'directions_subway', 'directions_transit', 'tram', 'subway', 'two_wheeler', 'pedal_bike', 'sports_motorsports', 'speed', 'timer', 'hourglass_empty', 'hourglass_full'],
+            controls: ['add_circle', 'remove_circle', 'check_circle', 'check_circle_outline', 'radio_button_checked', 'radio_button_unchecked', 'adjust', 'lens', 'brightness_1', 'crop_square', 'filter_tilt_shift', 'flare', 'grade', 'stars', 'outlined_flag', 'assistant_photo', 'tour', 'place', 'location_searching', 'location_disabled', 'wrong_location', 'edit_location', 'add_location_alt', 'share_location', 'pin_drop']
         };
         
         this.initModal();
@@ -884,6 +890,26 @@ class IconPickerModal {
             );
         }
         
+        // Material Icons renders unknown ligatures as ordinary text, which looks
+        // like a blank/missing icon. Keep the picker limited to actual glyphs.
+        // Re-render once the webfont finishes loading (including slow connections).
+        if (!this._fontCheckScheduled && document.fonts && document.fonts.status !== 'loaded') {
+            this._fontCheckScheduled = true;
+            document.fonts.ready.then(() => {
+                this._fontCheckScheduled = false;
+                if (this.modal && this.modal.isConnected) this.renderIcons();
+            });
+        }
+        const probe = document.createElement('canvas').getContext('2d');
+        if (probe) {
+            probe.font = '24px "Material Icons"';
+            // A real Material Icons glyph is one symbol (~24px). An unknown
+            // ligature is drawn as its literal name, usually much wider.
+            iconsToDisplay = iconsToDisplay.filter(name =>
+                probe.measureText(name).width <= 32
+            );
+        }
+
         // Create icon items
         iconsToDisplay.forEach(icon => {
             const item = document.createElement('div');
