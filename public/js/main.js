@@ -1093,8 +1093,10 @@ class FreeLayerManager {
     createIconMarker(item) {
         const iconElement = document.createElement('div');
         iconElement.className = 'free-draw-icon';
+        // Keep markers at their user-selected pixel size, independent of map zoom.
+        iconElement.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;transform:none;zoom:1;line-height:1;';
         // تحسين جودة عرض الأيقونة
-        I18n.render(iconElement,("<i class=\"material-icons\" style=\"color: " + ((item.color)) + "; font-size: " + ((24 * item.scale)) + "px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;\">" + (I18n.fragment(()=>(item.iconName))) + "</i>"));
+        I18n.render(iconElement,("<i class=\"material-icons\" style=\"color: " + ((item.color)) + "; font-size: " + ((24 * item.scale)) + "px; line-height:1; display:block; width:1em; height:1em; overflow:hidden; font-weight:normal; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;\">" + (I18n.fragment(()=>(item.iconName))) + "</i>"));
         
         item.marker = new google.maps.marker.AdvancedMarkerElement({
             position: item.position,
@@ -1457,7 +1459,7 @@ class FreeLayerManager {
     updateIconMarker(item) {
         const iconElement = item.marker.content;
         // تحسين جودة عرض الأيقونة عند التحديث
-        I18n.render(iconElement,("<i class=\"material-icons\" style=\"color: " + ((item.color)) + "; font-size: " + ((24 * item.scale)) + "px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;\">" + (I18n.fragment(()=>(item.iconName))) + "</i>"));
+        I18n.render(iconElement,("<i class=\"material-icons\" style=\"color: " + ((item.color)) + "; font-size: " + ((24 * item.scale)) + "px; line-height:1; display:block; width:1em; height:1em; overflow:hidden; font-weight:normal; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;\">" + (I18n.fragment(()=>(item.iconName))) + "</i>"));
     }
     
     updateTextMarker(item) {
@@ -3392,7 +3394,6 @@ class StateManager {
         if (this.shareMode || !state) return;
         try {
             sessionStorage.setItem(this.draftKey, JSON.stringify(state));
-            localStorage.setItem(this.draftKey, JSON.stringify(state));
         } catch (error) {
             console.warn("Unable to save the map draft", error);
         }
@@ -3400,7 +3401,7 @@ class StateManager {
 
     readDraft() {
         try {
-            const draft = JSON.parse(sessionStorage.getItem(this.draftKey) || localStorage.getItem(this.draftKey));
+            const draft = JSON.parse(sessionStorage.getItem(this.draftKey));
             if (Array.isArray(draft?.locations)) {
                 const locations = LOCATIONS.removeLegacyDefaultLocations(draft.locations);
                 if (locations.length !== draft.locations.length) {
@@ -4616,9 +4617,8 @@ class BootLoader {
             bus.emit("markers:scale", z);
         });
 
-        bus.on("map:bounds", () => {
-            bus.emit("persist");
-        });
+        // Moving or zooming the map must not create an editable draft.
+
 
         this.finish();
     }
