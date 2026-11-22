@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.seensu.securitymap",
+      "sha256_cert_fingerprints": [
+        "98:0F:93:C0:77:69:F5:CD:AF:36:1F:E7:E7:A6:2C:00:BB:28:2A:50:88:4B:B0:93:2B:80:27:D7:E9:6D:2B:C1"
+      ]
+    }
+  }
+]
