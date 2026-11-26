@@ -1147,10 +1147,17 @@ class FreeLayerManager {
     }
     
     iconPixelSize(item) {
-        const zoom = Number(this.map?.getZoom() ?? 18);
-        const base = 24 * Math.max(0.5, Math.min(3, Number(item.scale) || 1));
-        // Icons become smaller when zooming out, rather than covering a whole district.
-        return Math.max(5, Math.min(base, base * Math.pow(2, (zoom - 18) * 0.65)));
+        // Screen pixels, independent of map zoom and map type.
+        return 24 * Math.max(0.5, Math.min(3, Number(item.scale) || 1));
+    }
+
+    iconBackground(item) {
+        const opacity = Number(item.iconBackgroundOpacity ?? 1);
+        return {
+            iconBackgroundEnabled: item.iconBackgroundEnabled === true,
+            iconBackgroundColor: /^#[0-9a-f]{6}$/i.test(item.iconBackgroundColor || '') ? item.iconBackgroundColor : '#ffffff',
+            iconBackgroundOpacity: Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1
+        };
     }
 
     renderIconContent(item, element) {
@@ -1160,7 +1167,18 @@ class FreeLayerManager {
         icon.className = 'material-icons';
         icon.textContent = item.iconName || 'place';
         icon.style.cssText = `font-family:'Material Icons' !important;font-size:${size}px !important;width:${size}px;height:${size}px;line-height:1;color:${item.color || '#4285f4'};font-weight:normal;font-style:normal;white-space:nowrap;`;
+        const background = this.iconBackground(item);
+        // One square box shared by glyph and circle: no padding, border, or shadow.
+        element.style.cssText += 'position:relative;box-sizing:border-box;padding:0;margin:0;border:0;outline:0;box-shadow:none;background:transparent;';
+        icon.style.cssText += 'display:flex;align-items:center;justify-content:center;padding:0;margin:0;border:0;box-shadow:none;position:relative;z-index:1;';
         element.replaceChildren(icon);
+        if (background.iconBackgroundEnabled) {
+            const circle = document.createElement('span');
+            circle.className = 'free-draw-icon-background';
+            circle.setAttribute('aria-hidden', 'true');
+            circle.style.cssText = `position:absolute;inset:0;width:100%;height:100%;border-radius:50%;padding:0;margin:0;border:0;outline:0;box-shadow:none;pointer-events:none;background-color:${background.iconBackgroundColor};opacity:${background.iconBackgroundOpacity};`;
+            element.prepend(circle);
+        }
     }
 
     refreshIconSizes() {
@@ -1368,6 +1386,17 @@ class FreeLayerManager {
             bodyContent = ("\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_24c761c38d",null)) + "</label>\n                    <textarea id=\"text-content\" style=\"width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; min-height: 100px; font-family: 'Tajawal', sans-serif; font-size: 14px; line-height: 1.5;\">" + ((item.text)) + "</textarea>\n                    <div style=\"font-size: 12px; color: #666; margin-top: 4px;\">" + (I18n.mark("ui_ad62500032",null)) + "</div>\n                </div>\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_fc43b86613",null)) + "</label>\n                    <select id=\"text-background\" style=\"width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: 'Tajawal', sans-serif; font-size: 14px;\">\n                        <option value=\"none\" " + ((item.backgroundStyle === 'none' ? 'selected' : '')) + " data-i18n=\"ui_0b201e4138\">" + (I18n.t("ui_0b201e4138",null)) + "</option>\n                        <option value=\"white\" " + ((item.backgroundStyle === 'white' ? 'selected' : '')) + " data-i18n=\"ui_14c76596aa\">" + (I18n.t("ui_14c76596aa",null)) + "</option>\n                        <option value=\"dark\" " + ((item.backgroundStyle === 'dark' ? 'selected' : '')) + " data-i18n=\"ui_91f1634c6e\">" + (I18n.t("ui_91f1634c6e",null)) + "</option>\n                        <option value=\"outline\" " + ((item.backgroundStyle === 'outline' ? 'selected' : '')) + " data-i18n=\"ui_4a59c8a557\">" + (I18n.t("ui_4a59c8a557",null)) + "</option>\n                    </select>\n                </div>\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_ca9e585038",null)) + "</label>\n                    <input id=\"text-color\" type=\"color\" value=\"" + ((item.textColor)) + "\" style=\"width: 100%; height: 40px; border: none; border-radius: 6px; cursor: pointer;\">\n                </div>\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_329bb9996c",null)) + " <span id=\"text-size-value\">" + (I18n.fragment(()=>(item.fontSize))) + "px</span></label>\n                    <input id=\"text-size\" type=\"range\" min=\"12\" max=\"36\" step=\"1\" value=\"" + ((item.fontSize)) + "\" style=\"width: 100%;\">\n                </div>\n                <!-- إضافة خيار تغيير الموقع -->\n                <div style=\"margin-bottom: 16px;\">\n                    <label style=\"font-size: 14px; display: block; margin-bottom: 8px; font-weight: bold;\">" + (I18n.mark("ui_81aeadb0b6",null)) + "</label>\n                    <button id=\"move-text-btn\" style=\"padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; width: 100%;\">\n                        <i class=\"material-icons\" style=\"vertical-align: middle; margin-left: 8px;\">open_with</i>\n                        " + (I18n.mark("ui_a635518f00",null)) + "\n                    </button>\n                </div>\n            ");
         }
         
+        if (item.type === 'icon') {
+            const bg = this.iconBackground(item);
+            bodyContent += `<fieldset style="border:0;padding:0;margin:0 0 16px">
+                <label><input id="icon-background-enabled" type="checkbox" ${bg.iconBackgroundEnabled ? 'checked' : ''}> ${I18n.t('iconBackground.enabled')}</label>
+                <div style="display:flex;gap:12px;align-items:center;margin-top:12px">
+                    <label>${I18n.t('iconBackground.color')} <input id="icon-background-color" type="color" value="${bg.iconBackgroundColor}"></label>
+                    <label>${I18n.t('iconBackground.opacity')} <input id="icon-background-opacity" type="range" min="0" max="100" step="1" value="${Math.round(bg.iconBackgroundOpacity * 100)}"></label>
+                    <output id="icon-background-opacity-value">${Math.round(bg.iconBackgroundOpacity * 100)}%</output>
+                </div>
+            </fieldset>`;
+        }
         let html = ("\n            <div style=\"" + ((cardStyle)) + "\" class=\"free-draw-edit-card\">\n                <div style=\"" + ((headerStyle)) + "\">\n                    <h3 style=\"margin: 0; font-size: 18px; font-weight: 700;\">" + (I18n.fragment(()=>(item.type === 'icon' ? I18n.msg("ui_fdbda91b66",null,"","") : I18n.msg("ui_a1754bc45f",null,"","")))) + "</h3>\n                </div>\n                <div style=\"" + ((bodyStyle)) + "\">\n                    " + (I18n.fragment(()=>(bodyContent))) + "\n                </div>\n                <div style=\"" + ((footerStyle)) + "\">\n                    <button id=\"delete-btn\" style=\"padding: 10px 20px; border: none; border-radius: 8px; background-color: #ea4335; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;\">" + (I18n.mark("ui_2d2bbdc2d6",null)) + "</button>\n                    <button id=\"cancel-btn\" style=\"padding: 10px 20px; border: none; border-radius: 8px; background-color: #f5f5f5; color: #333; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;\">" + (I18n.mark("ui_e776b0209b",null)) + "</button>\n                    <button id=\"save-btn\" style=\"padding: 10px 20px; border: none; border-radius: 8px; background-color: #4285f4; color: white; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;\">" + (I18n.mark("ui_56ee6e0d20",null)) + "</button>\n                </div>\n            </div>\n        ");
         
         if (item.type === 'icon') {
@@ -1416,7 +1445,8 @@ class FreeLayerManager {
                     const copy = {
                         id: 'free' + Date.now() + Math.random().toString(36).slice(2, 7),
                         type: 'icon', position: event.latLng,
-                        iconName: item.iconName, color: item.color, scale: item.scale
+                        iconName: item.iconName, color: item.color, scale: item.scale,
+                        ...this.iconBackground(item)
                     };
                     this.createIconMarker(copy);
                     this.items.push(copy);
@@ -1428,6 +1458,11 @@ class FreeLayerManager {
             const colorInput = document.getElementById("icon-color");
             const scaleInput = document.getElementById("icon-scale");
             const scaleValue = document.getElementById("icon-scale-value");
+            const backgroundEnabled = document.getElementById('icon-background-enabled');
+            const backgroundColor = document.getElementById('icon-background-color');
+            const backgroundOpacity = document.getElementById('icon-background-opacity');
+            const opacityValue = document.getElementById('icon-background-opacity-value');
+            backgroundOpacity?.addEventListener('input', () => { opacityValue.textContent = backgroundOpacity.value + '%'; });
             const moveIconBtn = document.getElementById("move-icon-btn");
             
             if (changeIconBtn) {
@@ -1479,6 +1514,11 @@ class FreeLayerManager {
                 saveBtn.addEventListener("click", () => {
                     item.color = colorInput.value;
                     item.scale = parseFloat(scaleInput.value);
+                    Object.assign(item, this.iconBackground({
+                        iconBackgroundEnabled: backgroundEnabled.checked,
+                        iconBackgroundColor: backgroundColor.value,
+                        iconBackgroundOpacity: Number(backgroundOpacity.value) / 100
+                    }));
                     
                     this.updateIconMarker(item);
                     UI.forceCloseSharedInfoCard();
@@ -1606,6 +1646,7 @@ class FreeLayerManager {
                     result.iconName = item.iconName;
                     result.color = item.color;
                     result.scale = item.scale;
+                    Object.assign(result, this.iconBackground(item));
                 } else if (item.type === 'text') {
                     result.text = item.text;
                     result.backgroundStyle = item.backgroundStyle;
@@ -1639,6 +1680,7 @@ class FreeLayerManager {
                 item.iconName = itemData.iconName;
                 item.color = itemData.color || '#4285f4';
                 item.scale = itemData.scale || 1;
+                Object.assign(item, this.iconBackground(itemData));
                 this.createIconMarker(item);
             } else if (item.type === 'text') {
                 item.text = itemData.text;

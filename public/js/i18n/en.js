@@ -1,5 +1,8 @@
 window.SeenLocales = window.SeenLocales || {};
 window.SeenLocales.en = {
+  "iconBackground.enabled": "Circular background",
+  "iconBackground.color": "Background color",
+  "iconBackground.opacity": "Background opacity",
   "icons.category.operations": "Operations",
   "icons.category.field_assets": "Field assets",
   "icons.category.incidents": "Incidents",

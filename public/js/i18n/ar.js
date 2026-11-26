@@ -1,5 +1,8 @@
 window.SeenLocales = window.SeenLocales || {};
 window.SeenLocales.ar = {
+  "iconBackground.enabled": "خلفية دائرية",
+  "iconBackground.color": "لون الخلفية",
+  "iconBackground.opacity": "عتامة الخلفية",
   "icons.category.operations": "العمليات",
   "icons.category.field_assets": "الأصول الميدانية",
   "icons.category.incidents": "الحوادث",
