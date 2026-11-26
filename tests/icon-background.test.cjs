@@ -38,7 +38,7 @@ test('circle and icon share dimensions at every supported scale, zoom and map ty
                 manager.map = { getZoom: () => zoom, getMapTypeId: () => type };
                 const node = element();
                 manager.renderIconContent({ scale, iconName: 'local_police', iconBackgroundEnabled: true, iconBackgroundColor: '#123456', iconBackgroundOpacity: 0.35 }, node);
-                const size = 24 * scale;
+                const size = Math.max(5, Math.min(24 * scale, 24 * scale * Math.pow(2, (zoom - 18) * 0.65)));
                 assert.equal(manager.iconPixelSize({ scale }), size);
                 assert.ok(node.style.cssText.includes(`width:${size}px;height:${size}px`));
                 assert.match(node.style.cssText, /align-items:center;justify-content:center/);
@@ -67,6 +67,29 @@ test('old icons have no background; disable and transparent backgrounds work ind
     assert.equal(manager.iconBackground({ iconBackgroundOpacity: 4 }).iconBackgroundOpacity, 1);
 });
 
+test('zoom refresh restores pre-background overview sizes for old and new icons', () => {
+    const { manager } = setup();
+    let zoom = 18;
+    manager.map = { getZoom: () => zoom };
+    // Golden dimensions from the renderer before circular backgrounds (c01622a).
+    const cases = [[18, 24, 72], [12, 5, 5], [5, 5, 5], [22, 24, 72], [18, 24, 72]];
+    for (const background of [undefined, false, true]) {
+        manager.items = [1, 3].map(scale => ({ type: 'icon', scale, iconName: 'local_police', iconBackgroundEnabled: background, marker: { content: element() } }));
+        for (const [level, normal, large] of cases) {
+            zoom = level;
+            manager.refreshIconSizes();
+            manager.items.forEach((item, index) => {
+                const size = index === 0 ? normal : large;
+                const content = item.marker.content;
+                assert.ok(content.style.cssText.includes(`width:${size}px;height:${size}px`));
+                assert.equal(content.children.length, background === true ? 2 : 1);
+                assert.doesNotMatch(content.style.cssText, /transform:/);
+                if (background) assert.match(content.children[0].style.cssText, /width:100%;height:100%/);
+            });
+        }
+    }
+});
+
 test('background survives JSON save/share/load and renders identically', () => {
     const { manager } = setup();
     const item = { id: 'test', type: 'icon', position: { lat: 24, lng: 46 }, iconName: 'event', color: '#abcdef', scale: 2, iconBackgroundEnabled: true, iconBackgroundColor: '#123456', iconBackgroundOpacity: 0.42 };
@@ -84,7 +107,7 @@ test('duplicate handler carries all background settings', () => {
     const { manager, controls } = setup();
     controls['duplicate-icon-btn'] = element();
     let mapClick;
-    manager.map = { addListener: (_, cb) => { mapClick = cb; return {}; } };
+    manager.map = { getZoom: () => 18, addListener: (_, cb) => { mapClick = cb; return {}; } };
     const item = { type: 'icon', iconName: 'event', scale: 1.5, color: '#abcdef', iconBackgroundEnabled: true, iconBackgroundColor: '#345678', iconBackgroundOpacity: 0.3 };
     manager.attachEditCardEvents(item);
     controls['duplicate-icon-btn'].events.click();

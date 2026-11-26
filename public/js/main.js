@@ -1147,8 +1147,10 @@ class FreeLayerManager {
     }
     
     iconPixelSize(item) {
-        // Screen pixels, independent of map zoom and map type.
-        return 24 * Math.max(0.5, Math.min(3, Number(item.scale) || 1));
+        const zoom = Number(this.map?.getZoom() ?? 18);
+        const base = 24 * Math.max(0.5, Math.min(3, Number(item.scale) || 1));
+        // Icons become smaller when zooming out, rather than covering a whole district.
+        return Math.max(5, Math.min(base, base * Math.pow(2, (zoom - 18) * 0.65)));
     }
 
     iconBackground(item) {
