@@ -553,6 +553,14 @@ class IconPickerModal {
             controls: ['add_circle', 'remove_circle', 'check_circle', 'check_circle_outline', 'radio_button_checked', 'radio_button_unchecked', 'adjust', 'lens', 'brightness_1', 'crop_square', 'filter_tilt_shift', 'flare', 'grade', 'stars', 'outlined_flag', 'assistant_photo', 'tour', 'place', 'location_searching', 'location_disabled', 'wrong_location', 'edit_location', 'add_location_alt', 'share_location', 'pin_drop']
         };
         
+        // Extend the catalog without changing IDs stored in saved projects.
+        this.iconCategories.patrol.push('two_wheeler', 'directions_walk');
+        this.iconCategories.gates = ['meeting_room', 'exit_to_app', 'sensor_door', 'fence'];
+        this.iconCategories.barriers = ['block', 'construction', 'fence', 'pan_tool'];
+        this.iconCategories.equipment = ['build', 'handyman', 'construction', 'radio', 'flashlight_on', 'videocam'];
+        this.iconCategories.facilities = [...this.iconCategories.facilities, 'wc', 'local_drink', 'accessible', 'local_gas_station', 'local_parking', 'local_hospital'];
+        this.iconCategories.events = ['event', 'event_seat', 'festival', 'stadium', 'campaign', 'groups'];
+
         this.initModal();
     }
     
@@ -621,7 +629,7 @@ class IconPickerModal {
                 security_equipment: I18n.msg("ui_64c0191fa7",null,"","")
             };
             
-            I18n.text(button,()=>(categoryLabels[category]));
+            I18n.text(button,()=> categoryLabels[category] || I18n.t('icons.category.' + category));
             button.addEventListener('click', () => this.setCategory(category));
             categories.appendChild(button);
             this.categoryButtons.push(button);
@@ -836,12 +844,15 @@ class IconPickerModal {
         this.modal.style.display = 'flex';
         this.selectedIcon = null;
         this.searchInput.value = '';
+        this.modal.querySelector('.icon-picker-select').disabled = true;
         this.setCategory('all');
-        this.renderIcons();
     }
     
     hide() {
         this.modal.style.display = 'none';
+        this.selectedIcon = null;
+        this.onSelectCallback = null;
+        this.modal.querySelector('.icon-picker-select').disabled = true;
     }
     
     setCategory(category) {
@@ -866,8 +877,11 @@ class IconPickerModal {
     renderIcons() {
         const grid = this.modal.querySelector('.icon-picker-grid');
         I18n.render(grid,'');
+        this.selectedIcon = null;
+        this.modal.querySelector('.icon-picker-select').disabled = true;
         
-        const searchTerm = this.searchInput.value.toLowerCase();
+        const normalize = value => value.toLowerCase().trim().replace(/[أإآ]/g, 'ا').replace(/[\u064B-\u065F\u0670]/g, '').replace(/[_-]+/g, ' ');
+        const searchTerm = normalize(this.searchInput.value);
         
         // Get icons to display based on category
         let iconsToDisplay = [];
@@ -883,10 +897,16 @@ class IconPickerModal {
             iconsToDisplay = this.iconCategories[this.currentCategory] || [];
         }
         
+        // Deduplicate every view without removing legacy IDs.
+        iconsToDisplay = [...new Set(iconsToDisplay)];
+
         // Filter by search term
         if (searchTerm) {
             iconsToDisplay = iconsToDisplay.filter(icon => 
-                (icon.toLowerCase().includes(searchTerm) || I18n.t('icon_'+icon).toLowerCase().includes(searchTerm))
+                normalize([icon, ...Object.values(window.SeenLocales).map(locale => locale['icon_' + icon] || ''),
+                    ...Object.entries(this.iconCategories).filter(([, icons]) => icons.includes(icon))
+                        .flatMap(([category]) => [category, ...Object.values(window.SeenLocales).map(locale => locale['icons.category.' + category] || '')])
+                ].join(' ')).includes(searchTerm)
             );
         }
         
@@ -921,7 +941,8 @@ class IconPickerModal {
             
             const nameElement = document.createElement('div');
             nameElement.className = 'icon-picker-name';
-            I18n.text(nameElement,()=>I18n.t('icon_'+icon));
+            I18n.text(nameElement,()=> Object.values(window.SeenLocales).every(locale => Object.hasOwn(locale, 'icon_' + icon))
+                ? I18n.t('icon_' + icon) : icon.replace(/_/g, ' '));
             
             item.appendChild(iconElement);
             item.appendChild(nameElement);
@@ -938,7 +959,7 @@ class IconPickerModal {
                 this.selectedIcon = icon;
                 
                 // Enable select button
-                document.querySelector('.icon-picker-select').disabled = false;
+                this.modal.querySelector('.icon-picker-select').disabled = false;
             });
             
             grid.appendChild(item);
@@ -946,10 +967,10 @@ class IconPickerModal {
     }
     
     selectIcon() {
-        if (this.selectedIcon && this.onSelectCallback) {
-            this.onSelectCallback(this.selectedIcon);
-        }
+        const icon = this.selectedIcon;
+        const callback = this.onSelectCallback;
         this.hide();
+        if (icon && callback) callback(icon);
     }
 }
 
@@ -990,8 +1011,12 @@ class FreeLayerManager {
     }
     
     showAddOptions(latLng) {
+        // Repeated map clicks must not stack dialogs.
+        this.optionsDialog?.remove();
+        this.iconPicker.hide();
         const optionsDialog = document.createElement('div');
         optionsDialog.className = 'free-draw-options-dialog';
+        this.optionsDialog = optionsDialog;
         
         const content = document.createElement('div');
         content.className = 'free-draw-options-content';
@@ -1003,23 +1028,26 @@ class FreeLayerManager {
         iconButton.className = 'free-draw-option-btn';
         I18n.render(iconButton,("<i class=\"material-icons\">place</i> " + (I18n.mark("ui_ba531ffbaa",null))));
         iconButton.addEventListener('click', () => {
+            optionsDialog.remove();
+            this.optionsDialog = null;
             this.addIcon(latLng);
-            document.body.removeChild(optionsDialog);
         });
         
         const textButton = document.createElement('button');
         textButton.className = 'free-draw-option-btn';
         I18n.render(textButton,("<i class=\"material-icons\">text_fields</i> " + (I18n.mark("ui_4ddc213545",null))));
         textButton.addEventListener('click', () => {
+            optionsDialog.remove();
+            this.optionsDialog = null;
             this.addText(latLng);
-            document.body.removeChild(optionsDialog);
         });
         
         const cancelButton = document.createElement('button');
         cancelButton.className = 'free-draw-option-btn free-draw-cancel';
         I18n.text(cancelButton,()=>(I18n.msg("ui_e776b0209b",null,"","")));
         cancelButton.addEventListener('click', () => {
-            document.body.removeChild(optionsDialog);
+            optionsDialog.remove();
+            this.optionsDialog = null;
         });
         
         content.appendChild(title);
